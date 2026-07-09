@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_lyrics"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Top Track Details and Player Controls Deck -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="12dp">
+
+        <!-- Tiny Art Thumb -->
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_art_frame"
+            android:padding="1.5dp">
+
+            <ImageView
+                android:id="@+id/widget_lyrics_art"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_play_arrow"
+                android:scaleType="centerCrop"
+                android:contentDescription="Album Art"
+                android:tint="#FFFFFF" />
+        </FrameLayout>
+
+        <!-- Song Metadata block -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="10dp">
+
+            <TextView
+                android:id="@+id/widget_lyrics_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="OniPlayer"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_lyrics_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Live Synced Lyrics"
+                android:textColor="#82828F"
+                android:textSize="10sp"
+                android:layout_marginTop="2dp"
+                android:singleLine="true"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <!-- Action Control Group -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Prev -->
+            <ImageView
+                android:id="@+id/widget_lyrics_btn_prev"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp"
+                android:src="@drawable/ic_skip_previous"
+                android:contentDescription="Previous"
+                android:tint="#FFFFFF" />
+
+            <!-- Circle Play/Pause -->
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/widget_btn_circle"
+                android:padding="9dp">
+
+                <ImageView
+                    android:id="@+id/widget_lyrics_btn_play_pause"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:src="@drawable/ic_play_arrow"
+                    android:contentDescription="Play/Pause"
+                    android:tint="#FFFFFF" />
+            </FrameLayout>
+
+            <!-- Next -->
+            <ImageView
+                android:id="@+id/widget_lyrics_btn_next"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp"
+                android:src="@drawable/ic_skip_next"
+                android:contentDescription="Next"
+                android:tint="#FFFFFF" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Translucent Sleek Separator -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#15FFFFFF" />
+
+    <!-- Synchronized scrolling lyric display with elegant vertical alignment -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_marginTop="10dp">
+
+        <!-- Line Before (Soft Faded Grey-White) -->
+        <TextView
+            android:id="@+id/widget_lyrics_line_prev"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#4CFFFFFF"
+            android:textSize="10sp"
+            android:gravity="center"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <!-- CURRENT ACTIVE LYRIC LINE (Gorgeous Premium Highlight Gold) -->
+        <TextView
+            android:id="@+id/widget_lyrics_line_current"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tap track to view lyrics sync"
+            android:textColor="#FFD54F"
+            android:textSize="12.5sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="6dp"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <!-- Line After (Soft Faded Grey-White) -->
+        <TextView
+            android:id="@+id/widget_lyrics_line_next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#4CFFFFFF"
+            android:textSize="10sp"
+            android:gravity="center"
+            android:singleLine="true"
+            android:ellipsize="end" />
+    </LinearLayout>
+</LinearLayout>

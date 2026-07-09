@@ -187,8 +187,12 @@ class MusicPlaybackService : Service() {
         if (song == null) {
             stopForeground(true)
             isForeground = false
+            OniWidgetUpdater.updateAllWidgets(this, null, false, 0L)
             return
         }
+
+        // Update sleek widgets in real time
+        OniWidgetUpdater.updateAllWidgets(this, song, state.isPlaying, state.position)
 
         // Update MediaSession state
         val playbackStateBuilder = PlaybackState.Builder()

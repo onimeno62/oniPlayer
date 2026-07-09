@@ -42,6 +42,46 @@
             android:name=".playback.FloatingLyricsService"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- Sleek Mini Widget Receiver -->
+        <receiver
+            android:name=".playback.OniMiniWidgetProvider"
+            android:exported="true"
+            android:label="Oni Sleek Capsule">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/oni_widget_mini_info" />
+        </receiver>
+
+        <!-- Sleek Standard Widget Receiver -->
+        <receiver
+            android:name=".playback.OniStandardWidgetProvider"
+            android:exported="true"
+            android:label="Oni Studio Deck">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/oni_widget_standard_info" />
+        </receiver>
+
+        <!-- Sleek Lyrics Widget Receiver -->
+        <receiver
+            android:name=".playback.OniLyricsWidgetProvider"
+            android:exported="true"
+            android:label="Oni Live Lyrics Slate">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/oni_widget_lyrics_info" />
+        </receiver>
+
     </application>
 
 </manifest>
