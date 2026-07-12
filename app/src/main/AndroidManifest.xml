@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -23,6 +24,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleInstance"
             android:label="@string/app_name"
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
@@ -43,43 +45,17 @@
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Sleek Mini Widget Receiver -->
+        <!-- Soft Player (4x2) widget receiver with Lyrics and Waveform Support -->
         <receiver
-            android:name=".playback.OniMiniWidgetProvider"
+            android:name=".playback.WidgetSoftPlayer"
             android:exported="true"
-            android:label="Oni Sleek Capsule">
+            android:label="Soft Player (4x2)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/oni_widget_mini_info" />
-        </receiver>
-
-        <!-- Sleek Standard Widget Receiver -->
-        <receiver
-            android:name=".playback.OniStandardWidgetProvider"
-            android:exported="true"
-            android:label="Oni Studio Deck">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/oni_widget_standard_info" />
-        </receiver>
-
-        <!-- Sleek Lyrics Widget Receiver -->
-        <receiver
-            android:name=".playback.OniLyricsWidgetProvider"
-            android:exported="true"
-            android:label="Oni Live Lyrics Slate">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/oni_widget_lyrics_info" />
+                android:resource="@xml/widget_soft_player_info" />
         </receiver>
 
     </application>

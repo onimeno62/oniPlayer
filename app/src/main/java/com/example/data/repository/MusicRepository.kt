@@ -101,14 +101,25 @@ class MusicRepository(
                 val finalSongs = previewTracks.map { preview ->
                     val existing = existingSongsMap[preview.id]
                     if (existing != null) {
-                        // Preserve overrides & lyrics
+                        // Preserve overrides & lyrics & playback metrics
                         preview.copy(
                             lyrics = existing.lyrics,
                             isFavorite = existing.isFavorite,
+                            playCount = existing.playCount,
+                            lastPlayedTimestamp = existing.lastPlayedTimestamp,
+                            rating = existing.rating,
+                            dateAdded = existing.dateAdded,
                             customTitle = existing.customTitle,
                             customArtist = existing.customArtist,
                             customAlbum = existing.customAlbum,
-                            customGenre = existing.customGenre
+                            customGenre = existing.customGenre,
+                            customAlbumArtist = existing.customAlbumArtist,
+                            customComposer = existing.customComposer,
+                            customDisc = existing.customDisc,
+                            customTrack = existing.customTrack,
+                            customYear = existing.customYear,
+                            customComment = existing.customComment,
+                            customBpm = existing.customBpm
                         )
                     } else {
                         preview
@@ -123,10 +134,21 @@ class MusicRepository(
                         local.copy(
                             lyrics = existing.lyrics,
                             isFavorite = existing.isFavorite,
+                            playCount = existing.playCount,
+                            lastPlayedTimestamp = existing.lastPlayedTimestamp,
+                            rating = existing.rating,
+                            dateAdded = existing.dateAdded,
                             customTitle = existing.customTitle,
                             customArtist = existing.customArtist,
                             customAlbum = existing.customAlbum,
-                            customGenre = existing.customGenre
+                            customGenre = existing.customGenre,
+                            customAlbumArtist = existing.customAlbumArtist,
+                            customComposer = existing.customComposer,
+                            customDisc = existing.customDisc,
+                            customTrack = existing.customTrack,
+                            customYear = existing.customYear,
+                            customComment = existing.customComment,
+                            customBpm = existing.customBpm
                         )
                     } else {
                         local

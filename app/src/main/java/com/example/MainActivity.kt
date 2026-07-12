@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIntent(intent)
         enableEdgeToEdge()
         setContent {
             MainAppContainer(viewModel = viewModel)
@@ -44,6 +45,29 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent?.let {
+            if (it.hasExtra("com.example.EXTRA_CATEGORY_INDEX")) {
+                val categoryIndex = it.getIntExtra("com.example.EXTRA_CATEGORY_INDEX", -1)
+                if (categoryIndex != -1) {
+                    viewModel.setActiveCategoryIndex(categoryIndex)
+                    viewModel.selectTab(0) // Switch to Songs/Library tab
+                }
+            }
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        @Suppress("DEPRECATION")
+        moveTaskToBack(true)
     }
 }
 

@@ -43,7 +43,7 @@ fun ThemesScreen(viewModel: MusicPlayerViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color.Transparent)
             .padding(16.dp)
     ) {
         // Title Header
@@ -88,19 +88,90 @@ fun ThemesScreen(viewModel: MusicPlayerViewModel) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
+                            .padding(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Color palette preview dots
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(bottom = 12.dp)
+                        // High-craft Mini Mock UI Preview Card
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colors.background)
+                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                .padding(6.dp)
                         ) {
-                            ColorPreviewDot(color = colors.background)
-                            ColorPreviewDot(color = colors.primary)
-                            ColorPreviewDot(color = colors.secondary)
-                            ColorPreviewDot(color = colors.accent)
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                // Mock Header
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(32.dp)
+                                            .height(5.dp)
+                                            .clip(CircleShape)
+                                            .background(colors.textPrimary.copy(alpha = 0.8f))
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .clip(CircleShape)
+                                            .background(colors.primary)
+                                    )
+                                }
+                                
+                                // Mock Miniplayer card / Active list item
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(28.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(colors.surface)
+                                        .padding(4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(colors.accent)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(42.dp)
+                                                    .height(4.dp)
+                                                    .clip(CircleShape)
+                                                    .background(colors.textPrimary)
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(24.dp)
+                                                    .height(3.dp)
+                                                    .clip(CircleShape)
+                                                    .background(colors.textSecondary.copy(alpha = 0.6f))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // Theme Name
                         Text(
@@ -111,7 +182,7 @@ fun ThemesScreen(viewModel: MusicPlayerViewModel) {
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         // Active Indicator / Select action
                         if (isActive) {
@@ -119,12 +190,12 @@ fun ThemesScreen(viewModel: MusicPlayerViewModel) {
                                 Icons.Default.CheckCircle,
                                 contentDescription = "Active",
                                 tint = colors.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         } else {
                             Text(
                                 text = "TAP TO APPLY",
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colors.textSecondary.copy(alpha = 0.6f)
                             )

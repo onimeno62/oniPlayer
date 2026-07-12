@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import androidx.activity.compose.BackHandler
 import com.example.data.entity.SongEntity
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import java.io.File
@@ -51,8 +53,24 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
 
     val context = LocalContext.current
 
-    // Poweramp Style Screen states
-    var activeCategoryIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    // Poweramp Style Screen states backed by ViewModel
+    val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsState()
+    val selectedGroup by viewModel.selectedGroup.collectAsState()
+    val activePlaylist by viewModel.activePlaylist.collectAsState()
+    val activeSmartPlaylistType by viewModel.activeSmartPlaylistType.collectAsState()
+
+    // BackHandler for hierarchical back navigation
+    BackHandler(enabled = activeCategoryIndex != null) {
+        if (selectedGroup != null) {
+            viewModel.setSelectedGroup(null)
+        } else if (activePlaylist != null) {
+            viewModel.setActivePlaylist(null)
+        } else if (activeSmartPlaylistType != null) {
+            viewModel.setActiveSmartPlaylistType(null)
+        } else {
+            viewModel.setActiveCategoryIndex(null)
+        }
+    }
     var layoutMode by rememberSaveable { mutableStateOf("grid") } // "grid" or "list"
     var sortBy by rememberSaveable { mutableStateOf("title") } // "title", "artist", "duration", "play_count"
     var isSortAscending by rememberSaveable { mutableStateOf(true) }
@@ -230,7 +248,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color.Transparent)
     ) {
         // --- 1. Top Header & Search Panel ---
         if (searchQuery.isNotBlank()) {
@@ -338,6 +356,15 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             Spacer(modifier = Modifier.height(12.dp))
         } else {
             // Sub-category Header with Back Navigation
+            val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
+            val displayCategoryTitle = categoryList[activeCategoryIndex!!].title
+            val displaySubTitle = when {
+                selectedGroup != null -> selectedGroup!!
+                activePlaylist != null -> activePlaylist!!.name
+                activeSmartPlaylistType != null -> activeSmartPlaylistType!!
+                else -> ""
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -345,28 +372,40 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { activeCategoryIndex = null },
+                    onClick = {
+                        if (selectedGroup != null) {
+                            viewModel.setSelectedGroup(null)
+                        } else if (activePlaylist != null) {
+                            viewModel.setActivePlaylist(null)
+                        } else if (activeSmartPlaylistType != null) {
+                            viewModel.setActiveSmartPlaylistType(null)
+                        } else {
+                            viewModel.setActiveCategoryIndex(null)
+                        }
+                    },
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back to Categories")
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "LIBRARY CATEGORY",
+                        text = if (isSubHierarchical) displayCategoryTitle.uppercase() else "LIBRARY CATEGORY",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = categoryList[activeCategoryIndex!!].title,
+                        text = if (isSubHierarchical) displaySubTitle else displayCategoryTitle,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -436,8 +475,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                     category = category,
                                     isGrid = true,
                                     onClick = {
-                                        activeCategoryIndex = index
-                                        viewModel.selectCategory(index)
+                                        viewModel.setActiveCategoryIndex(index)
                                     }
                                 )
                             }
@@ -454,8 +492,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                     category = category,
                                     isGrid = false,
                                     onClick = {
-                                        activeCategoryIndex = index
-                                        viewModel.selectCategory(index)
+                                        viewModel.setActiveCategoryIndex(index)
                                     }
                                 )
                             }
@@ -481,6 +518,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
+                            selectedGroup = selectedGroup,
+                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
                             onShowTrackMenu = { songForMenu = it }
                         )
                     }
@@ -491,6 +530,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
+                            selectedGroup = selectedGroup,
+                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
                             onShowTrackMenu = { songForMenu = it }
                         )
                     }
@@ -501,6 +542,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
+                            selectedGroup = selectedGroup,
+                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
                             onShowTrackMenu = { songForMenu = it }
                         )
                     }
@@ -511,6 +554,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
+                            selectedGroup = selectedGroup,
+                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
                             onShowTrackMenu = { songForMenu = it }
                         )
                     }
@@ -556,6 +601,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             songs = songs,
                             playlists = playlists,
                             viewModel = viewModel,
+                            activePlaylist = activePlaylist,
+                            onActivePlaylistChange = { viewModel.setActivePlaylist(it) },
                             onShowTrackMenu = { songForMenu = it }
                         )
                     }
@@ -564,6 +611,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             songs = songs,
                             favorites = favorites,
                             viewModel = viewModel,
+                            activeSmartPlaylistType = activeSmartPlaylistType,
+                            onActiveSmartPlaylistTypeChange = { viewModel.setActiveSmartPlaylistType(it) },
                             onShowTrackMenu = { songForMenu = it }
                         )
                     }
@@ -769,6 +818,9 @@ fun SongsListView(
     isSortAscending: Boolean,
     onShowTrackMenu: (SongEntity) -> Unit
 ) {
+    val currentSong by viewModel.audioEngine.currentSong.collectAsState()
+    val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
+
     if (songs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -801,17 +853,24 @@ fun SongsListView(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 96.dp)
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 96.dp)
         ) {
             items(songs) { song ->
+                val isCurrent = song.id == currentSong?.id
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            else Color.Transparent
+                        )
                         .combinedClickable(
                             onClick = { viewModel.playSong(song, songs) },
                             onLongClick = { onShowTrackMenu(song) }
                         )
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AsyncImage(
@@ -830,20 +889,36 @@ fun SongsListView(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = song.customTitle ?: song.title,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
                             fontSize = 15.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onBackground
+                            color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = (song.customArtist ?: song.artist) + " • " + (song.customAlbum ?: song.album),
                             fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                    }
+
+                    if (isCurrent) {
+                        if (isPlaying) {
+                            PlayingEqualizerWave(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.VolumeDown,
+                                contentDescription = "Playing",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 8.dp).size(20.dp)
+                            )
+                        }
                     }
 
                     // Poweramp style playCount badge if playCount > 0
@@ -867,13 +942,17 @@ fun SongsListView(
                     Text(
                         text = formatDuration(song.duration),
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     IconButton(onClick = { onShowTrackMenu(song) }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        Icon(
+                            Icons.Default.MoreVert, 
+                            contentDescription = "More",
+                            tint = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -888,10 +967,10 @@ fun GroupedListView(
     viewModel: MusicPlayerViewModel,
     sortBy: String,
     isSortAscending: Boolean,
+    selectedGroup: String?,
+    onSelectedGroupChange: (String?) -> Unit,
     onShowTrackMenu: (SongEntity) -> Unit
 ) {
-    var selectedGroup by remember { mutableStateOf<String?>(null) }
-
     if (selectedGroup != null) {
         val songsInGroup = groupedData[selectedGroup] ?: emptyList()
         val sortedSongsInGroup = remember(songsInGroup, sortBy, isSortAscending) {
@@ -915,14 +994,14 @@ fun GroupedListView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { selectedGroup = null }
+                    .clickable { onSelectedGroupChange(null) }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = selectedGroup!!,
+                    text = selectedGroup,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.onBackground
@@ -951,7 +1030,7 @@ fun GroupedListView(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedGroup = name }
+                                .clickable { onSelectedGroupChange(name) }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1654,5 +1733,61 @@ fun TrackMenuItemOption(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun PlayingEqualizerWave(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "wave")
+    
+    val heightScale1 by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(420, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar1"
+    )
+    val heightScale2 by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(310, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar2"
+    )
+    val heightScale3 by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(520, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar3"
+    )
+    val heightScale4 by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(380, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar4"
+    )
+
+    Row(
+        modifier = modifier.height(18.dp).width(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale1).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale2).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale3).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale4).clip(RoundedCornerShape(1.dp)).background(color))
     }
 }

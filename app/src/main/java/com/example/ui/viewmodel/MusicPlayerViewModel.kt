@@ -15,6 +15,8 @@ import com.example.playback.OniAudioEngine
 import com.example.ui.theme.OniTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
 
@@ -23,7 +25,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     private val database = OniDatabase.getDatabase(application)
     private val repository = MusicRepository(application, database.songDao())
-    val audioEngine = OniAudioEngine(application)
+    val audioEngine = OniAudioEngine.getInstance(application)
+    val karaokeMicEngine = com.example.ui.lyrics.KaraokeMicEngine()
 
     // Library scroll position persistence
     var libraryScrollIndex: Int = 0
@@ -37,9 +40,94 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _currentTab = MutableStateFlow(1) // 0: Songs/Library, 1: Player, 2: Equalizer, 3: Themes
     val currentTab: StateFlow<Int> = _currentTab.asStateFlow()
 
-    // Library category selection: 0=All, 1=Folders, 2=Albums, 3=Artists, 4=Genres, 5=Favorites
-    private val _selectedCategoryIndex = MutableStateFlow(0)
-    val selectedCategoryIndex: StateFlow<Int> = _selectedCategoryIndex.asStateFlow()
+    // Library category selection & hierarchical navigation states
+    private val _activeCategoryIndex = MutableStateFlow<Int?>(null)
+    val activeCategoryIndex: StateFlow<Int?> = _activeCategoryIndex.asStateFlow()
+
+    private val _selectedGroup = MutableStateFlow<String?>(null)
+    val selectedGroup: StateFlow<String?> = _selectedGroup.asStateFlow()
+
+    private val _activePlaylist = MutableStateFlow<PlaylistEntity?>(null)
+    val activePlaylist: StateFlow<PlaylistEntity?> = _activePlaylist.asStateFlow()
+
+    private val _activeSmartPlaylistType = MutableStateFlow<String?>(null)
+    val activeSmartPlaylistType: StateFlow<String?> = _activeSmartPlaylistType.asStateFlow()
+
+    // Store the context where the currently playing song was selected from
+    private val _playedCategoryIndex = MutableStateFlow<Int?>(null)
+    val playedCategoryIndex: StateFlow<Int?> = _playedCategoryIndex.asStateFlow()
+
+    private val _playedSelectedGroup = MutableStateFlow<String?>(null)
+    val playedSelectedGroup: StateFlow<String?> = _playedSelectedGroup.asStateFlow()
+
+    private val _playedActivePlaylist = MutableStateFlow<PlaylistEntity?>(null)
+    val playedActivePlaylist: StateFlow<PlaylistEntity?> = _playedActivePlaylist.asStateFlow()
+
+    private val _playedActiveSmartPlaylistType = MutableStateFlow<String?>(null)
+    val playedActiveSmartPlaylistType: StateFlow<String?> = _playedActiveSmartPlaylistType.asStateFlow()
+
+    fun setActiveCategoryIndex(index: Int?) {
+        _activeCategoryIndex.value = index
+        _selectedGroup.value = null
+        _activePlaylist.value = null
+        _activeSmartPlaylistType.value = null
+    }
+
+    fun setSelectedGroup(group: String?) {
+        _selectedGroup.value = group
+    }
+
+    fun setActivePlaylist(playlist: PlaylistEntity?) {
+        _activePlaylist.value = playlist
+    }
+
+    fun setActiveSmartPlaylistType(type: String?) {
+        _activeSmartPlaylistType.value = type
+    }
+
+    fun goBackToLibraryContext() {
+        val playedCategory = _playedCategoryIndex.value
+        if (playedCategory != null) {
+            _activeCategoryIndex.value = playedCategory
+            _selectedGroup.value = _playedSelectedGroup.value
+            _activePlaylist.value = _playedActivePlaylist.value
+            _activeSmartPlaylistType.value = _playedActiveSmartPlaylistType.value
+        } else {
+            // Fallback: infer context from the current song
+            inferAndSetLibraryContextForCurrentSong()
+        }
+        _currentTab.value = 0
+    }
+
+    fun inferAndSetLibraryContextForCurrentSong() {
+        val current = audioEngine.currentSong.value ?: return
+        
+        // If activeCategoryIndex is already set, don't override it (preserve user context)
+        if (_activeCategoryIndex.value != null) return
+
+        // Otherwise, try to infer it.
+        // Let's default to setting the Artist or Folder context based on the current song!
+        val artist = current.customArtist ?: current.artist
+        if (artist.isNotBlank() && artist != "Unknown Artist" && artist != "<unknown>") {
+            _activeCategoryIndex.value = 3 // Artists category index is 3
+            _selectedGroup.value = artist
+            return
+        }
+
+        // Fallback to Folder if artist is not set
+        val filePath = current.filePath
+        val file = File(filePath)
+        val folderName = file.parentFile?.name ?: "Internal Storage"
+        if (folderName.isNotBlank()) {
+            _activeCategoryIndex.value = 1 // Folders category index is 1
+            _selectedGroup.value = folderName
+            return
+        }
+
+        // Ultimate fallback: All Songs (category 0)
+        _activeCategoryIndex.value = 0
+        _selectedGroup.value = null
+    }
 
     // Scanning status
     private val _isScanning = MutableStateFlow(false)
@@ -153,7 +241,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun selectCategory(index: Int) {
-        _selectedCategoryIndex.value = index
+        _activeCategoryIndex.value = index
     }
 
     fun updateSearchQuery(query: String) {
@@ -169,6 +257,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     fun playSong(song: SongEntity, playlist: List<SongEntity>) {
         _currentPlaylist.value = playlist
         _currentTab.value = 1 // Switch to Player tab immediately
+
+        // Capture current library context when a song starts playing
+        _playedCategoryIndex.value = _activeCategoryIndex.value
+        _playedSelectedGroup.value = _selectedGroup.value
+        _playedActivePlaylist.value = _activePlaylist.value
+        _playedActiveSmartPlaylistType.value = _activeSmartPlaylistType.value
 
         viewModelScope.launch {
             // 1. Fetch freshest database state to preserve manual tag/lyrics updates
@@ -210,6 +304,18 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _isFetchingLyrics.value = false
                     }
                 }
+            }
+        }
+    }
+
+    fun playSongById(songId: String) {
+        viewModelScope.launch {
+            val song = database.songDao().getSongById(songId)
+            if (song != null) {
+                val playlist = _currentPlaylist.value.ifEmpty {
+                    database.songDao().getAllSongs().firstOrNull() ?: emptyList()
+                }
+                playSong(song, playlist)
             }
         }
     }
@@ -595,6 +701,223 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    // --- Rename File Feature ---
+    fun renameSongFile(
+        songId: String,
+        newFileName: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            var wasPlaying = false
+            var currentPosition = 0L
+            var isCurrent = false
+            var activeSong: SongEntity? = null
+            
+            try {
+                val song = database.songDao().getSongById(songId) ?: throw Exception("Song not found")
+                val oldFile = File(song.filePath)
+                if (!oldFile.exists()) {
+                    throw Exception("Physical file does not exist")
+                }
+                val parentDir = oldFile.parentFile ?: throw Exception("Parent directory not found")
+                val extension = oldFile.extension
+                
+                // Sanitize to prevent path traversal/invalid chars
+                var sanitizedName = newFileName.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+                if (sanitizedName.isEmpty()) {
+                    throw Exception("Filename cannot be empty")
+                }
+                
+                if (!sanitizedName.endsWith(".$extension", ignoreCase = true)) {
+                    sanitizedName = "$sanitizedName.$extension"
+                }
+                
+                val newFile = File(parentDir, sanitizedName)
+                if (newFile.exists() && newFile.absolutePath != oldFile.absolutePath) {
+                    throw Exception("File with this name already exists")
+                }
+
+                // 1. Fully release player source & active audio handles just in case
+                activeSong = audioEngine.currentSong.value
+                isCurrent = activeSong != null && activeSong.id == songId
+                if (isCurrent) {
+                    wasPlaying = audioEngine.isPlaying.value
+                    currentPosition = audioEngine.position.value
+                }
+                
+                // Always pause, stop, and clear current source to release file descriptors held by MediaPlayer
+                audioEngine.stop()
+                audioEngine.clearCurrentSource()
+                
+                // Trigger garbage collection to release any unreferenced file descriptors in retriever or player
+                System.gc()
+                System.runFinalization()
+                kotlinx.coroutines.delay(400)
+
+                var success = false
+                // Attempt renameTo first
+                for (i in 1..5) {
+                    success = oldFile.renameTo(newFile)
+                    if (success) {
+                        Log.d("MusicPlayerViewModel", "renameTo succeeded on attempt $i")
+                        break
+                    }
+                    System.gc()
+                    System.runFinalization()
+                    kotlinx.coroutines.delay(200)
+                }
+
+                if (!success) {
+                    Log.d("MusicPlayerViewModel", "renameTo failed, falling back to copy & delete")
+                    // Fallback: copy to new destination
+                    try {
+                        oldFile.copyTo(newFile, overwrite = true)
+                    } catch (e: Exception) {
+                        throw Exception("Failed to copy file to new location: ${e.message}")
+                    }
+                    
+                    // Try to delete old file
+                    var deleteSuccess = false
+                    for (i in 1..5) {
+                        deleteSuccess = oldFile.delete()
+                        if (deleteSuccess) {
+                            Log.d("MusicPlayerViewModel", "oldFile.delete() succeeded on attempt $i")
+                            break
+                        }
+                        
+                        // Try ContentResolver deletion as well if raw File.delete() fails
+                        try {
+                            val contentResolver = getApplication<android.app.Application>().contentResolver
+                            val deletedRows = contentResolver.delete(
+                                android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                "${android.provider.MediaStore.Audio.Media.DATA} = ?",
+                                arrayOf(oldFile.absolutePath)
+                            )
+                            if (deletedRows > 0) {
+                                deleteSuccess = true
+                                Log.d("MusicPlayerViewModel", "ContentResolver deleted old MediaStore row on attempt $i")
+                                break
+                            }
+                        } catch (ex: Exception) {
+                            Log.e("MusicPlayerViewModel", "ContentResolver delete failed: ${ex.message}")
+                        }
+
+                        System.gc()
+                        System.runFinalization()
+                        kotlinx.coroutines.delay(200)
+                    }
+
+                    if (deleteSuccess) {
+                        success = true
+                    } else {
+                        // If it STILL cannot be deleted, we overwrite its contents to 0 bytes so it doesn't take space,
+                        // and proceed anyway rather than crashing the user experience, while scheduling background retries.
+                        try {
+                            java.io.FileOutputStream(oldFile).use { fos ->
+                                fos.write(ByteArray(0))
+                            }
+                            Log.d("MusicPlayerViewModel", "Truncated locked old file to 0 bytes")
+                        } catch (e: Exception) {
+                            Log.w("MusicPlayerViewModel", "Could not truncate locked old file: ${e.message}")
+                        }
+                        
+                        success = true // Proceed with success since copy was successful!
+                        Log.w("MusicPlayerViewModel", "Original file deletion deferred. Retrying in background.")
+                        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                            for (attempt in 1..15) {
+                                kotlinx.coroutines.delay(2000)
+                                System.gc()
+                                System.runFinalization()
+                                if (oldFile.delete()) {
+                                    Log.d("MusicPlayerViewModel", "Deleted locked original file on background attempt $attempt")
+                                    break
+                                }
+                                try {
+                                    val contentResolver = getApplication<android.app.Application>().contentResolver
+                                    val deletedRows = contentResolver.delete(
+                                        android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                        "${android.provider.MediaStore.Audio.Media.DATA} = ?",
+                                        arrayOf(oldFile.absolutePath)
+                                    )
+                                    if (deletedRows > 0) {
+                                        Log.d("MusicPlayerViewModel", "ContentResolver deleted locked MediaStore row on background attempt $attempt")
+                                        break
+                                    }
+                                } catch (e: Exception) {}
+                            }
+                        }
+                    }
+                }
+
+                // Notify media scanner about both files
+                try {
+                    android.media.MediaScannerConnection.scanFile(
+                        getApplication(),
+                        arrayOf(oldFile.absolutePath, newFile.absolutePath),
+                        null
+                    ) { path, uri ->
+                        Log.d("MusicPlayerViewModel", "Scanned path: $path, uri: $uri")
+                    }
+                } catch (e: Exception) {
+                    Log.e("MusicPlayerViewModel", "MediaScanner error: ${e.message}")
+                }
+
+                val updatedSong = song.copy(filePath = newFile.absolutePath)
+                database.songDao().updateSong(updatedSong)
+
+                // Restore player state with updated file path
+                if (isCurrent) {
+                    audioEngine.updateCurrentSongMetadata(updatedSong)
+                    if (wasPlaying) {
+                        audioEngine.play(updatedSong)
+                        if (currentPosition > 0) {
+                            kotlinx.coroutines.delay(400)
+                            audioEngine.seekTo(currentPosition)
+                        }
+                    } else {
+                        audioEngine.setSongWithoutPlaying(updatedSong)
+                    }
+                } else if (activeSong != null) {
+                    // Reload the active song if it was some other song that we stopped
+                    if (wasPlaying) {
+                        audioEngine.play(activeSong)
+                        if (currentPosition > 0) {
+                            kotlinx.coroutines.delay(400)
+                            audioEngine.seekTo(currentPosition)
+                        }
+                    } else {
+                        audioEngine.setSongWithoutPlaying(activeSong)
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    onSuccess(newFile.name)
+                }
+            } catch (e: java.lang.Exception) {
+                // Restore active player state if we stopped it
+                try {
+                    val fallbackSong = database.songDao().getSongById(songId)
+                    if (fallbackSong != null) {
+                        if (wasPlaying) {
+                            audioEngine.play(fallbackSong)
+                            if (currentPosition > 0) {
+                                kotlinx.coroutines.delay(400)
+                                audioEngine.seekTo(currentPosition)
+                            }
+                        } else {
+                            audioEngine.setSongWithoutPlaying(fallbackSong)
+                        }
+                    }
+                } catch (ignore: Exception) {}
+                
+                withContext(Dispatchers.Main) {
+                    onError(e.message ?: "Unknown error")
+                }
+            }
+        }
+    }
+
     // --- Batch Tag Editor Update ---
     fun batchUpdateTags(
         songIds: List<String>,
@@ -645,7 +968,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         if (activeInstance == this) {
             activeInstance = null
         }
-        audioEngine.release()
+        karaokeMicEngine.stopMic()
+        // Note: We don't call audioEngine.release() here because the player is a shared singleton
+        // and background playback is managed by the MusicPlaybackService.
     }
 
     companion object {

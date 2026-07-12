@@ -84,6 +84,31 @@ object LyricsHelper {
     }
 
     /**
+     * Strips all LRC metadata and timestamp tags, returning beautifully formatted clean plain text.
+     */
+    fun stripLrcTags(lyricsText: String?): String {
+        if (lyricsText.isNullOrBlank()) return ""
+        val lines = lyricsText.split("\n", "\r")
+        val cleanLines = mutableListOf<String>()
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) {
+                cleanLines.add("")
+                continue
+            }
+            if (trimmed.startsWith("[ar:") || trimmed.startsWith("[ti:") || 
+                trimmed.startsWith("[al:") || trimmed.startsWith("[by:") || 
+                trimmed.startsWith("[length:")) {
+                continue
+            }
+            // Strip timestamp matches: [00:00.00] or [00:00]
+            val cleaned = LRC_REGEX.matcher(trimmed).replaceAll("").trim()
+            cleanLines.add(cleaned)
+        }
+        return cleanLines.joinToString("\n").trim()
+    }
+
+    /**
      * Finds the index of the active lyrics line for a given playback position in milliseconds.
      */
     fun getActiveLineIndex(lines: List<LrcLine>, positionMs: Long): Int {

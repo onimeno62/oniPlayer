@@ -46,6 +46,26 @@ class MusicPlaybackService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var isForeground = false
 
+    // Artwork caching to prevent Coil request flooding and cancellations
+    private var lastArtUri: String? = null
+    private var lastArtBitmap: Bitmap? = null
+
+    // For tracking dynamic observation of the active instance
+    private var observationJob: Job? = null
+    private var currentObservedViewModel: MusicPlayerViewModel? = null
+
+    // Tracking state for premium Soft Player widget update throttling
+    private var lastSongId: String? = null
+    private var lastSongTitle: String? = null
+    private var lastSongArtist: String? = null
+    private var lastSongLyrics: String? = null
+    private var lastIsPlaying: Boolean = false
+    private var lastIsFavorite: Boolean = false
+    private var lastWidgetUpdateTime = 0L
+    private var lastWidgetPosition = 0L
+    private var currentLrcLines: List<com.example.ui.lyrics.LrcLine> = emptyList()
+    private var lastWidgetLyricsLineIndex = -2
+
     companion object {
         const val ACTION_PLAY_PAUSE = "com.example.ACTION_PLAY_PAUSE"
         const val ACTION_NEXT = "com.example.ACTION_NEXT"
@@ -54,6 +74,8 @@ class MusicPlaybackService : Service() {
         const val ACTION_TOGGLE_REPEAT = "com.example.ACTION_TOGGLE_REPEAT"
         const val ACTION_TOGGLE_FAVORITE = "com.example.ACTION_TOGGLE_FAVORITE"
         const val ACTION_STOP = "com.example.ACTION_STOP"
+        const val ACTION_PLAY_SONG = "com.example.ACTION_PLAY_SONG"
+        const val EXTRA_SONG_ID = "com.example.EXTRA_SONG_ID"
 
         var isServiceRunning = false
     }
@@ -64,7 +86,36 @@ class MusicPlaybackService : Service() {
         Log.d(TAG, "MusicPlaybackService Created")
         createNotificationChannel()
         setupMediaSession()
+        startForegroundImmediately()
         observePlaybackState()
+    }
+
+    private fun startForegroundImmediately() {
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openPendingIntent = PendingIntent.getActivity(
+            this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }
+        val notification = builder
+            .setSmallIcon(R.drawable.ic_play_arrow)
+            .setContentTitle("Oni Player")
+            .setContentText("Ready to play")
+            .setContentIntent(openPendingIntent)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+        isForeground = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -73,7 +124,16 @@ class MusicPlaybackService : Service() {
             val viewModel = MusicPlayerViewModel.activeInstance
             when (action) {
                 ACTION_PLAY_PAUSE -> {
-                    viewModel?.togglePlayPause()
+                    if (viewModel != null) {
+                        viewModel.togglePlayPause()
+                    } else {
+                        val engine = OniAudioEngine.getInstance(this)
+                        if (engine.isPlaying.value) {
+                            engine.pause()
+                        } else {
+                            engine.resume()
+                        }
+                    }
                 }
                 ACTION_NEXT -> {
                     viewModel?.skipNext()
@@ -88,15 +148,40 @@ class MusicPlaybackService : Service() {
                     viewModel?.toggleRepeat()
                 }
                 ACTION_TOGGLE_FAVORITE -> {
-                    viewModel?.let { vm ->
-                        vm.audioEngine.currentSong.value?.let { song ->
-                            vm.toggleFavorite(song.id)
+                    if (viewModel != null) {
+                        viewModel.audioEngine.currentSong.value?.let { song ->
+                            viewModel.toggleFavorite(song.id)
+                        }
+                    } else {
+                        val engine = OniAudioEngine.getInstance(this)
+                        engine.currentSong.value?.let { song ->
+                            // Update database directly in IO thread
+                            serviceScope.launch(Dispatchers.IO) {
+                                val db = com.example.data.database.OniDatabase.getDatabase(applicationContext)
+                                val dao = db.songDao()
+                                val fresh = dao.getSongById(song.id)
+                                if (fresh != null) {
+                                    val updated = fresh.copy(isFavorite = !fresh.isFavorite)
+                                    dao.updateSong(updated)
+                                    engine.updateCurrentSongMetadata(updated)
+                                }
+                            }
                         }
                     }
                 }
                 ACTION_STOP -> {
-                    viewModel?.audioEngine?.stop()
+                    if (viewModel != null) {
+                        viewModel.audioEngine.stop()
+                    } else {
+                        OniAudioEngine.getInstance(this).stop()
+                    }
                     stopSelf()
+                }
+                ACTION_PLAY_SONG -> {
+                    val songId = intent.getStringExtra(EXTRA_SONG_ID)
+                    if (songId != null) {
+                        viewModel?.playSongById(songId)
+                    }
                 }
             }
         }
@@ -149,33 +234,23 @@ class MusicPlaybackService : Service() {
 
     private fun observePlaybackState() {
         serviceScope.launch {
-            var viewModel = MusicPlayerViewModel.activeInstance
-            while (viewModel == null) {
-                delay(500)
-                viewModel = MusicPlayerViewModel.activeInstance
-            }
-
-            val engine = viewModel.audioEngine
-
+            val engine = OniAudioEngine.getInstance(this@MusicPlaybackService)
             combine(
                 engine.currentSong,
                 engine.isPlaying,
                 engine.position,
-                engine.duration,
-                viewModel.isShuffle,
-                viewModel.isRepeat,
-                viewModel.favoriteSongs
-            ) { array ->
-                val currentSong = array[0] as? SongEntity
-                val isPlaying = array[1] as Boolean
-                val position = array[2] as Long
-                val duration = array[3] as Long
-                val isShuffle = array[4] as Boolean
-                val isRepeat = array[5] as Boolean
-                @Suppress("UNCHECKED_CAST")
-                val favoriteSongs = array[6] as List<SongEntity>
-                val isFav = currentSong?.let { song -> favoriteSongs.any { it.id == song.id } } ?: false
-                PlaybackStateData(currentSong, isPlaying, position, duration, isShuffle, isRepeat, isFav)
+                engine.duration
+            ) { currentSong, isPlaying, position, duration ->
+                val isFav = currentSong?.isFavorite ?: false
+                PlaybackStateData(
+                    song = currentSong,
+                    isPlaying = isPlaying,
+                    position = position,
+                    duration = duration,
+                    isShuffle = false,
+                    isRepeat = false,
+                    isFavorite = isFav
+                )
             }.collectLatest { stateData ->
                 updateNotification(stateData)
             }
@@ -187,12 +262,9 @@ class MusicPlaybackService : Service() {
         if (song == null) {
             stopForeground(true)
             isForeground = false
-            OniWidgetUpdater.updateAllWidgets(this, null, false, 0L)
+            SoftPlayerWidgetUpdater.updateClear(this)
             return
         }
-
-        // Update sleek widgets in real time
-        OniWidgetUpdater.updateAllWidgets(this, song, state.isPlaying, state.position)
 
         // Update MediaSession state
         val playbackStateBuilder = PlaybackState.Builder()
@@ -220,31 +292,93 @@ class MusicPlaybackService : Service() {
 
         mediaSession?.setMetadata(metadataBuilder.build())
 
-        // Load album art bitmap asynchronously or use default
+        // Load album art bitmap asynchronously or use cache to avoid cancellation loop
         val artUri = song.albumArtUri
         if (!artUri.isNullOrEmpty()) {
-            val request = ImageRequest.Builder(this)
-                .data(artUri)
-                .allowHardware(false)
-                .target(object : Target {
-                    override fun onSuccess(result: Drawable) {
-                        val bitmap = (result as? BitmapDrawable)?.bitmap
-                        buildAndShowNotification(state, bitmap)
-                    }
+            if (artUri == lastArtUri) {
+                buildAndShowNotification(state, lastArtBitmap)
+            } else {
+                lastArtUri = artUri
+                val request = ImageRequest.Builder(this)
+                    .data(artUri)
+                    .allowHardware(false)
+                    .target(object : Target {
+                        override fun onSuccess(result: Drawable) {
+                            val bitmap = (result as? BitmapDrawable)?.bitmap
+                            lastArtBitmap = bitmap
+                            buildAndShowNotification(state, bitmap)
+                        }
 
-                    override fun onError(error: Drawable?) {
-                        buildAndShowNotification(state, null)
-                    }
-                })
-                .build()
-            Coil.imageLoader(this).enqueue(request)
+                        override fun onError(error: Drawable?) {
+                            lastArtBitmap = null
+                            buildAndShowNotification(state, null)
+                        }
+                    })
+                    .build()
+                Coil.imageLoader(this).enqueue(request)
+            }
         } else {
+            lastArtUri = null
+            lastArtBitmap = null
             buildAndShowNotification(state, null)
         }
     }
 
     private fun buildAndShowNotification(state: PlaybackStateData, albumArtBitmap: Bitmap?) {
         val song = state.song ?: return
+
+        // Cache parsed LRC lines when track changes
+        if (song.id != lastSongId) {
+            currentLrcLines = com.example.ui.lyrics.LyricsHelper.parseLrc(song.lyrics)
+            lastWidgetLyricsLineIndex = -2
+        }
+
+        val activeLyricsIndex = if (currentLrcLines.isNotEmpty()) {
+            com.example.ui.lyrics.LyricsHelper.getActiveLineIndex(currentLrcLines, state.position)
+        } else {
+            // For plain lyrics, estimate line index by percentage of duration
+            if (state.duration > 0) {
+                val lines = song.lyrics?.split("\n", "\r")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+                if (lines.isNotEmpty()) {
+                    val percent = state.position.toFloat() / state.duration.toFloat()
+                    val idx = (percent * lines.size).toInt().coerceIn(0, lines.size - 1)
+                    idx
+                } else -1
+            } else -1
+        }
+
+        val lyricsLineChanged = activeLyricsIndex != lastWidgetLyricsLineIndex
+
+        // Update premium 4x2 Soft Player widget in real time with high-fidelity throttling
+        val now = System.currentTimeMillis()
+        val trackChanged = song.id != lastSongId
+        val titleChanged = (song.displayTitle ?: song.title) != lastSongTitle
+        val artistChanged = (song.displayArtist ?: song.artist) != lastSongArtist
+        val lyricsChanged = song.lyrics != lastSongLyrics
+        val stateChanged = state.isPlaying != lastIsPlaying || state.isFavorite != lastIsFavorite
+        val positionChanged = Math.abs(state.position - lastWidgetPosition) >= 1000L
+        val timeElapsed = now - lastWidgetUpdateTime >= 1000L
+
+        if (trackChanged || titleChanged || artistChanged || lyricsChanged || stateChanged || positionChanged || lyricsLineChanged || (state.isPlaying && timeElapsed)) {
+            SoftPlayerWidgetUpdater.update(
+                this,
+                song,
+                state.isPlaying,
+                state.position,
+                state.duration,
+                state.isFavorite,
+                albumArtBitmap
+            )
+            lastWidgetUpdateTime = now
+            lastSongId = song.id
+            lastSongTitle = song.displayTitle ?: song.title
+            lastSongArtist = song.displayArtist ?: song.artist
+            lastSongLyrics = song.lyrics
+            lastIsPlaying = state.isPlaying
+            lastIsFavorite = state.isFavorite
+            lastWidgetPosition = state.position
+            lastWidgetLyricsLineIndex = activeLyricsIndex
+        }
 
         // PendingIntent to launch MainActivity
         val openIntent = Intent(this, MainActivity::class.java).apply {

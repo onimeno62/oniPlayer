@@ -271,7 +271,14 @@ object GeminiMusicService {
             if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
                 retriever.setDataSource(filePath, HashMap())
             } else {
-                retriever.setDataSource(filePath)
+                val file = java.io.File(filePath)
+                if (file.exists() && file.isFile) {
+                    java.io.FileInputStream(file).use { fis ->
+                        retriever.setDataSource(fis.fd)
+                    }
+                } else {
+                    retriever.setDataSource(filePath)
+                }
             }
             FileMetadata(
                 title = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE),

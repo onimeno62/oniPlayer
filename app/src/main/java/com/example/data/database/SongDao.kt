@@ -14,6 +14,21 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE isFavorite = 1")
     fun getFavoriteSongs(): Flow<List<SongEntity>>
 
+    @Query("SELECT COUNT(*) FROM songs WHERE isFavorite = 1")
+    suspend fun getFavoriteSongsCount(): Int
+
+    @Query("SELECT COUNT(*) FROM playlists")
+    suspend fun getAllPlaylistsCount(): Int
+
+    @Query("SELECT * FROM songs WHERE lastPlayedTimestamp > 0 ORDER BY lastPlayedTimestamp DESC LIMIT 15")
+    suspend fun getRecentlyPlayedSongs(): List<SongEntity>
+
+    @Query("SELECT * FROM songs LIMIT 15")
+    suspend fun getFallbackSongs(): List<SongEntity>
+
+    @Query("SELECT * FROM songs")
+    suspend fun getAllSongsSuspend(): List<SongEntity>
+
     @Query("SELECT * FROM songs WHERE id = :songId LIMIT 1")
     suspend fun getSongById(songId: String): SongEntity?
 

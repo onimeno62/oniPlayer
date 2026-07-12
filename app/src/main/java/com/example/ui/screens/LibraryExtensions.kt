@@ -52,10 +52,10 @@ fun SmartPlaylistsView(
     songs: List<SongEntity>,
     favorites: List<SongEntity>,
     viewModel: MusicPlayerViewModel,
+    activeSmartPlaylistType: String?,
+    onActiveSmartPlaylistTypeChange: (String?) -> Unit,
     onShowTrackMenu: (SongEntity) -> Unit
 ) {
-    var activeSmartPlaylistType by remember { mutableStateOf<String?>(null) }
-
     // Computations based on rules
     val recentlyPlayed = remember(songs) {
         songs.filter { it.lastPlayedTimestamp > 0 }
@@ -84,7 +84,7 @@ fun SmartPlaylistsView(
                     icon = Icons.Default.Schedule,
                     bgColor = Color(0x1F2196F3),
                     iconColor = Color(0xFF2196F3),
-                    onClick = { activeSmartPlaylistType = "Recently Played" }
+                    onClick = { onActiveSmartPlaylistTypeChange("Recently Played") }
                 )
             }
             item {
@@ -94,7 +94,7 @@ fun SmartPlaylistsView(
                     icon = Icons.Default.Favorite,
                     bgColor = Color(0x1FF44336),
                     iconColor = Color(0xFFF44336),
-                    onClick = { activeSmartPlaylistType = "Favorites" }
+                    onClick = { onActiveSmartPlaylistTypeChange("Favorites") }
                 )
             }
             item {
@@ -104,7 +104,7 @@ fun SmartPlaylistsView(
                     icon = Icons.Default.Star,
                     bgColor = Color(0x1FFFF9800),
                     iconColor = Color(0xFFFF9800),
-                    onClick = { activeSmartPlaylistType = "High Rating" }
+                    onClick = { onActiveSmartPlaylistTypeChange("High Rating") }
                 )
             }
             item {
@@ -114,7 +114,7 @@ fun SmartPlaylistsView(
                     icon = Icons.Default.MusicOff,
                     bgColor = Color(0x1F9E9E9E),
                     iconColor = Color(0xFF9E9E9E),
-                    onClick = { activeSmartPlaylistType = "Never Played" }
+                    onClick = { onActiveSmartPlaylistTypeChange("Never Played") }
                 )
             }
         }
@@ -134,12 +134,12 @@ fun SmartPlaylistsView(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { activeSmartPlaylistType = null }) {
+                IconButton(onClick = { onActiveSmartPlaylistTypeChange(null) }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = activeSmartPlaylistType ?: "",
+                    text = activeSmartPlaylistType,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -210,9 +210,10 @@ fun PlaylistsView(
     songs: List<SongEntity>,
     playlists: List<PlaylistEntity>,
     viewModel: MusicPlayerViewModel,
+    activePlaylist: PlaylistEntity?,
+    onActivePlaylistChange: (PlaylistEntity?) -> Unit,
     onShowTrackMenu: (SongEntity) -> Unit
 ) {
-    var activePlaylist by remember { mutableStateOf<PlaylistEntity?>(null) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -272,7 +273,7 @@ fun PlaylistsView(
                         }
 
                         Card(
-                            onClick = { activePlaylist = playlist },
+                            onClick = { onActivePlaylistChange(playlist) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 6.dp),
@@ -337,7 +338,7 @@ fun PlaylistsView(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { activePlaylist = null }) {
+                    IconButton(onClick = { onActivePlaylistChange(null) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -978,6 +979,12 @@ fun AdvancedTagEditorDialog(
         "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?q=80&w=400&auto=format&fit=crop"
     )
 
+    // Current file path tracker for renaming
+    var currentFilePath by remember { mutableStateOf(song.filePath) }
+
+    // Modern multi-tab selection
+    var activeTab by rememberSaveable { mutableStateOf(0) } // 0: Edit, 1: Search, 2: Scan, 3: Rename
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
@@ -995,18 +1002,32 @@ fun AdvancedTagEditorDialog(
                     .fillMaxSize()
                     .padding(20.dp)
             ) {
-                // Header
+                // Header Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("Online Tag Search & Editor", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("Query databases, pick matching details, and fine-tune tags", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "Advanced Tag Suite",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Edit manually, search web databases, or run audio recognition",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                     IconButton(onClick = onDismiss) {
@@ -1014,412 +1035,551 @@ fun AdvancedTagEditorDialog(
                     }
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                LazyColumn(
+                // Modern Pill Tab Layout
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // --- SECTION 0: Embedded Physical Metadata ---
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.AudioFile, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("PHYSICAL FILE EMBEDDED METADATA", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                    if (isLoadingActualMetadata) {
-                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 1.5.dp)
-                                    }
-                                }
-
-                                if (isLoadingActualMetadata) {
-                                    Text("Extracting embedded audio tags from storage...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                } else {
-                                    actualMetadata?.let { meta ->
-                                        if (meta.title.isNullOrBlank() && meta.artist.isNullOrBlank() && meta.album.isNullOrBlank()) {
-                                            Text("No physical embedded tags found in this audio file.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        } else {
-                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Text("Title: ${meta.title ?: "[N/A]"}", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                                                Text("Artist: ${meta.artist ?: "[N/A]"}", fontSize = 12.sp)
-                                                Text("Album: ${meta.album ?: "[N/A]"}", fontSize = 12.sp)
-                                                Text("Genre: ${meta.genre ?: "[N/A]"} | Year: ${meta.year ?: "[N/A]"}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Text("Track: ${meta.track ?: "[N/A]"} | Disc: ${meta.disc ?: "[N/A]"}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                
-                                                Button(
-                                                    onClick = {
-                                                        title = meta.title ?: title
-                                                        artist = meta.artist ?: artist
-                                                        album = meta.album ?: album
-                                                        albumArtist = meta.albumArtist ?: albumArtist
-                                                        genre = meta.genre ?: genre
-                                                        composer = meta.composer ?: composer
-                                                        track = meta.track ?: track
-                                                        disc = meta.disc ?: disc
-                                                        year = meta.year ?: year
-                                                        comment = meta.comment ?: comment
-                                                        Toast.makeText(context, "Physical tags applied successfully!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                                ) {
-                                                    Icon(Icons.Default.SystemUpdateAlt, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text("Apply Embedded Physical Tags", fontSize = 11.sp)
-                                                }
-                                            }
-                                        }
-                                    } ?: Text("Error reading physical file metadata.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
-                    }
-
-                    // --- SECTION 0.5: Acoustic Fingerprint Recognition ---
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f)),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Hearing, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("ACOUSTIC FINGERPRINT RECOGNITION", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
-                                    }
-                                    if (isFingerprinting) {
-                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), color = MaterialTheme.colorScheme.tertiary, strokeWidth = 1.5.dp)
-                                    }
-                                }
-
-                                Text(
-                                    text = "If file name or metadata is wrong, analyze an audio snippet to automatically recognize the correct song.",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    listOf(
+                        Triple(0, Icons.Default.Edit, "Edit"),
+                        Triple(1, Icons.Default.Language, "Search"),
+                        Triple(2, Icons.Default.GraphicEq, "Scan"),
+                        Triple(3, Icons.Default.EditNote, "Rename")
+                    ).forEach { (idx, icon, label) ->
+                        val isSelected = activeTab == idx
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary 
+                                    else Color.Transparent
                                 )
-
-                                // Provider Selector Toggle Row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    listOf("AudD API", "Gemini AI").forEach { provider ->
-                                        val isSelected = fingerprintProvider == provider
-                                        Button(
-                                            onClick = { fingerprintProvider = provider },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isSelected) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                                contentColor = if (isSelected) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurfaceVariant
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.weight(1f).height(32.dp)
-                                        ) {
-                                            if (provider == "Gemini AI") {
-                                                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(12.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                            }
-                                            Text(provider, fontSize = 11.sp)
-                                        }
-                                    }
-                                }
-
-                                // Token input if AudD is selected
-                                if (fingerprintProvider == "AudD API") {
-                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        OutlinedTextField(
-                                            value = audDApiToken,
-                                            onValueChange = { audDApiToken = it },
-                                            placeholder = { Text("Enter AudD Token (Optional)", fontSize = 11.sp) },
-                                            singleLine = true,
-                                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                                            shape = RoundedCornerShape(8.dp),
-                                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp)
-                                        )
-                                        Text(
-                                            text = "Empty uses free trial. Register on audd.io to get a free personal API token.",
-                                            fontSize = 9.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                        )
-                                    }
-                                } else {
-                                    Text(
-                                        text = "Requires active GEMINI_API_KEY set in your AI Studio secrets panel.",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
-                                Button(
-                                    onClick = {
-                                        coroutineScope.launch {
-                                            isFingerprinting = true
-                                            val songFilePath = song.filePath
-                                            if (songFilePath.isNullOrBlank()) {
-                                                Toast.makeText(context, "Error: Audio file path is empty", Toast.LENGTH_SHORT).show()
-                                                isFingerprinting = false
-                                                return@launch
-                                            }
-
-                                            if (fingerprintProvider == "AudD API") {
-                                                Toast.makeText(context, "Scanning audio fingerprint & querying AudD API...", Toast.LENGTH_LONG).show()
-                                                val recognized = try {
-                                                    com.example.data.api.GeminiMusicService.recognizeMusicByAudD(songFilePath, audDApiToken)
-                                                } catch (e: Exception) {
-                                                    Log.e("Fingerprint", "Failed to recognize song by AudD: ${e.message}", e)
-                                                    null
-                                                }
-
-                                                if (!recognized.isNullOrEmpty()) {
-                                                    val match = recognized[0]
-                                                    Toast.makeText(context, "Song Recognized! Match: ${match.title} by ${match.artist}", Toast.LENGTH_LONG).show()
-                                                    
-                                                    tagResults = recognized.map { onlineResult ->
-                                                        TagSearchResult(
-                                                            title = onlineResult.title,
-                                                            artist = onlineResult.artist,
-                                                            album = onlineResult.album,
-                                                            albumArtist = onlineResult.albumArtist,
-                                                            genre = onlineResult.genre,
-                                                            composer = onlineResult.composer,
-                                                            disc = onlineResult.disc,
-                                                            track = onlineResult.track,
-                                                            year = onlineResult.year,
-                                                            comment = onlineResult.comment,
-                                                            bpm = onlineResult.bpm,
-                                                            albumArtUri = onlineResult.albumArtUri,
-                                                            matchDescription = onlineResult.matchDescription,
-                                                            confidence = onlineResult.confidence
-                                                        )
-                                                    }
-                                                    selectedTagResultIndex = 0
-                                                    hasSearchedTags = true
-                                                    
-                                                    // Also pre-fill the search fields with recognized metadata
-                                                    searchTitle = match.title
-                                                    searchArtist = match.artist
-                                                } else {
-                                                    Toast.makeText(context, "AudD could not identify this audio. Try manual search or Gemini AI.", Toast.LENGTH_LONG).show()
-                                                }
-                                            } else {
-                                                Toast.makeText(context, "Scanning audio snippet & querying Gemini AI...", Toast.LENGTH_LONG).show()
-                                                val recognized = try {
-                                                    com.example.data.api.GeminiMusicService.recognizeMusicByFingerprint(songFilePath)
-                                                } catch (e: Exception) {
-                                                    Log.e("Fingerprint", "Failed to recognize song by fingerprint: ${e.message}", e)
-                                                    null
-                                                }
-
-                                                if (!recognized.isNullOrEmpty()) {
-                                                    val match = recognized[0]
-                                                    Toast.makeText(context, "Song Recognized! Match: ${match.title} by ${match.artist}", Toast.LENGTH_LONG).show()
-                                                    
-                                                    tagResults = recognized.map { onlineResult ->
-                                                        TagSearchResult(
-                                                            title = onlineResult.title,
-                                                            artist = onlineResult.artist,
-                                                            album = onlineResult.album,
-                                                            albumArtist = onlineResult.albumArtist,
-                                                            genre = onlineResult.genre,
-                                                            composer = onlineResult.composer,
-                                                            disc = onlineResult.disc,
-                                                            track = onlineResult.track,
-                                                            year = onlineResult.year,
-                                                            comment = onlineResult.comment,
-                                                            bpm = onlineResult.bpm,
-                                                            albumArtUri = onlineResult.albumArtUri,
-                                                            matchDescription = onlineResult.matchDescription,
-                                                            confidence = onlineResult.confidence
-                                                        )
-                                                    }
-                                                    selectedTagResultIndex = 0
-                                                    hasSearchedTags = true
-                                                    
-                                                    // Also pre-fill the search fields with recognized metadata
-                                                    searchTitle = match.title
-                                                    searchArtist = match.artist
-                                                } else {
-                                                    Toast.makeText(context, "Gemini failed: Key missing, model limit, or unsupported format. Try AudD API instead.", Toast.LENGTH_LONG).show()
-                                                }
-                                            }
-                                            isFingerprinting = false
-                                        }
-                                    },
-                                    enabled = !isFingerprinting,
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(Icons.Default.Hearing, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (isFingerprinting) "Analyzing Audio..." else "Scan & Recognize Music", fontSize = 11.sp)
-                                }
+                                .clickable { activeTab = idx }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
+                }
 
-                    // --- SECTION 1: Online Search Console ---
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Scrollable tab content
+                when (activeTab) {
+                    0 -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp)
                         ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("ONLINE MULTI-SOURCE METADATA SEARCH", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedTextField(
-                                        value = searchTitle,
-                                        onValueChange = { searchTitle = it },
-                                        label = { Text("Search Title") },
-                                        modifier = Modifier.weight(1f),
-                                        singleLine = true,
-                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
-                                    )
-                                    OutlinedTextField(
-                                        value = searchArtist,
-                                        onValueChange = { searchArtist = it },
-                                        label = { Text("Search Artist") },
-                                        modifier = Modifier.weight(1f),
-                                        singleLine = true,
-                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
-                                    )
-                                }
-
-                                // DB Sources row
-                                Column {
-                                    Text("SELECT DATA SOURCE:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(4.dp))
+                            // Cover art Operations
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        tagSources.forEach { src ->
-                                            val isSelected = selectedTagSource == src
-                                            InputChip(
-                                                selected = isSelected,
-                                                onClick = { selectedTagSource = src },
-                                                label = { Text(src, fontSize = 11.sp) },
-                                                colors = InputChipDefaults.inputChipColors(
-                                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                                                )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(90.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(Color.DarkGray)
+                                                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                        ) {
+                                            AsyncImage(
+                                                model = albumArtUri ?: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=250&auto=format&fit=crop",
+                                                contentDescription = "Cover preview",
+                                                contentScale = if (isCropped) ContentScale.Crop else ContentScale.Fit,
+                                                modifier = Modifier.fillMaxSize()
                                             )
                                         }
+
+                                        Spacer(modifier = Modifier.width(16.dp))
+
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "Cover Artwork",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                // Download HD Cover
+                                                IconButton(
+                                                    onClick = {
+                                                        albumArtUri = onlineCovers.random()
+                                                        Toast.makeText(context, "Downloaded new HD Cover!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(34.dp)
+                                                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Download,
+                                                        contentDescription = "Download Cover",
+                                                        modifier = Modifier.size(15.dp),
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                                    )
+                                                }
+
+                                                // Extract Physical Cover
+                                                IconButton(
+                                                    onClick = {
+                                                        albumArtUri = Uri.parse("content://media/external/audio/media/${song.id}/albumart").toString()
+                                                        Toast.makeText(context, "Extracted original tag cover", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(34.dp)
+                                                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Unarchive,
+                                                        contentDescription = "Extract Cover",
+                                                        modifier = Modifier.size(15.dp),
+                                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                                    )
+                                                }
+
+                                                // Toggle Aspect Ratio
+                                                IconButton(
+                                                    onClick = {
+                                                        isCropped = !isCropped
+                                                        Toast.makeText(context, if (isCropped) "Cover Cropped" else "Original Aspect Ratio", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(34.dp)
+                                                        .background(
+                                                            if (isCropped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                                            CircleShape
+                                                        )
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Crop,
+                                                        contentDescription = "Crop",
+                                                        modifier = Modifier.size(15.dp),
+                                                        tint = if (isCropped) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+
+                                                // Remove Cover
+                                                IconButton(
+                                                    onClick = {
+                                                        albumArtUri = null
+                                                        Toast.makeText(context, "Cover Removed", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(34.dp)
+                                                        .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Remove Cover",
+                                                        modifier = Modifier.size(15.dp),
+                                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
+                            }
 
-                                Button(
-                                    onClick = {
-                                        if (searchTitle.isBlank() || searchArtist.isBlank()) {
-                                            Toast.makeText(context, "Please enter both search title and artist", Toast.LENGTH_SHORT).show()
-                                            return@Button
-                                        }
-                                        coroutineScope.launch {
-                                            isSearchingTags = true
-                                            selectedTagResultIndex = null
-                                            
-                                            val fetched = try { 
-                                                com.example.data.api.GeminiMusicService.searchTagsOnlineMulti(searchTitle, searchArtist, selectedTagSource) 
-                                            } catch (e: Exception) {
-                                                val errMsg = e.localizedMessage ?: e.message ?: "Connection Error"
-                                                Toast.makeText(context, "Online Search Failed: $errMsg", Toast.LENGTH_LONG).show()
-                                                emptyList()
-                                            }
-                                            
-                                            tagResults = fetched.map { onlineResult ->
-                                                TagSearchResult(
-                                                    title = onlineResult.title,
-                                                    artist = onlineResult.artist,
-                                                    album = onlineResult.album,
-                                                    albumArtist = onlineResult.albumArtist,
-                                                    genre = onlineResult.genre,
-                                                    composer = onlineResult.composer,
-                                                    disc = onlineResult.disc,
-                                                    track = onlineResult.track,
-                                                    year = onlineResult.year,
-                                                    comment = onlineResult.comment,
-                                                    bpm = onlineResult.bpm,
-                                                    albumArtUri = onlineResult.albumArtUri,
-                                                    matchDescription = onlineResult.matchDescription,
-                                                    confidence = onlineResult.confidence
-                                                )
-                                            }
-                                            
-                                            isSearchingTags = false
-                                            hasSearchedTags = true
-                                            if (tagResults.isNotEmpty()) {
-                                                selectedTagResultIndex = 0
-                                            } else {
-                                                Toast.makeText(context, "No online database releases matched.", Toast.LENGTH_LONG).show()
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !isSearchingTags,
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    if (isSearchingTags) {
-                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Searching live databases...")
-                                    } else {
-                                        Icon(Icons.Default.ManageSearch, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Search Databases")
+                            // General Metadata Fields
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(
+                                        text = "GENERAL INFORMATION",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        letterSpacing = 1.sp
+                                    )
+
+                                    OutlinedTextField(
+                                        value = title,
+                                        onValueChange = { title = it },
+                                        label = { Text("Song Title") },
+                                        leadingIcon = { Icon(Icons.Default.Title, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = artist,
+                                        onValueChange = { artist = it },
+                                        label = { Text("Artist") },
+                                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = album,
+                                        onValueChange = { album = it },
+                                        label = { Text("Album") },
+                                        leadingIcon = { Icon(Icons.Default.Album, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = albumArtist,
+                                        onValueChange = { albumArtist = it },
+                                        label = { Text("Album Artist") },
+                                        leadingIcon = { Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                }
+                            }
+
+                            // Detailed / Classification Metadata Fields
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(
+                                        text = "CLASSIFICATION & ORGANIZATION",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        letterSpacing = 1.sp
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = genre,
+                                            onValueChange = { genre = it },
+                                            label = { Text("Genre") },
+                                            leadingIcon = { Icon(Icons.Default.Category, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+
+                                        OutlinedTextField(
+                                            value = year,
+                                            onValueChange = { year = it },
+                                            label = { Text("Year") },
+                                            leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
                                     }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = track,
+                                            onValueChange = { track = it },
+                                            label = { Text("Track No.") },
+                                            leadingIcon = { Icon(Icons.Default.Numbers, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+
+                                        OutlinedTextField(
+                                            value = disc,
+                                            onValueChange = { disc = it },
+                                            label = { Text("Disc No.") },
+                                            leadingIcon = { Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = bpm,
+                                            onValueChange = { bpm = it },
+                                            label = { Text("BPM (Tempo)") },
+                                            leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+
+                                        OutlinedTextField(
+                                            value = composer,
+                                            onValueChange = { composer = it },
+                                            label = { Text("Composer") },
+                                            leadingIcon = { Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Commentary/Notes Field
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(
+                                        text = "NOTES & ADDITIONAL INFO",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        letterSpacing = 1.sp
+                                    )
+
+                                    OutlinedTextField(
+                                        value = comment,
+                                        onValueChange = { comment = it },
+                                        label = { Text("Comment") },
+                                        leadingIcon = { Icon(Icons.Default.Comment, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        maxLines = 3,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
                                 }
                             }
                         }
                     }
-
-                    // --- SECTION 2: Search Result Selection & Preview ---
-                    if (hasSearchedTags && tagResults.isNotEmpty()) {
-                        item {
-                            Column {
-                                Text(
-                                    text = "SELECT MATCHING ONLINE RELEASE GROUP:",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(bottom = 6.dp)
-                                )
-
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    1 -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
+                            // Search Box Settings card
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    tagResults.forEachIndexed { idx, item ->
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "ONLINE SEARCH PARAMETERS",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            letterSpacing = 1.sp
+                                        )
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            OutlinedTextField(
+                                                value = searchTitle,
+                                                onValueChange = { searchTitle = it },
+                                                label = { Text("Query Title") },
+                                                modifier = Modifier.weight(1f),
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(12.dp),
+                                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
+                                            )
+                                            OutlinedTextField(
+                                                value = searchArtist,
+                                                onValueChange = { searchArtist = it },
+                                                label = { Text("Query Artist") },
+                                                modifier = Modifier.weight(1f),
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(12.dp),
+                                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
+                                            )
+                                        }
+
+                                        Column {
+                                            Text(
+                                                text = "SELECT DATA SOURCE:",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                tagSources.forEach { src ->
+                                                    val isSelected = selectedTagSource == src
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(
+                                                                if (isSelected) MaterialTheme.colorScheme.primary 
+                                                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                                            )
+                                                            .clickable { selectedTagSource = src }
+                                                            .padding(vertical = 8.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = src,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                if (searchTitle.isBlank() || searchArtist.isBlank()) {
+                                                    Toast.makeText(context, "Please enter both search title and artist", Toast.LENGTH_SHORT).show()
+                                                    return@Button
+                                                }
+                                                coroutineScope.launch {
+                                                    isSearchingTags = true
+                                                    selectedTagResultIndex = null
+                                                    
+                                                    val fetched = try { 
+                                                        com.example.data.api.GeminiMusicService.searchTagsOnlineMulti(searchTitle, searchArtist, selectedTagSource) 
+                                                    } catch (e: Exception) {
+                                                        val errMsg = e.localizedMessage ?: e.message ?: "Connection Error"
+                                                        Toast.makeText(context, "Online Search Failed: $errMsg", Toast.LENGTH_LONG).show()
+                                                        emptyList()
+                                                    }
+                                                    
+                                                    tagResults = fetched.map { onlineResult ->
+                                                        TagSearchResult(
+                                                            title = onlineResult.title,
+                                                            artist = onlineResult.artist,
+                                                            album = onlineResult.album,
+                                                            albumArtist = onlineResult.albumArtist,
+                                                            genre = onlineResult.genre,
+                                                            composer = onlineResult.composer,
+                                                            disc = onlineResult.disc,
+                                                            track = onlineResult.track,
+                                                            year = onlineResult.year,
+                                                            comment = onlineResult.comment,
+                                                            bpm = onlineResult.bpm,
+                                                            albumArtUri = onlineResult.albumArtUri,
+                                                            matchDescription = onlineResult.matchDescription,
+                                                            confidence = onlineResult.confidence
+                                                        )
+                                                    }
+                                                    
+                                                    isSearchingTags = false
+                                                    hasSearchedTags = true
+                                                    if (tagResults.isNotEmpty()) {
+                                                        selectedTagResultIndex = 0
+                                                    } else {
+                                                        Toast.makeText(context, "No online database releases matched.", Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            enabled = !isSearchingTags,
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            if (isSearchingTags) {
+                                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Searching databases...")
+                                            } else {
+                                                Icon(Icons.Default.ManageSearch, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Search Databases")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (hasSearchedTags) {
+                                item {
+                                    Text(
+                                        text = if (tagResults.isNotEmpty()) "RELEASE MATCHES (${tagResults.size})" else "NO MATCHES FOUND",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        letterSpacing = 1.sp,
+                                        modifier = Modifier.padding(bottom = 2.dp)
+                                    )
+                                }
+
+                                if (tagResults.isEmpty()) {
+                                    item {
+                                        Card(
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = "No matched releases. Try expanding search tags or check connectivity.",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    itemsIndexed(tagResults) { idx, item ->
                                         val isSelected = selectedTagResultIndex == idx
-                                        
-                                        // Determine source name
                                         val sourceName = when {
                                             item.comment.contains("MusicBrainz", ignoreCase = true) -> "MusicBrainz"
                                             item.comment.contains("iTunes", ignoreCase = true) -> "iTunes"
@@ -1435,23 +1595,28 @@ fun AdvancedTagEditorDialog(
 
                                         Card(
                                             onClick = { selectedTagResultIndex = idx },
-                                            shape = RoundedCornerShape(12.dp),
+                                            shape = RoundedCornerShape(16.dp),
                                             colors = CardDefaults.cardColors(
-                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) 
+                                                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                                             ),
-                                            border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                                            border = BorderStroke(
+                                                width = if (isSelected) 2.dp else 1.dp,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary 
+                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                            ),
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(10.dp),
+                                                    .padding(12.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(44.dp)
-                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .size(50.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
                                                         .background(Color.DarkGray)
                                                 ) {
                                                     AsyncImage(
@@ -1461,7 +1626,9 @@ fun AdvancedTagEditorDialog(
                                                         modifier = Modifier.fillMaxSize()
                                                     )
                                                 }
+                                                
                                                 Spacer(modifier = Modifier.width(12.dp))
+                                                
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
@@ -1474,27 +1641,119 @@ fun AdvancedTagEditorDialog(
                                                             fontWeight = FontWeight.Bold,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis,
-                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                                            modifier = Modifier.weight(1f)
                                                         )
-                                                        SuggestionChip(
-                                                            onClick = {},
-                                                            label = { Text(sourceName, fontSize = 9.sp, fontWeight = FontWeight.Bold) },
-                                                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                                                labelColor = sourceColor
+                                                        
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .background(sourceColor.copy(alpha = 0.15f))
+                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = sourceName,
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = sourceColor
                                                             )
-                                                        )
+                                                        }
                                                     }
+                                                    
                                                     Text(
-                                                        text = "Album: ${item.album}",
+                                                        text = "Artist: ${item.artist} | Album: ${item.album}",
                                                         fontSize = 11.sp,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(11.dp))
-                                                        Spacer(modifier = Modifier.width(2.dp))
-                                                        Text(text = "Confidence: ${item.confidence} | Year: ${item.year}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
+                                                            Spacer(modifier = Modifier.width(2.dp))
+                                                            Text(
+                                                                text = "Confidence: ${item.confidence} | ${item.year}",
+                                                                fontSize = 10.sp,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+                                                        
+                                                        if (isSelected) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.CheckCircle,
+                                                                contentDescription = "Selected",
+                                                                tint = MaterialTheme.colorScheme.primary,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    selectedTagResultIndex?.let { index ->
+                                        if (index < tagResults.size) {
+                                            val res = tagResults[index]
+                                            item {
+                                                Card(
+                                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                                ) {
+                                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        Text(
+                                                            text = "SELECTED METADATA APPLICATOR",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            letterSpacing = 1.sp
+                                                        )
+                                                        
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                                Text("Title: ${res.title}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                                                Text("Artist: ${res.artist}", fontSize = 12.sp)
+                                                                Text("Album: ${res.album}", fontSize = 12.sp)
+                                                                Text("Genre: ${res.genre} | Year: ${res.year}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                            }
+                                                            
+                                                            Button(
+                                                                onClick = {
+                                                                    title = res.title
+                                                                    artist = res.artist
+                                                                    album = res.album
+                                                                    albumArtist = res.albumArtist
+                                                                    genre = res.genre
+                                                                    composer = res.composer
+                                                                    disc = res.disc
+                                                                    track = res.track
+                                                                    year = res.year
+                                                                    comment = res.comment
+                                                                    bpm = res.bpm
+                                                                    albumArtUri = res.albumArtUri
+                                                                    Toast.makeText(context, "Pre-filled tags in Edit tab!", Toast.LENGTH_SHORT).show()
+                                                                    activeTab = 0 // Switch back to manual tag fine-tuning!
+                                                                },
+                                                                shape = RoundedCornerShape(12.dp),
+                                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                                Spacer(modifier = Modifier.width(6.dp))
+                                                                Text("Apply & Fine-Tune", fontSize = 12.sp)
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1503,200 +1762,558 @@ fun AdvancedTagEditorDialog(
                                 }
                             }
                         }
+                    }
+                    2 -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
+                            // Fingerprint Identification Card
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.12f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Hearing,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.tertiary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "ACOUSTIC RECOGNITION",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.tertiary,
+                                                    letterSpacing = 1.sp
+                                                )
+                                            }
+                                            if (isFingerprinting) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(16.dp),
+                                                    color = MaterialTheme.colorScheme.tertiary,
+                                                    strokeWidth = 1.5.dp
+                                                )
+                                            }
+                                        }
 
-                        // Preview Box of Selected Tag Option
-                        selectedTagResultIndex?.let { index ->
-                            if (index < tagResults.size) {
-                                val res = tagResults[index]
-                                item {
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f)),
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
-                                        shape = RoundedCornerShape(16.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Column(modifier = Modifier.padding(12.dp)) {
-                                            Text("PREVIEW INCOMING METADATA:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Text("Title: ${res.title}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                                    Text("Artist: ${res.artist}", fontSize = 12.sp)
-                                                    Text("Album: ${res.album}", fontSize = 12.sp)
-                                                    Text("Genre: ${res.genre} | Year: ${res.year}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                }
-                                                
-                                                Button(
-                                                    onClick = {
-                                                        title = res.title
-                                                        artist = res.artist
-                                                        album = res.album
-                                                        albumArtist = res.albumArtist
-                                                        genre = res.genre
-                                                        composer = res.composer
-                                                        disc = res.disc
-                                                        track = res.track
-                                                        year = res.year
-                                                        comment = res.comment
-                                                        bpm = res.bpm
-                                                        albumArtUri = res.albumArtUri
-                                                        Toast.makeText(context, "Tags and Cover pre-filled!", Toast.LENGTH_SHORT).show()
-                                                    },
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                                    modifier = Modifier.align(Alignment.CenterVertically)
+                                        Text(
+                                            text = "Can't find tag info? Scan a 10-second snippet of this audio file to recognize the exact song title, artist, and details dynamically.",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+
+                                        // Provider segmented toggles
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            listOf("AudD API", "Gemini AI").forEach { provider ->
+                                                val isSelected = fingerprintProvider == provider
+                                                Box(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(
+                                                            if (isSelected) MaterialTheme.colorScheme.tertiary 
+                                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                                        )
+                                                        .clickable { fingerprintProvider = provider }
+                                                        .padding(vertical = 8.dp),
+                                                    contentAlignment = Alignment.Center
                                                 ) {
-                                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Apply to Fields", fontSize = 11.sp)
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        if (provider == "Gemini AI") {
+                                                            Icon(
+                                                                imageVector = Icons.Default.AutoAwesome, 
+                                                                contentDescription = null, 
+                                                                tint = if (isSelected) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                        }
+                                                        Text(
+                                                            text = provider, 
+                                                            fontSize = 11.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
+
+                                        // Token Configuration
+                                        if (fingerprintProvider == "AudD API") {
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                OutlinedTextField(
+                                                    value = audDApiToken,
+                                                    onValueChange = { audDApiToken = it },
+                                                    placeholder = { Text("Enter AudD Token (Optional)", fontSize = 11.sp) },
+                                                    singleLine = true,
+                                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp)
+                                                )
+                                                Text(
+                                                    text = "Leave empty to use shared free keys. Enter token for reliable custom usage.",
+                                                    fontSize = 9.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "Uses Gemini model context parsing. Ensure active GEMINI_API_KEY in secrets panel.",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                            )
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    isFingerprinting = true
+                                                    val songFilePath = song.filePath
+                                                    if (songFilePath.isNullOrBlank()) {
+                                                        Toast.makeText(context, "Error: Audio file path is empty", Toast.LENGTH_SHORT).show()
+                                                        isFingerprinting = false
+                                                        return@launch
+                                                    }
+
+                                                    if (fingerprintProvider == "AudD API") {
+                                                        Toast.makeText(context, "Scanning audio fingerprint & querying AudD API...", Toast.LENGTH_LONG).show()
+                                                        val recognized = try {
+                                                            com.example.data.api.GeminiMusicService.recognizeMusicByAudD(songFilePath, audDApiToken)
+                                                        } catch (e: Exception) {
+                                                            Log.e("Fingerprint", "Failed to recognize song by AudD: ${e.message}", e)
+                                                            null
+                                                        }
+
+                                                        if (!recognized.isNullOrEmpty()) {
+                                                            val match = recognized[0]
+                                                            Toast.makeText(context, "Song Recognized! Match: ${match.title} by ${match.artist}", Toast.LENGTH_LONG).show()
+                                                            
+                                                            tagResults = recognized.map { onlineResult ->
+                                                                TagSearchResult(
+                                                                    title = onlineResult.title,
+                                                                    artist = onlineResult.artist,
+                                                                    album = onlineResult.album,
+                                                                    albumArtist = onlineResult.albumArtist,
+                                                                    genre = onlineResult.genre,
+                                                                    composer = onlineResult.composer,
+                                                                    disc = onlineResult.disc,
+                                                                    track = onlineResult.track,
+                                                                    year = onlineResult.year,
+                                                                    comment = onlineResult.comment,
+                                                                    bpm = onlineResult.bpm,
+                                                                    albumArtUri = onlineResult.albumArtUri,
+                                                                    matchDescription = onlineResult.matchDescription,
+                                                                    confidence = onlineResult.confidence
+                                                                )
+                                                            }
+                                                            selectedTagResultIndex = 0
+                                                            hasSearchedTags = true
+                                                            searchTitle = match.title
+                                                            searchArtist = match.artist
+                                                            
+                                                            // Redirect to Search Online to inspect and apply
+                                                            activeTab = 1
+                                                            Toast.makeText(context, "Recognized results loaded in Database tab!", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "AudD could not identify this audio. Try manual search or Gemini AI.", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    } else {
+                                                        Toast.makeText(context, "Scanning audio snippet & querying Gemini AI...", Toast.LENGTH_LONG).show()
+                                                        val recognized = try {
+                                                            com.example.data.api.GeminiMusicService.recognizeMusicByFingerprint(songFilePath)
+                                                        } catch (e: Exception) {
+                                                            Log.e("Fingerprint", "Failed to recognize song by fingerprint: ${e.message}", e)
+                                                            null
+                                                        }
+
+                                                        if (!recognized.isNullOrEmpty()) {
+                                                            val match = recognized[0]
+                                                            Toast.makeText(context, "Song Recognized! Match: ${match.title} by ${match.artist}", Toast.LENGTH_LONG).show()
+                                                            
+                                                            tagResults = recognized.map { onlineResult ->
+                                                                TagSearchResult(
+                                                                    title = onlineResult.title,
+                                                                    artist = onlineResult.artist,
+                                                                    album = onlineResult.album,
+                                                                    albumArtist = onlineResult.albumArtist,
+                                                                    genre = onlineResult.genre,
+                                                                    composer = onlineResult.composer,
+                                                                    disc = onlineResult.disc,
+                                                                    track = onlineResult.track,
+                                                                    year = onlineResult.year,
+                                                                    comment = onlineResult.comment,
+                                                                    bpm = onlineResult.bpm,
+                                                                    albumArtUri = onlineResult.albumArtUri,
+                                                                    matchDescription = onlineResult.matchDescription,
+                                                                    confidence = onlineResult.confidence
+                                                                )
+                                                            }
+                                                            selectedTagResultIndex = 0
+                                                            hasSearchedTags = true
+                                                            searchTitle = match.title
+                                                            searchArtist = match.artist
+                                                            
+                                                            // Redirect to Search Online to inspect and apply
+                                                            activeTab = 1
+                                                            Toast.makeText(context, "Recognized results loaded in Database tab!", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Gemini failed: Key missing, model limit, or unsupported format. Try AudD API instead.", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    }
+                                                    isFingerprinting = false
+                                                }
+                                            },
+                                            enabled = !isFingerprinting,
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Icon(Icons.Default.Hearing, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = if (isFingerprinting) "Analyzing Audio Snippet..." else "Scan & Identify Song", 
+                                                fontSize = 13.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Embedded ID3 Metadata Card
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AudioFile,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "FILE PHYSICAL EMBEDDED TAGS",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    letterSpacing = 1.sp
+                                                )
+                                            }
+                                            if (isLoadingActualMetadata) {
+                                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 1.5.dp)
+                                            }
+                                        }
+
+                                        if (isLoadingActualMetadata) {
+                                            Text(
+                                                text = "Extracting raw file headers from storage...", 
+                                                fontSize = 12.sp, 
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else {
+                                            actualMetadata?.let { meta ->
+                                                if (meta.title.isNullOrBlank() && meta.artist.isNullOrBlank() && meta.album.isNullOrBlank()) {
+                                                    Text(
+                                                        text = "No embedded physical headers found in this audio snippet.", 
+                                                        fontSize = 12.sp, 
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                } else {
+                                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                            Text("Title: ${meta.title ?: "[N/A]"}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                                            Text("Artist: ${meta.artist ?: "[N/A]"}", fontSize = 12.sp)
+                                                        }
+                                                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                            Text("Album: ${meta.album ?: "[N/A]"}", fontSize = 12.sp)
+                                                            Text("Genre: ${meta.genre ?: "[N/A]"}", fontSize = 12.sp)
+                                                        }
+                                                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                            Text("Year: ${meta.year ?: "[N/A]"} | Track: ${meta.track ?: "[N/A]"}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                            Text("Composer: ${meta.composer ?: "[N/A]"}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                        
+                                                        Spacer(modifier = Modifier.height(8.dp))
+                                                        
+                                                        Button(
+                                                            onClick = {
+                                                                title = meta.title ?: title
+                                                                artist = meta.artist ?: artist
+                                                                album = meta.album ?: album
+                                                                albumArtist = meta.albumArtist ?: albumArtist
+                                                                genre = meta.genre ?: genre
+                                                                composer = meta.composer ?: composer
+                                                                track = meta.track ?: track
+                                                                disc = meta.disc ?: disc
+                                                                year = meta.year ?: year
+                                                                comment = meta.comment ?: comment
+                                                                Toast.makeText(context, "Physical headers loaded in Edit tab!", Toast.LENGTH_SHORT).show()
+                                                                activeTab = 0 // Redirect to manual fine-tuning!
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                                            shape = RoundedCornerShape(12.dp),
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) {
+                                                            Icon(Icons.Default.SystemUpdateAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                            Spacer(modifier = Modifier.width(8.dp))
+                                                            Text("Load original physical headers", fontSize = 12.sp)
+                                                        }
+                                                    }
+                                                }
+                                            } ?: Text("Could not retrieve physical metadata headers.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    3 -> {
+                        var selectedRenameFormatIdx by remember { mutableStateOf(0) }
+                        var customRenameFormat by remember { mutableStateOf("%artist% - %title%") }
 
-                    // --- SECTION 3: Standard Editor Fields (Fine-Tuning) ---
-                    item {
-                        Text(
-                            "FINE-TUNE MANUALLY:",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 8.dp)
+                        val renameFormats = listOf(
+                            "%artist% - %title%",
+                            "%track% - %title%",
+                            "%track% - %artist% - %title%",
+                            "%title%"
                         )
-                    }
 
-                    // Cover Art Operations
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        // Compute preview name based on chosen format and active edits
+                        val previewName = remember(selectedRenameFormatIdx, customRenameFormat, title, artist, track, album, currentFilePath) {
+                            val format = if (selectedRenameFormatIdx == 4) customRenameFormat else renameFormats.getOrElse(selectedRenameFormatIdx) { "%artist% - %title%" }
+                            var name = format
+                                .replace("%artist%", artist.ifBlank { "Unknown Artist" })
+                                .replace("%title%", title.ifBlank { "Untitled" })
+                                .replace("%track%", track.ifBlank { "00" })
+                                .replace("%album%", album.ifBlank { "Unknown Album" })
+
+                            // Keep original extension
+                            val extension = File(currentFilePath).extension.ifBlank { "mp3" }
+                            name = name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+                            if (name.isEmpty()) name = "Untitled"
+                            "$name.$extension"
+                        }
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(90.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color.DarkGray)
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    AsyncImage(
-                                        model = albumArtUri ?: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=250&auto=format&fit=crop",
-                                        contentDescription = "Cover preview",
-                                        contentScale = if (isCropped) ContentScale.Crop else ContentScale.Fit,
-                                        modifier = Modifier.fillMaxSize()
+                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "CURRENT PHYSICAL FILE NAME",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                letterSpacing = 1.sp
+                                            )
+                                        }
+
+                                        Text(
+                                            text = File(currentFilePath).name,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+
+                                        Text(
+                                            text = "Full Path: $currentFilePath",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            item {
+                                Text(
+                                    text = "SELECT RENAME FORMAT",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    letterSpacing = 1.sp,
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
+                            }
+
+                            itemsIndexed(listOf(
+                                "Artist - Title  (e.g., Artist - Song.mp3)",
+                                "Track - Title  (e.g., 01 - Song.mp3)",
+                                "Track - Artist - Title  (e.g., 01 - Artist - Song.mp3)",
+                                "Title Only  (e.g., Song.mp3)",
+                                "Custom Pattern Format..."
+                            )) { idx, formatLabel ->
+                                val isSelected = selectedRenameFormatIdx == idx
+                                Card(
+                                    onClick = { selectedRenameFormatIdx = idx },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) 
+                                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                    ),
+                                    border = BorderStroke(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary 
+                                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = { selectedRenameFormatIdx = idx }
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = formatLabel,
+                                            fontSize = 12.sp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (selectedRenameFormatIdx == 4) {
+                                item {
+                                    OutlinedTextField(
+                                        value = customRenameFormat,
+                                        onValueChange = { customRenameFormat = it },
+                                        label = { Text("Custom Pattern Format") },
+                                        placeholder = { Text("%artist% - %title%") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Supported wildcards: %artist%, %title%, %track%, %album%",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
 
-                                Spacer(modifier = Modifier.width(16.dp))
+                            // Preview and Action Card
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)),
+                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Text(
+                                            text = "FILE NAME PREVIEW",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            letterSpacing = 1.sp
+                                        )
 
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Album Art Operations", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        // Crop Option
-                                        IconButton(
+                                        Text(
+                                            text = previewName,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Button(
                                             onClick = {
-                                                isCropped = !isCropped
-                                                Toast.makeText(context, if (isCropped) "Cover Cropped" else "Original Aspect Ratio", Toast.LENGTH_SHORT).show()
+                                                viewModel.renameSongFile(
+                                                    songId = song.id,
+                                                    newFileName = previewName,
+                                                    onSuccess = { newName ->
+                                                        val parentDir = File(currentFilePath).parent ?: ""
+                                                        currentFilePath = if (parentDir.isNotEmpty()) "$parentDir/$newName" else newName
+                                                        Toast.makeText(context, "File renamed successfully to: $newName", Toast.LENGTH_LONG).show()
+                                                    },
+                                                    onError = { err ->
+                                                        Toast.makeText(context, "Error renaming: $err", Toast.LENGTH_LONG).show()
+                                                    }
+                                                )
                                             },
-                                            modifier = Modifier.size(34.dp).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Icon(Icons.Default.Crop, contentDescription = "Crop", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                                        }
-
-                                        // Download Option
-                                        IconButton(
-                                            onClick = {
-                                                albumArtUri = onlineCovers.random()
-                                                Toast.makeText(context, "Downloaded new HD Cover!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.size(34.dp).background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape)
-                                        ) {
-                                            Icon(Icons.Default.Download, contentDescription = "Download Cover", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                                        }
-
-                                        // Remove Option
-                                        IconButton(
-                                            onClick = {
-                                                albumArtUri = null
-                                                Toast.makeText(context, "Cover Removed", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.size(34.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)
-                                        ) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Remove Cover", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
-                                        }
-
-                                        // Extract Option
-                                        IconButton(
-                                            onClick = {
-                                                albumArtUri = Uri.parse("content://media/external/audio/media/${song.id}/albumart").toString()
-                                                Toast.makeText(context, "Extracted original tag cover", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.size(34.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest, CircleShape)
-                                        ) {
-                                            Icon(Icons.Default.Unarchive, contentDescription = "Extract Cover", modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Rename Physical File", fontSize = 12.sp)
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-
-                    // Fields list
-                    item {
-                        OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = artist, onValueChange = { artist = it }, label = { Text("Artist") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = album, onValueChange = { album = it }, label = { Text("Album") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = albumArtist, onValueChange = { albumArtist = it }, label = { Text("Album Artist") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = genre, onValueChange = { genre = it }, label = { Text("Genre") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = composer, onValueChange = { composer = it }, label = { Text("Composer") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = disc, onValueChange = { disc = it }, label = { Text("Disc") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = track, onValueChange = { track = it }, label = { Text("Track") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = year, onValueChange = { year = it }, label = { Text("Year") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = comment, onValueChange = { comment = it }, label = { Text("Comment") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    }
-                    item {
-                        OutlinedTextField(value = bpm, onValueChange = { bpm = it }, label = { Text("BPM") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
+                // Action Footer Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp)
+                    ) { 
+                        Text("Cancel") 
+                    }
+                    
+                    Spacer(modifier = Modifier.width(10.dp))
+                    
                     Button(
                         onClick = {
                             viewModel.updateSongFullTags(
@@ -1714,12 +2331,13 @@ fun AdvancedTagEditorDialog(
                                 bpm = bpm,
                                 albumArtUri = albumArtUri
                             )
-                            Toast.makeText(context, "Saved Successfully!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Metadata saved successfully!", Toast.LENGTH_SHORT).show()
                             onDismiss()
                         },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Save")
+                        Text("Save Changes")
                     }
                 }
             }

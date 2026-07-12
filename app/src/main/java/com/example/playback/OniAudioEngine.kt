@@ -16,7 +16,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class OniAudioEngine(private val context: Context) {
+class OniAudioEngine private constructor(private val context: Context) {
+    companion object {
+        @Volatile
+        private var instance: OniAudioEngine? = null
+
+        fun getInstance(context: Context): OniAudioEngine {
+            return instance ?: synchronized(this) {
+                instance ?: OniAudioEngine(context.applicationContext).also { instance = it }
+            }
+        }
+    }
+
     private val TAG = "OniAudioEngine"
 
     private var mediaPlayer: MediaPlayer? = null
@@ -152,7 +163,14 @@ class OniAudioEngine(private val context: Context) {
             initMediaPlayer() // Re-initialize to cleanly apply fresh audioSessionId
 
             mediaPlayer?.reset()
-            mediaPlayer?.setDataSource(context, Uri.parse(song.filePath))
+            val file = java.io.File(song.filePath)
+            if (file.exists() && file.isFile) {
+                java.io.FileInputStream(file).use { fis ->
+                    mediaPlayer?.setDataSource(fis.fd)
+                }
+            } else {
+                mediaPlayer?.setDataSource(context, Uri.parse(song.filePath))
+            }
             mediaPlayer?.prepareAsync()
             startPlaybackService()
         } catch (e: Exception) {
@@ -205,6 +223,17 @@ class OniAudioEngine(private val context: Context) {
             stopPlaybackService()
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping playback: ${e.message}")
+        }
+    }
+
+    fun clearCurrentSource() {
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = null
+            releaseAudioEffects()
+            isPrepared = false
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resetting/releasing media player to release file: ${e.message}")
         }
     }
 
