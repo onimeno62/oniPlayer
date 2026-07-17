@@ -72,6 +72,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
     val isRepeat by viewModel.isRepeat.collectAsState()
     val isFetchingLyrics by viewModel.isFetchingLyrics.collectAsState()
     val favoriteSongs by viewModel.favoriteSongs.collectAsState()
+    val floatingLyricsEnabled by viewModel.floatingLyricsEnabled.collectAsState()
 
     val context = LocalContext.current
     val accentColor = LocalAccentColor.current
@@ -619,6 +620,29 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             )
                         }
 
+                        // Floating Lyrics Window Toggle
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { viewModel.setFloatingLyricsEnabled(!floatingLyricsEnabled) }
+                                .padding(vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.PictureInPicture,
+                                contentDescription = "Floating Window",
+                                tint = if (floatingLyricsEnabled) accentColor else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Float Window",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (floatingLyricsEnabled) accentColor else Color.White.copy(alpha = 0.5f)
+                            )
+                        }
+
                         // Sleep Timer Action
                         Column(
                             modifier = Modifier
@@ -970,10 +994,10 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         }
                     }
 
-                    // Auto-scroll logic to center active item
+                    // Auto-scroll logic: always scroll the active highlighted lyric line to the top of the visible list
                     LaunchedEffect(activeLrcIndex) {
                         if (autoScrollEnabled && activeLrcIndex >= 0 && parsedLrc.isNotEmpty()) {
-                            listState.animateScrollToItem(maxOf(0, activeLrcIndex - 2))
+                            listState.animateScrollToItem(activeLrcIndex)
                         }
                     }
 
@@ -1460,7 +1484,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                     LazyColumn(
                                         state = listState,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(vertical = 180.dp),
+                                        contentPadding = PaddingValues(top = 16.dp, bottom = 480.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         itemsIndexed(parsedLrc) { index, line ->

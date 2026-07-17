@@ -769,88 +769,116 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 }
 
                 if (!success) {
-                    Log.d("MusicPlayerViewModel", "renameTo failed, falling back to copy & delete")
-                    // Fallback: copy to new destination
+                    Log.d("MusicPlayerViewModel", "renameTo failed, trying to update MediaStore DisplayName via ContentResolver")
                     try {
-                        oldFile.copyTo(newFile, overwrite = true)
-                    } catch (e: Exception) {
-                        throw Exception("Failed to copy file to new location: ${e.message}")
-                    }
-                    
-                    // Try to delete old file
-                    var deleteSuccess = false
-                    for (i in 1..5) {
-                        deleteSuccess = oldFile.delete()
-                        if (deleteSuccess) {
-                            Log.d("MusicPlayerViewModel", "oldFile.delete() succeeded on attempt $i")
-                            break
+                        val contentResolver = getApplication<android.app.Application>().contentResolver
+                        val songUri = android.content.ContentUris.withAppendedId(
+                            android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                            songId.toLong()
+                        )
+                        val values = android.content.ContentValues().apply {
+                            put(android.provider.MediaStore.Audio.Media.DISPLAY_NAME, sanitizedName)
+                            put(android.provider.MediaStore.Audio.Media.DATA, newFile.absolutePath)
                         }
-                        
-                        // Try ContentResolver deletion as well if raw File.delete() fails
-                        try {
-                            val contentResolver = getApplication<android.app.Application>().contentResolver
-                            val deletedRows = contentResolver.delete(
-                                android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                                "${android.provider.MediaStore.Audio.Media.DATA} = ?",
-                                arrayOf(oldFile.absolutePath)
-                            )
-                            if (deletedRows > 0) {
-                                deleteSuccess = true
-                                Log.d("MusicPlayerViewModel", "ContentResolver deleted old MediaStore row on attempt $i")
-                                break
-                            }
-                        } catch (ex: Exception) {
-                            Log.e("MusicPlayerViewModel", "ContentResolver delete failed: ${ex.message}")
-                        }
-
-                        System.gc()
-                        System.runFinalization()
-                        kotlinx.coroutines.delay(200)
-                    }
-
-                    if (deleteSuccess) {
-                        success = true
-                    } else {
-                        // If it STILL cannot be deleted, we overwrite its contents to 0 bytes so it doesn't take space,
-                        // and proceed anyway rather than crashing the user experience, while scheduling background retries.
-                        try {
-                            java.io.FileOutputStream(oldFile).use { fos ->
-                                fos.write(ByteArray(0))
-                            }
-                            Log.d("MusicPlayerViewModel", "Truncated locked old file to 0 bytes")
-                        } catch (e: Exception) {
-                            Log.w("MusicPlayerViewModel", "Could not truncate locked old file: ${e.message}")
-                        }
-                        
-                        success = true // Proceed with success since copy was successful!
-                        Log.w("MusicPlayerViewModel", "Original file deletion deferred. Retrying in background.")
-                        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-                            for (attempt in 1..15) {
-                                kotlinx.coroutines.delay(2000)
-                                System.gc()
-                                System.runFinalization()
-                                if (oldFile.delete()) {
-                                    Log.d("MusicPlayerViewModel", "Deleted locked original file on background attempt $attempt")
-                                    break
+                        val updatedRows = contentResolver.update(songUri, values, null, null)
+                        if (updatedRows > 0) {
+                            Log.d("MusicPlayerViewModel", "MediaStore update display_name & data succeeded")
+                            if (newFile.exists()) {
+                                success = true
+                                if (oldFile.exists() && oldFile.absolutePath != newFile.absolutePath) {
+                                    oldFile.delete()
                                 }
-                                try {
-                                    val contentResolver = getApplication<android.app.Application>().contentResolver
-                                    val deletedRows = contentResolver.delete(
-                                        android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                                        "${android.provider.MediaStore.Audio.Media.DATA} = ?",
-                                        arrayOf(oldFile.absolutePath)
-                                    )
-                                    if (deletedRows > 0) {
-                                        Log.d("MusicPlayerViewModel", "ContentResolver deleted locked MediaStore row on background attempt $attempt")
-                                        break
-                                    }
-                                } catch (e: Exception) {}
                             }
                         }
+                    } catch (e: Exception) {
+                        Log.e("MusicPlayerViewModel", "Failed to rename via ContentResolver update: ${e.message}")
                     }
                 }
 
-                // Notify media scanner about both files
+                if (!success) {
+                    Log.d("MusicPlayerViewModel", "ContentResolver update failed, falling back to copy & delete")
+                    try {
+                        oldFile.copyTo(newFile, overwrite = true)
+                        
+                        var deleteSuccess = oldFile.delete()
+                        if (!deleteSuccess) {
+                            try {
+                                val contentResolver = getApplication<android.app.Application>().contentResolver
+                                val songUri = android.content.ContentUris.withAppendedId(
+                                    android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                    songId.toLong()
+                                )
+                                val deletedRows = contentResolver.delete(songUri, null, null)
+                                if (deletedRows > 0) {
+                                    deleteSuccess = true
+                                }
+                            } catch (ex: Exception) {
+                                Log.e("MusicPlayerViewModel", "ContentResolver delete failed: ${ex.message}")
+                            }
+                        }
+
+                        if (deleteSuccess) {
+                            success = true
+                            Log.d("MusicPlayerViewModel", "Successfully deleted original file after copying.")
+                        } else {
+                            // If it cannot be deleted immediately (e.g. locked by system/player), we truncate its contents
+                            // to 0 bytes so it doesn't take disk space and is ignored by our scanner, and we proceed.
+                            try {
+                                java.io.FileOutputStream(oldFile).use { fos ->
+                                    fos.write(ByteArray(0))
+                                }
+                                Log.d("MusicPlayerViewModel", "Truncated locked original file to 0 bytes to prevent duplicate indexing")
+                            } catch (e: Exception) {
+                                Log.w("MusicPlayerViewModel", "Could not truncate locked old file: ${e.message}")
+                            }
+                            
+                            success = true
+                            Log.w("MusicPlayerViewModel", "Original file deletion deferred. Retrying in background.")
+                            
+                            // Schedule background deletion retries
+                            viewModelScope.launch(Dispatchers.IO) {
+                                for (attempt in 1..15) {
+                                    kotlinx.coroutines.delay(2000)
+                                    System.gc()
+                                    System.runFinalization()
+                                    if (oldFile.delete()) {
+                                        Log.d("MusicPlayerViewModel", "Deleted locked original file on background attempt $attempt")
+                                        break
+                                    }
+                                    try {
+                                        val contentResolver = getApplication<android.app.Application>().contentResolver
+                                        val songUri = android.content.ContentUris.withAppendedId(
+                                            android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                            songId.toLong()
+                                        )
+                                        val deletedRows = contentResolver.delete(songUri, null, null)
+                                        if (deletedRows > 0) {
+                                            Log.d("MusicPlayerViewModel", "ContentResolver deleted locked MediaStore row on background attempt $attempt")
+                                            break
+                                        }
+                                    } catch (e: Exception) {}
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        throw Exception("Failed to copy file to new location: ${e.message}")
+                    }
+                }
+
+                // Explicitly delete the old file entry from MediaStore database using ContentResolver to prevent duplicates
+                try {
+                    val contentResolver = getApplication<android.app.Application>().contentResolver
+                    val deletedRows = contentResolver.delete(
+                        android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                        "${android.provider.MediaStore.Audio.Media.DATA} = ?",
+                        arrayOf(oldFile.absolutePath)
+                    )
+                    Log.d("MusicPlayerViewModel", "ContentResolver deleted old MediaStore row after successful rename: $deletedRows rows")
+                } catch (e: Exception) {
+                    Log.e("MusicPlayerViewModel", "Failed to delete old MediaStore row: ${e.message}")
+                }
+
+                // Notify media scanner about both the old path (to remove it) and new path (to index it)
                 try {
                     android.media.MediaScannerConnection.scanFile(
                         getApplication(),
@@ -858,6 +886,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         null
                     ) { path, uri ->
                         Log.d("MusicPlayerViewModel", "Scanned path: $path, uri: $uri")
+                        viewModelScope.launch {
+                            repository.scanAndSyncMusic()
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("MusicPlayerViewModel", "MediaScanner error: ${e.message}")

@@ -72,6 +72,21 @@ class MusicRepository(
                     val duration = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION))
                     val filePath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA))
 
+                    // Verify if the physical file exists on disk and is non-empty to prevent duplicates or ghost records
+                    if (filePath != null && filePath.isNotEmpty()) {
+                        val physicalFile = java.io.File(filePath)
+                        if (!physicalFile.exists() || physicalFile.length() == 0L) {
+                            Log.d(TAG, "Skipping out-of-sync MediaStore entry as physical file does not exist or is empty: $filePath")
+                            try {
+                                val songUri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toLong())
+                                contentResolver.delete(songUri, null, null)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to delete stale MediaStore entry: ${e.message}")
+                            }
+                            continue
+                        }
+                    }
+
                     // Construct default album art Uri
                     val artworkUri = Uri.parse("content://media/external/audio/media/$id/albumart").toString()
 
@@ -92,7 +107,9 @@ class MusicRepository(
             }
 
             // Get existing songs in Room to preserve custom lyrics or custom overrides
-            val existingSongsMap = songDao.getAllSongs().first().associateBy { it.id }
+            val existingSongsList = songDao.getAllSongs().first()
+            val existingSongsMap = existingSongsList.associateBy { it.id }
+            val existingSongsByPath = existingSongsList.associateBy { it.filePath }
 
             // If local storage is empty (very common in emulator/container), pre-populate with premium online preview tracks
             if (localSongs.isEmpty()) {
@@ -128,33 +145,62 @@ class MusicRepository(
                 songDao.insertSongs(finalSongs)
             } else {
                 // Merge local MediaStore songs with Room
-                val mergedSongs = localSongs.map { local ->
-                    val existing = existingSongsMap[local.id]
+                val mergedSongs = mutableListOf<SongEntity>()
+                val oldIdsToDelete = mutableSetOf<String>()
+
+                for (local in localSongs) {
+                    val existing = existingSongsMap[local.id] ?: existingSongsByPath[local.filePath]
                     if (existing != null) {
-                        local.copy(
-                            lyrics = existing.lyrics,
-                            isFavorite = existing.isFavorite,
-                            playCount = existing.playCount,
-                            lastPlayedTimestamp = existing.lastPlayedTimestamp,
-                            rating = existing.rating,
-                            dateAdded = existing.dateAdded,
-                            customTitle = existing.customTitle,
-                            customArtist = existing.customArtist,
-                            customAlbum = existing.customAlbum,
-                            customGenre = existing.customGenre,
-                            customAlbumArtist = existing.customAlbumArtist,
-                            customComposer = existing.customComposer,
-                            customDisc = existing.customDisc,
-                            customTrack = existing.customTrack,
-                            customYear = existing.customYear,
-                            customComment = existing.customComment,
-                            customBpm = existing.customBpm
+                        if (existing.id != local.id) {
+                            oldIdsToDelete.add(existing.id)
+                        }
+                        mergedSongs.add(
+                            local.copy(
+                                lyrics = existing.lyrics,
+                                isFavorite = existing.isFavorite,
+                                playCount = existing.playCount,
+                                lastPlayedTimestamp = existing.lastPlayedTimestamp,
+                                rating = existing.rating,
+                                dateAdded = existing.dateAdded,
+                                customTitle = existing.customTitle,
+                                customArtist = existing.customArtist,
+                                customAlbum = existing.customAlbum,
+                                customGenre = existing.customGenre,
+                                customAlbumArtist = existing.customAlbumArtist,
+                                customComposer = existing.customComposer,
+                                customDisc = existing.customDisc,
+                                customTrack = existing.customTrack,
+                                customYear = existing.customYear,
+                                customComment = existing.customComment,
+                                customBpm = existing.customBpm
+                            )
                         )
                     } else {
-                        local
+                        mergedSongs.add(local)
                     }
                 }
                 songDao.insertSongs(mergedSongs)
+
+                // Delete old duplicate records whose IDs changed (e.g. file was renamed)
+                for (oldId in oldIdsToDelete) {
+                    songDao.deleteSongById(oldId)
+                    Log.d(TAG, "Deleted duplicate old record after rename/ID change: $oldId")
+                }
+
+                // Delete stale local songs from Room that no longer exist physically on disk or are empty
+                val localIdsInMediaStore = localSongs.map { it.id }.toSet()
+                for (existing in existingSongsList) {
+                    if (existing.id.startsWith("preview_")) continue
+                    if (!localIdsInMediaStore.contains(existing.id)) {
+                        val file = java.io.File(existing.filePath)
+                        if (!file.exists() || file.length() == 0L) {
+                            songDao.deleteSongById(existing.id)
+                            Log.d(TAG, "Deleted stale local song no longer in MediaStore/Disk or empty: ${existing.title} (${existing.id})")
+                        } else {
+                            Log.d(TAG, "Retained local song in Room since physical file still exists on disk: ${existing.title} (${existing.filePath})")
+                        }
+                    }
+                }
             }
 
             // Seed default equalizer presets if not exists

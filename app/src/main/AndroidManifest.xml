@@ -45,19 +45,6 @@
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Soft Player (4x2) widget receiver with Lyrics and Waveform Support -->
-        <receiver
-            android:name=".playback.WidgetSoftPlayer"
-            android:exported="true"
-            android:label="Soft Player (4x2)">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_soft_player_info" />
-        </receiver>
-
     </application>
 
 </manifest>

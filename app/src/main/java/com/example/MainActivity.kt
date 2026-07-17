@@ -37,6 +37,18 @@ class MainActivity : ComponentActivity() {
                         if (Settings.canDrawOverlays(this@MainActivity)) {
                             val intent = Intent(this@MainActivity, com.example.playback.FloatingLyricsService::class.java)
                             startService(intent)
+                        } else {
+                            viewModel.setFloatingLyricsEnabled(false)
+                            try {
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:$packageName")
+                                )
+                                startActivity(intent)
+                            } catch (e: Exception) {
+                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                                startActivity(intent)
+                            }
                         }
                     } else {
                         val intent = Intent(this@MainActivity, com.example.playback.FloatingLyricsService::class.java)

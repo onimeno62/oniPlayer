@@ -54,18 +54,6 @@ class MusicPlaybackService : Service() {
     private var observationJob: Job? = null
     private var currentObservedViewModel: MusicPlayerViewModel? = null
 
-    // Tracking state for premium Soft Player widget update throttling
-    private var lastSongId: String? = null
-    private var lastSongTitle: String? = null
-    private var lastSongArtist: String? = null
-    private var lastSongLyrics: String? = null
-    private var lastIsPlaying: Boolean = false
-    private var lastIsFavorite: Boolean = false
-    private var lastWidgetUpdateTime = 0L
-    private var lastWidgetPosition = 0L
-    private var currentLrcLines: List<com.example.ui.lyrics.LrcLine> = emptyList()
-    private var lastWidgetLyricsLineIndex = -2
-
     companion object {
         const val ACTION_PLAY_PAUSE = "com.example.ACTION_PLAY_PAUSE"
         const val ACTION_NEXT = "com.example.ACTION_NEXT"
@@ -262,7 +250,6 @@ class MusicPlaybackService : Service() {
         if (song == null) {
             stopForeground(true)
             isForeground = false
-            SoftPlayerWidgetUpdater.updateClear(this)
             return
         }
 
@@ -326,59 +313,6 @@ class MusicPlaybackService : Service() {
 
     private fun buildAndShowNotification(state: PlaybackStateData, albumArtBitmap: Bitmap?) {
         val song = state.song ?: return
-
-        // Cache parsed LRC lines when track changes
-        if (song.id != lastSongId) {
-            currentLrcLines = com.example.ui.lyrics.LyricsHelper.parseLrc(song.lyrics)
-            lastWidgetLyricsLineIndex = -2
-        }
-
-        val activeLyricsIndex = if (currentLrcLines.isNotEmpty()) {
-            com.example.ui.lyrics.LyricsHelper.getActiveLineIndex(currentLrcLines, state.position)
-        } else {
-            // For plain lyrics, estimate line index by percentage of duration
-            if (state.duration > 0) {
-                val lines = song.lyrics?.split("\n", "\r")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
-                if (lines.isNotEmpty()) {
-                    val percent = state.position.toFloat() / state.duration.toFloat()
-                    val idx = (percent * lines.size).toInt().coerceIn(0, lines.size - 1)
-                    idx
-                } else -1
-            } else -1
-        }
-
-        val lyricsLineChanged = activeLyricsIndex != lastWidgetLyricsLineIndex
-
-        // Update premium 4x2 Soft Player widget in real time with high-fidelity throttling
-        val now = System.currentTimeMillis()
-        val trackChanged = song.id != lastSongId
-        val titleChanged = (song.displayTitle ?: song.title) != lastSongTitle
-        val artistChanged = (song.displayArtist ?: song.artist) != lastSongArtist
-        val lyricsChanged = song.lyrics != lastSongLyrics
-        val stateChanged = state.isPlaying != lastIsPlaying || state.isFavorite != lastIsFavorite
-        val positionChanged = Math.abs(state.position - lastWidgetPosition) >= 1000L
-        val timeElapsed = now - lastWidgetUpdateTime >= 1000L
-
-        if (trackChanged || titleChanged || artistChanged || lyricsChanged || stateChanged || positionChanged || lyricsLineChanged || (state.isPlaying && timeElapsed)) {
-            SoftPlayerWidgetUpdater.update(
-                this,
-                song,
-                state.isPlaying,
-                state.position,
-                state.duration,
-                state.isFavorite,
-                albumArtBitmap
-            )
-            lastWidgetUpdateTime = now
-            lastSongId = song.id
-            lastSongTitle = song.displayTitle ?: song.title
-            lastSongArtist = song.displayArtist ?: song.artist
-            lastSongLyrics = song.lyrics
-            lastIsPlaying = state.isPlaying
-            lastIsFavorite = state.isFavorite
-            lastWidgetPosition = state.position
-            lastWidgetLyricsLineIndex = activeLyricsIndex
-        }
 
         // PendingIntent to launch MainActivity
         val openIntent = Intent(this, MainActivity::class.java).apply {
