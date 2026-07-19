@@ -77,23 +77,23 @@ object ThemeProvider {
                 isDark = true
             )
             OniTheme.AERO_LIGHT -> ThemeColors(
-                background = Color(0xFFF4F6F9),
-                surface = Color(0xFFFFFFFF),
-                primary = Color(0xFF6200EE),
-                secondary = Color(0xFF03DAC6),
-                accent = Color(0xFF3700B3),
-                textPrimary = Color(0xFF1A1A1A),
-                textSecondary = Color(0xFF757575),
+                background = Color(0xFFEFECE3), // Warm clay-beige cream background (#efece3)
+                surface = Color(0xFFF6F3EC),    // Soft ivory/cream surface (#F6F3EC)
+                primary = Color(0xFF184FA2),    // Rich deep brand blue
+                secondary = Color(0xFF5E7A9E),  // Muted Slate
+                accent = Color(0xFF184FA2),     // High-contrast deep blue accent
+                textPrimary = Color(0xFF184FA2),// Match the gorgeous primary deep blue
+                textSecondary = Color(0xFF5E7A9E), // Muted greyish slate-blue
                 isDark = false
             )
             OniTheme.HIGH_DENSITY -> ThemeColors(
-                background = Color(0xFFFEF7FF),
-                surface = Color(0xFFF3EDF7),
-                primary = Color(0xFF6750A4),
-                secondary = Color(0xFFEADDFF),
-                accent = Color(0xFF21005D),
-                textPrimary = Color(0xFF1D1B20),
-                textSecondary = Color(0xFF49454F),
+                background = Color(0xFFEFECE3), // Warm clay-beige cream background (#efece3)
+                surface = Color(0xFFF6F3EC),    // Soft ivory/cream surface (#F6F3EC)
+                primary = Color(0xFF184FA2),    // Rich deep brand blue
+                secondary = Color(0xFF5E7A9E),  // Muted Slate
+                accent = Color(0xFF184FA2),     // High-contrast deep blue accent
+                textPrimary = Color(0xFF184FA2),// Match the gorgeous primary deep blue
+                textSecondary = Color(0xFF5E7A9E), // Muted greyish slate-blue
                 isDark = false
             )
         }

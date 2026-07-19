@@ -192,7 +192,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                     .width(42.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.16f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f))
                     .clickable { viewModel.selectTab(0) }
             )
 
@@ -210,13 +210,13 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                     },
                     modifier = Modifier
                         .size(40.dp)
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                        .background(Color.White.copy(alpha = 0.03f), CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), CircleShape)
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onBackground
                     )
                 }
 
@@ -232,7 +232,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         text = "Aurora Glass",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )
                 }
 
@@ -240,13 +240,13 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                     onClick = { showQueueSheet = true },
                     modifier = Modifier
                         .size(40.dp)
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                        .background(Color.White.copy(alpha = 0.03f), CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), CircleShape)
                 ) {
                     Icon(
                         Icons.Default.QueueMusic,
                         contentDescription = "Queue",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onBackground
                     )
                 }
             }
@@ -262,14 +262,14 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icons.Default.MusicNote,
                             contentDescription = null,
                             modifier = Modifier.size(72.dp),
-                            tint = Color.White.copy(alpha = 0.15f)
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             "Select a song to play",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )
                     }
                 }
@@ -311,7 +311,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 rotationZ = if (isPlaying) driftingRotation else 0f
                             }
                             .clip(RoundedCornerShape(28.dp))
-                            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp)),
+                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(28.dp)),
                         shape = RoundedCornerShape(28.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -343,13 +343,13 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             .align(Alignment.BottomEnd)
                             .padding(14.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.15f))
-                            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = "High Fidelity • 24-bit FLAC",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp
@@ -368,7 +368,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         text = song.customTitle ?: song.title,
                         fontSize = 26.sp, // Song Title 26sp SemiBold
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -378,7 +378,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         text = (song.customArtist ?: song.artist),
                         fontSize = 17.sp, // Artist 17sp Medium
                         fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -388,7 +388,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         text = (song.customAlbum ?: song.album ?: "Unknown Album"),
                         fontSize = 15.sp, // Album 15sp Regular
                         fontWeight = FontWeight.Normal,
-                        color = Color.White.copy(alpha = 0.45f),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -403,8 +403,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         .height(68.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .clickable { isKaraokeModeFull = true },
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                 ) {
                     Box(
                         modifier = Modifier
@@ -421,7 +421,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 Text(
                                     "No lyrics cached offline. Tap to search.",
                                     fontSize = 11.sp,
-                                    color = Color.White.copy(alpha = 0.45f)
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )
                                 Icon(
                                     Icons.Default.Search,
@@ -434,7 +434,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Text(
                                 text = LyricsHelper.stripLrcTags(song.lyrics),
                                 fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                 textAlign = TextAlign.Center,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
@@ -455,7 +455,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 Text(
                                     text = "• • • Instrumental • • •",
                                     fontSize = 11.sp,
-                                    color = Color.White.copy(alpha = 0.4f),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -486,14 +486,14 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             text = formatPlayerDuration(position),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.4f),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                         )
                         Text(
                             text = formatPlayerDuration(duration),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.4f),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                         )
                     }
@@ -512,7 +512,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         Icon(
                             Icons.Default.Shuffle,
                             contentDescription = "Shuffle",
-                            tint = if (isShuffle) accentColor else Color.White.copy(alpha = 0.35f),
+                            tint = if (isShuffle) accentColor else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.35f),
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -526,7 +526,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 Icons.Default.SkipPrevious,
                                 contentDescription = "Previous",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onBackground,
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -552,7 +552,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = "Play/Pause",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -562,7 +562,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 Icons.Default.SkipNext,
                                 contentDescription = "Next",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onBackground,
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -573,7 +573,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         Icon(
                             if (isRepeat) Icons.Default.RepeatOne else Icons.Default.Repeat,
                             contentDescription = "Repeat",
-                            tint = if (isRepeat) accentColor else Color.White.copy(alpha = 0.35f),
+                            tint = if (isRepeat) accentColor else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.35f),
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -586,8 +586,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(24.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(24.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), RoundedCornerShape(24.dp)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                     shape = RoundedCornerShape(24.dp)
                 ) {
                     Row(
@@ -608,7 +608,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 Icons.Default.Lyrics,
                                 contentDescription = "Lyrics Manager",
-                                tint = Color.White.copy(alpha = 0.7f),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
@@ -616,7 +616,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 text = "Lyrics",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White.copy(alpha = 0.5f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                         }
 
@@ -631,7 +631,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 Icons.Default.PictureInPicture,
                                 contentDescription = "Floating Window",
-                                tint = if (floatingLyricsEnabled) accentColor else Color.White.copy(alpha = 0.7f),
+                                tint = if (floatingLyricsEnabled) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
@@ -639,7 +639,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 text = "Float Window",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (floatingLyricsEnabled) accentColor else Color.White.copy(alpha = 0.5f)
+                                color = if (floatingLyricsEnabled) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                         }
 
@@ -654,7 +654,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 Icons.Default.Timer,
                                 contentDescription = "Sleep Timer",
-                                tint = if (isSleepTimerRunning) accentColor else Color.White.copy(alpha = 0.7f),
+                                tint = if (isSleepTimerRunning) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
@@ -662,7 +662,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 text = if (isSleepTimerRunning) "${sleepTimerMinutesLeft}m" else "Sleep Timer",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isSleepTimerRunning) accentColor else Color.White.copy(alpha = 0.5f)
+                                color = if (isSleepTimerRunning) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                         }
 
@@ -677,7 +677,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = "Favorite",
-                                tint = if (isFavorite) Color.Red else Color.White.copy(alpha = 0.7f),
+                                tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
@@ -685,7 +685,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 text = "Favorite",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White.copy(alpha = 0.5f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                         }
 
@@ -700,7 +700,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Icon(
                                 Icons.Default.EditNote,
                                 contentDescription = "Edit Tags",
-                                tint = Color.White.copy(alpha = 0.7f),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
@@ -708,7 +708,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 text = "Edit Tags",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White.copy(alpha = 0.5f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                         }
                     }
@@ -741,10 +741,10 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         .fillMaxWidth()
                         .fillMaxHeight(0.65f)
                         .align(Alignment.BottomCenter)
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
                         .clickable(enabled = false) {}, // prevent clicks leaking
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF161922).copy(alpha = 0.95f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -757,7 +757,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 .width(36.dp)
                                 .height(5.dp)
                                 .clip(RoundedCornerShape(2.5.dp))
-                                .background(Color.White.copy(alpha = 0.2f))
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                                 .align(Alignment.CenterHorizontally)
                         )
 
@@ -773,11 +773,11 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 text = "Playing Queue (${playlist.size} tracks)",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
 
                             IconButton(onClick = { showQueueSheet = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.White.copy(alpha = 0.5f))
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                             }
                         }
 
@@ -786,7 +786,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                         val playlist by viewModel.currentPlaylist.collectAsState()
                         if (playlist.isEmpty()) {
                             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                Text("Queue is empty", color = Color.White.copy(alpha = 0.4f))
+                                Text("Queue is empty", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         } else {
                             LazyColumn(
@@ -795,7 +795,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             ) {
                                 itemsIndexed(playlist) { index, item ->
                                     val isCurrent = song?.id == item.id
-                                    val rowBg = if (isCurrent) accentColor.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.03f)
+                                    val rowBg = if (isCurrent) accentColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
                                     val rowBorder = if (isCurrent) BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)) else null
 
                                     Box(
@@ -826,7 +826,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                                 Text(
                                                     text = "${index + 1}",
                                                     fontSize = 12.sp,
-                                                    color = Color.White.copy(alpha = 0.3f),
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                                                     modifier = Modifier.width(16.dp),
                                                     textAlign = TextAlign.Center
                                                 )
@@ -851,14 +851,14 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                                     text = item.customTitle ?: item.title,
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 13.sp,
-                                                    color = if (isCurrent) accentColor else Color.White,
+                                                    color = if (isCurrent) accentColor else MaterialTheme.colorScheme.onSurface,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 Text(
                                                     text = item.customArtist ?: item.artist,
                                                     fontSize = 11.sp,
-                                                    color = Color.White.copy(alpha = 0.5f),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
@@ -880,9 +880,9 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(24.dp)),
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(24.dp)),
                     shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1D26))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(
                         modifier = Modifier.padding(24.dp),
@@ -892,13 +892,13 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             text = "Configure Sleep Timer",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "Playback will automatically pause after the duration ends.",
                             fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
 
@@ -912,8 +912,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             ) {
                                 row.forEach { mins ->
                                     val isSelected = if (mins == 0) !isSleepTimerRunning else isSleepTimerRunning && sleepTimerMinutesLeft == mins
-                                    val btnBg = if (isSelected) accentColor else Color.White.copy(alpha = 0.05f)
-                                    val textCol = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f)
+                                    val btnBg = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                    val textCol = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
 
                                     Box(
                                         modifier = Modifier
@@ -970,7 +970,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                 // Large Gaussian blur effect background
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFF101217).copy(alpha = 0.96f) // deep premium translucent dark surface
+                    color = MaterialTheme.colorScheme.background.copy(alpha = 0.96f) // deep premium translucent surface
                 ) {
                     var autoScrollEnabled by remember { mutableStateOf(true) }
                     val listState = rememberLazyListState()
@@ -1020,9 +1020,9 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 },
                                 modifier = Modifier
                                     .size(40.dp)
-                                    .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
                             ) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
                             }
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
@@ -1030,14 +1030,14 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                     text = song.customTitle ?: song.title,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = song.customArtist ?: song.artist,
                                     fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.5f),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -1050,14 +1050,14 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                         .size(40.dp)
                                         .border(
                                             1.dp,
-                                            if (autoScrollEnabled) accentColor.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f),
+                                            if (autoScrollEnabled) accentColor.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                                             CircleShape
                                         )
                                 ) {
                                     Icon(
                                         imageVector = if (autoScrollEnabled) Icons.Default.CompassCalibration else Icons.Default.ExploreOff,
                                         contentDescription = "Toggle Auto-Scroll",
-                                        tint = if (autoScrollEnabled) accentColor else Color.White
+                                        tint = if (autoScrollEnabled) accentColor else MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             } else {
@@ -1075,8 +1075,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             Row(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(Color.White.copy(alpha = 0.04f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
                                     .padding(4.dp)
                             ) {
                                 val syncActive = !showPlainTextMode
@@ -1092,7 +1092,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                         Icon(
                                             Icons.Default.MusicNote,
                                             contentDescription = null,
-                                            tint = if (syncActive) accentColor else Color.White.copy(alpha = 0.4f),
+                                            tint = if (syncActive) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -1100,7 +1100,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                             "Synced Karaoke",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (syncActive) accentColor else Color.White.copy(alpha = 0.6f)
+                                            color = if (syncActive) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                         )
                                     }
                                 }
@@ -1116,7 +1116,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                         Icon(
                                             Icons.Default.Subject,
                                             contentDescription = null,
-                                            tint = if (showPlainTextMode) secondaryColor else Color.White.copy(alpha = 0.4f),
+                                            tint = if (showPlainTextMode) secondaryColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -1124,7 +1124,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                             "Plain Text",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (showPlainTextMode) secondaryColor else Color.White.copy(alpha = 0.6f)
+                                            color = if (showPlainTextMode) secondaryColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                         )
                                     }
                                 }
@@ -1178,7 +1178,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
-                                contentColor = if (isMicEnabled) Color(0xFF00FFCC) else Color.White.copy(alpha = 0.5f),
+                                contentColor = if (isMicEnabled) Color(0xFF00FFCC) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                 isSelected = isMicEnabled
                             )
                         }
@@ -1239,7 +1239,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                             .fillMaxWidth()
                                             .height(30.dp)
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Color.White.copy(alpha = 0.02f))
+                                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f))
                                     ) {
                                         val width = size.width
                                         val height = size.height
@@ -1274,7 +1274,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                             "Mic Gain",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White.copy(alpha = 0.6f),
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                             modifier = Modifier.width(60.dp)
                                         )
 
@@ -1285,7 +1285,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                             colors = SliderDefaults.colors(
                                                 thumbColor = Color(0xFF00FFCC),
                                                 activeTrackColor = Color(0xFF00FFCC),
-                                                inactiveTrackColor = Color.White.copy(alpha = 0.08f)
+                                                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                                             ),
                                             modifier = Modifier.weight(1f)
                                         )
@@ -1305,7 +1305,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             }
                         }
 
-                        Divider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 12.dp))
+                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 12.dp))
 
                         // Large Typography scrolling view
                         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -1324,8 +1324,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                         Box(
                                             modifier = Modifier
                                                 .size(72.dp)
-                                                .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                                                .background(Color.White.copy(alpha = 0.03f), CircleShape),
+                                                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
+                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
@@ -1342,7 +1342,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                             text = "No Lyrics Saved",
                                             fontSize = 18.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             textAlign = TextAlign.Center
                                         )
 
@@ -1351,7 +1351,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                         Text(
                                             text = "This song has no lyrics cached offline yet. Search online or type them in manually.",
                                             fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.5f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier.padding(horizontal = 32.dp)
                                         )
@@ -1373,8 +1373,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
 
                                             OutlinedButton(
                                                 onClick = { showLyricsEditor = true },
-                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)),
                                                 shape = RoundedCornerShape(12.dp)
                                             ) {
                                                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1401,7 +1401,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                                 text = cleanLyrics,
                                                 fontSize = 22.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color.White.copy(alpha = 0.9f),
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
                                                 textAlign = TextAlign.Center,
                                                 lineHeight = 36.sp,
                                                 modifier = Modifier.fillMaxWidth()
@@ -1421,8 +1421,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                         Box(
                                             modifier = Modifier
                                                 .size(72.dp)
-                                                .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                                                .background(Color.White.copy(alpha = 0.03f), CircleShape),
+                                                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
+                                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
@@ -1439,7 +1439,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                             text = "No Synchronized Lyrics",
                                             fontSize = 18.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             textAlign = TextAlign.Center
                                         )
 
@@ -1448,7 +1448,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                         Text(
                                             text = "Search our online database or sync your lyrics manually to unlock real-time scrolling karaoke mode.",
                                             fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.5f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier.padding(horizontal = 32.dp)
                                         )
@@ -1470,8 +1470,8 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
 
                                             OutlinedButton(
                                                 onClick = { showLyricsEditor = true },
-                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)),
                                                 shape = RoundedCornerShape(12.dp)
                                             ) {
                                                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1493,11 +1493,11 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
 
                                             // Inactive items: Gray. Active item: Bright white, bold, mic-responsive scaling
                                             val textColor = if (isActive) {
-                                                if (isMicEnabled) Color(0xFF00FFCC) else Color.White
+                                                if (isMicEnabled) Color(0xFF00FFCC) else MaterialTheme.colorScheme.onSurface
                                             } else if (isPassed) {
-                                                Color.White.copy(alpha = 0.3f)
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                                             } else {
-                                                Color.White.copy(alpha = 0.6f)
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                             }
 
                                             val textWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Bold
@@ -1547,7 +1547,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                                 .clickable { autoScrollEnabled = true }
                                                 .padding(horizontal = 20.dp, vertical = 10.dp)
                                         ) {
-                                            Text("Resume Sync Scroll", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                            Text("Resume Sync Scroll", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
                                         }
                                     }
                                 }
@@ -1559,7 +1559,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                             shape = RoundedCornerShape(24.dp)
                         ) {
                             Row(
@@ -1570,7 +1570,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = { viewModel.skipPrevious() }) {
-                                    Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = Color.White)
+                                    Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = MaterialTheme.colorScheme.onSurface)
                                 }
 
                                 IconButton(
@@ -1582,12 +1582,12 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                     Icon(
                                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                         contentDescription = "Play/Pause",
-                                        tint = Color.White
+                                        tint = MaterialTheme.colorScheme.onPrimary
                                     )
                                 }
 
                                 IconButton(onClick = { viewModel.skipNext() }) {
-                                    Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = Color.White)
+                                    Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
@@ -1653,6 +1653,7 @@ fun WaveformSeekBar(
     ) {
         val width = constraints.maxWidth.toFloat()
         val height = constraints.maxHeight.toFloat()
+        val unplayedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val barWidth = 3.dp.toPx()
@@ -1674,7 +1675,7 @@ fun WaveformSeekBar(
                 val yStart = (height - barHeight) / 2
 
                 drawRoundRect(
-                    color = if (isPlayed) accentColor else Color.White.copy(alpha = 0.15f),
+                    color = if (isPlayed) accentColor else unplayedColor,
                     topLeft = Offset(x, yStart),
                     size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.5f.dp.toPx(), 1.5f.dp.toPx())
@@ -1705,8 +1706,8 @@ fun IconButtonWithText(
     contentColor: Color,
     isSelected: Boolean = false
 ) {
-    val bgCol = if (isSelected) contentColor.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.03f)
-    val borderCol = if (isSelected) contentColor.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f)
+    val bgCol = if (isSelected) contentColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
+    val borderCol = if (isSelected) contentColor.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     
     Box(
         modifier = modifier
@@ -1729,7 +1730,7 @@ fun IconButtonWithText(
                 text = label,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) contentColor else Color.White.copy(alpha = 0.7f),
+                color = if (isSelected) contentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

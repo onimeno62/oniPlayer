@@ -74,13 +74,13 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                     text = "Acoustic Tuning",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 26.sp,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
                     text = "Studio master studio parametric custom filter",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                 )
             }
 
@@ -89,10 +89,10 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                 onClick = { showSaveDialog = true },
                 modifier = Modifier
                     .size(40.dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                    .background(Color.White.copy(alpha = 0.03f), CircleShape)
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), CircleShape)
             ) {
-                Icon(Icons.Default.Save, contentDescription = "Save Custom Preset", tint = Color.White)
+                Icon(Icons.Default.Save, contentDescription = "Save Custom Preset", tint = MaterialTheme.colorScheme.onBackground)
             }
         }
 
@@ -115,9 +115,9 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
         ) {
             items(presets) { preset ->
                 val isActive = activePresetName == preset.name
-                val borderCol = if (isActive) accentColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.08f)
-                val bgCol = if (isActive) accentColor.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.03f)
-                val textCol = if (isActive) accentColor else Color.White.copy(alpha = 0.7f)
+                val borderCol = if (isActive) accentColor.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                val bgCol = if (isActive) accentColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
+                val textCol = if (isActive) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
 
                 Box(
                     modifier = Modifier
@@ -147,7 +147,7 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                                         viewModel.deletePreset(preset)
                                         Toast.makeText(context, "Preset deleted", Toast.LENGTH_SHORT).show()
                                     },
-                                tint = if (isActive) accentColor else Color.White.copy(alpha = 0.4f)
+                                tint = if (isActive) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                             )
                         }
                     }
@@ -171,9 +171,9 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
+                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 // Band 1: 60Hz
@@ -218,9 +218,9 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -228,7 +228,7 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                 ) {
                     Icon(Icons.Default.Hearing, contentDescription = null, tint = accentColor, modifier = Modifier.size(28.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Sub-Bass", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                    Text("Sub-Bass", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
                     Slider(
                         value = bassBoost,
@@ -237,7 +237,7 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                         colors = SliderDefaults.colors(
                             thumbColor = accentColor,
                             activeTrackColor = accentColor,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.1f)
+                            inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                         )
                     )
                     Text(
@@ -253,9 +253,9 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -263,7 +263,7 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                 ) {
                     Icon(Icons.Default.SurroundSound, contentDescription = null, tint = secondaryColor, modifier = Modifier.size(28.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Spatializer", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                    Text("Spatializer", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
                     Slider(
                         value = virtualizer,
@@ -272,7 +272,7 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                         colors = SliderDefaults.colors(
                             thumbColor = secondaryColor,
                             activeTrackColor = secondaryColor,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.1f)
+                            inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                         )
                     )
                     Text(
@@ -293,29 +293,29 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
         Dialog(onDismissRequest = { showSaveDialog = false }) {
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF161922)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(24.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(24.dp))
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    Text("Save Personal Preset", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+                    Text("Save Personal Preset", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text("Save current frequency filter bands configuration to custom preset library.", fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f))
+                    Text("Save current frequency filter bands configuration to custom preset library.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     OutlinedTextField(
                         value = presetNameToSave,
                         onValueChange = { presetNameToSave = it },
-                        placeholder = { Text("My Preset Name", color = Color.White.copy(alpha = 0.3f)) },
+                        placeholder = { Text("My Preset Name", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                             focusedBorderColor = accentColor,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.12f)
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
@@ -323,7 +323,7 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { showSaveDialog = false }) {
-                            Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                            Text("Cancel", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
@@ -337,7 +337,7 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = accentColor)
                         ) {
-                            Text("Save", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Save", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -367,7 +367,7 @@ fun EqualizerSliderRow(
                 text = label, 
                 fontSize = 13.sp, 
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
             )
             Text(
                 text = "${if (value >= 0) "+" else ""}${String.format("%.1f", value)} dB",
@@ -387,7 +387,7 @@ fun EqualizerSliderRow(
             colors = SliderDefaults.colors(
                 thumbColor = accentColor,
                 activeTrackColor = accentColor,
-                inactiveTrackColor = Color.White.copy(alpha = 0.1f)
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
             ),
             modifier = Modifier.fillMaxWidth()
         )

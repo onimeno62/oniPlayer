@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.dynamicDarkColorScheme
+import android.os.Build
 import com.example.data.entity.SongEntity
 import kotlin.math.absoluteValue
 
@@ -25,6 +28,12 @@ import kotlin.math.absoluteValue
 val LocalAccentColor = compositionLocalOf { Color(0xFF7C4DFF) }
 val LocalSecondaryColor = compositionLocalOf { Color(0xFF00E5FF) }
 val LocalAccentGlowColor = compositionLocalOf { Color(0xFFFF007F) }
+
+// Composition locals for Visual Effects Settings
+val LocalGlassEffectEnabled = compositionLocalOf { true }
+val LocalBlurStrength = compositionLocalOf { 20f }
+val LocalCornerRadius = compositionLocalOf { 16f }
+val LocalBackgroundTransparency = compositionLocalOf { 50f }
 
 fun getSongPalette(song: SongEntity?): Triple<Color, Color, Color> {
     if (song == null) {
@@ -52,37 +61,92 @@ fun getSongPalette(song: SongEntity?): Triple<Color, Color, Color> {
 fun OniPlayerTheme(
     theme: OniTheme = OniTheme.COSMIC_OBSIDIAN,
     currentSong: SongEntity? = null,
+    customAccentColor: String = "#7C4DFF",
+    materialYouEnabled: Boolean = false,
+    glassEffectEnabled: Boolean = true,
+    blurStrength: Float = 20f,
+    cornerRadius: Float = 16f,
+    backgroundTransparency: Float = 50f,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
     val themeColors = ThemeProvider.getThemeColors(theme)
     
+    // Resolve dynamic accent color based on Material You or custom accent color
+    val baseAccentColor = remember(customAccentColor, materialYouEnabled) {
+        if (materialYouEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                dynamicDarkColorScheme(context).primary
+            } catch (e: Exception) {
+                try {
+                    Color(android.graphics.Color.parseColor(customAccentColor))
+                } catch (ex: Exception) {
+                    Color(0xFF7C4DFF)
+                }
+            }
+        } else {
+            try {
+                Color(android.graphics.Color.parseColor(customAccentColor))
+            } catch (e: Exception) {
+                Color(0xFF7C4DFF)
+            }
+        }
+    }
+
     // Extract dynamic colors if in a dark theme or requested
-    val (dynamicPrimary, dynamicSecondary, dynamicAccent) = getSongPalette(currentSong)
+    val (dynamicPrimary, dynamicSecondary, dynamicAccent) = if (currentSong == null) {
+        // Derive secondary and glow from baseAccentColor for cohesive appearance
+        val sec = baseAccentColor.copy(alpha = 0.8f)
+        val glow = baseAccentColor.copy(alpha = 0.6f)
+        Triple(baseAccentColor, sec, glow)
+    } else {
+        getSongPalette(currentSong)
+    }
     
-    val accent = dynamicPrimary
-    val secondary = dynamicSecondary
-    val glow = dynamicAccent
+    val accent = if (themeColors.isDark) dynamicPrimary else themeColors.accent
+    val secondary = if (themeColors.isDark) dynamicSecondary else themeColors.secondary
+    val glow = if (themeColors.isDark) dynamicAccent else themeColors.accent.copy(alpha = 0.3f)
 
     val colorScheme = remember(themeColors, accent, secondary, glow) {
-        darkColorScheme(
-            primary = accent,
-            secondary = secondary,
-            tertiary = glow,
-            background = Color(0xFF12141B), // Aurora Glass Default Background
-            surface = Color(0xFF1A1D26),    // Aurora Glass Default Surface
-            onPrimary = Color.White,
-            onSecondary = Color.Black,
-            onBackground = Color.White,
-            onSurface = Color.White,
-            surfaceVariant = Color(0xFF1A1D26).copy(alpha = 0.6f),
-            onSurfaceVariant = Color(0xFFA7ABB6) // Secondary Text color
-        )
+        if (themeColors.isDark) {
+            darkColorScheme(
+                primary = accent,
+                secondary = secondary,
+                tertiary = glow,
+                background = themeColors.background,
+                surface = themeColors.surface,
+                onPrimary = Color.White,
+                onSecondary = Color.Black,
+                onBackground = themeColors.textPrimary,
+                onSurface = themeColors.textPrimary,
+                surfaceVariant = themeColors.surface.copy(alpha = 0.6f),
+                onSurfaceVariant = themeColors.textSecondary
+            )
+        } else {
+            lightColorScheme(
+                primary = accent,
+                secondary = secondary,
+                tertiary = glow,
+                background = themeColors.background,
+                surface = themeColors.surface,
+                onPrimary = Color.White,
+                onSecondary = Color.Black,
+                onBackground = themeColors.textPrimary,
+                onSurface = themeColors.textPrimary,
+                surfaceVariant = themeColors.surface.copy(alpha = 0.6f),
+                onSurfaceVariant = themeColors.textSecondary
+            )
+        }
     }
 
     CompositionLocalProvider(
         LocalAccentColor provides accent,
         LocalSecondaryColor provides secondary,
-        LocalAccentGlowColor provides glow
+        LocalAccentGlowColor provides glow,
+        LocalGlassEffectEnabled provides glassEffectEnabled,
+        LocalBlurStrength provides blurStrength,
+        LocalCornerRadius provides cornerRadius,
+        LocalBackgroundTransparency provides backgroundTransparency
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -91,7 +155,11 @@ fun OniPlayerTheme(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF12141B)) // Immersive dark background
+                    .background(
+                        themeColors.background.copy(
+                            alpha = if (!themeColors.isDark) 1f else if (glassEffectEnabled) backgroundTransparency / 100f else 1f
+                        )
+                    )
             ) {
                 // Smooth atmospheric breathing animation for the glows
                 val infiniteTransition = rememberInfiniteTransition(label = "aurora")
@@ -119,32 +187,36 @@ fun OniPlayerTheme(
                     val w = size.width
                     val h = size.height
                     
-                    // Sphere 1: Top Right primary glow (Atmospheric Gaussian style)
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(accent.copy(alpha = 0.16f), Color.Transparent),
-                            center = Offset(w * 0.85f, h * 0.25f),
-                            radius = w * 0.9f * scaleFactor1
-                        )
-                    )
+                    val alphaScale = if (glassEffectEnabled) (backgroundTransparency / 100f) else 0f
                     
-                    // Sphere 2: Bottom Left secondary glow
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(secondary.copy(alpha = 0.14f), Color.Transparent),
-                            center = Offset(w * 0.15f, h * 0.75f),
-                            radius = w * 0.9f * scaleFactor2
+                    if (alphaScale > 0f) {
+                        // Sphere 1: Top Right primary glow (Atmospheric Gaussian style)
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(accent.copy(alpha = 0.16f * alphaScale), Color.Transparent),
+                                center = Offset(w * 0.85f, h * 0.25f),
+                                radius = w * 0.9f * scaleFactor1
+                            )
                         )
-                    )
-                    
-                    // Sphere 3: Center accent glow
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(glow.copy(alpha = 0.08f), Color.Transparent),
-                            center = Offset(w * 0.5f, h * 0.5f),
-                            radius = w * 0.6f
+                        
+                        // Sphere 2: Bottom Left secondary glow
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(secondary.copy(alpha = 0.14f * alphaScale), Color.Transparent),
+                                center = Offset(w * 0.15f, h * 0.75f),
+                                radius = w * 0.9f * scaleFactor2
+                            )
                         )
-                    )
+                        
+                        // Sphere 3: Center accent glow
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(glow.copy(alpha = 0.08f * alphaScale), Color.Transparent),
+                                center = Offset(w * 0.5f, h * 0.5f),
+                                radius = w * 0.6f
+                            )
+                        )
+                    }
                 }
                 
                 content()

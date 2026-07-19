@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         @Suppress("DEPRECATION")
+        super.onBackPressed()
         moveTaskToBack(true)
     }
 }

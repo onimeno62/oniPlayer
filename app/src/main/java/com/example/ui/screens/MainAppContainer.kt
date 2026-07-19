@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,19 @@ import com.example.ui.viewmodel.MusicPlayerViewModel
 @Composable
 fun MainAppContainer(viewModel: MusicPlayerViewModel) {
     val currentTheme by viewModel.currentTheme.collectAsState()
+    val selectedThemeOption by viewModel.selectedThemeOption.collectAsState()
+    val customAccentColor by viewModel.customAccentColor.collectAsState()
+    val materialYouEnabled by viewModel.materialYouEnabled.collectAsState()
+    val glassEffectEnabled by viewModel.glassEffectEnabled.collectAsState()
+    val blurStrength by viewModel.blurStrength.collectAsState()
+    val cornerRadius by viewModel.cornerRadius.collectAsState()
+    val backgroundTransparency by viewModel.backgroundTransparency.collectAsState()
+    val isSystemDark = isSystemInDarkTheme()
+    
+    LaunchedEffect(selectedThemeOption, isSystemDark) {
+        viewModel.updateThemeFromOption(selectedThemeOption, isSystemDark)
+    }
+
     val currentTab by viewModel.currentTab.collectAsState()
     val currentSong by viewModel.audioEngine.currentSong.collectAsState()
     val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
@@ -40,7 +54,16 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         if (duration > 0) position.toFloat() / duration.toFloat() else 0f
     }
 
-    OniPlayerTheme(theme = currentTheme, currentSong = currentSong) {
+    OniPlayerTheme(
+        theme = currentTheme,
+        currentSong = currentSong,
+        customAccentColor = customAccentColor,
+        materialYouEnabled = materialYouEnabled,
+        glassEffectEnabled = glassEffectEnabled,
+        blurStrength = blurStrength,
+        cornerRadius = cornerRadius,
+        backgroundTransparency = backgroundTransparency
+    ) {
         Scaffold(
             bottomBar = {
                 if (currentTab != 1) { // Floating bottom navigation disappears while playing!
@@ -62,17 +85,25 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             )
                         }
 
+                        val glassEnabled = LocalGlassEffectEnabled.current
+                        val radiusVal = LocalCornerRadius.current
+                        val transparencyVal = LocalBackgroundTransparency.current
+
                         // Floating Bottom Navigation Bar (Frosted Glass Capsule)
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(start = 24.dp, end = 24.dp, bottom = 12.dp, top = 2.dp),
-                            shape = RoundedCornerShape(28.dp), // Premium 28dp radius
+                            shape = RoundedCornerShape(if (glassEnabled) radiusVal.dp else 28.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = Color.White.copy(alpha = 0.08f) // Glass Surface
+                                containerColor = if (glassEnabled) {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f * (transparencyVal / 50f))
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
                             ),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)), // Glass Border 12%
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // Flat floating glass look
+                            border = BorderStroke(1.dp, if (glassEnabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             NavigationBar(
                                 containerColor = Color.Transparent,
@@ -88,8 +119,8 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                                         selectedIconColor = LocalAccentColor.current,
                                         selectedTextColor = LocalAccentColor.current,
                                         indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = Color.White.copy(alpha = 0.5f),
-                                        unselectedTextColor = Color.White.copy(alpha = 0.5f)
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                     ),
                                     modifier = Modifier.testTag("nav_library")
                                 )
@@ -102,8 +133,8 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                                         selectedIconColor = LocalAccentColor.current,
                                         selectedTextColor = LocalAccentColor.current,
                                         indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = Color.White.copy(alpha = 0.5f),
-                                        unselectedTextColor = Color.White.copy(alpha = 0.5f)
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                     ),
                                     modifier = Modifier.testTag("nav_player")
                                 )
@@ -116,24 +147,24 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                                         selectedIconColor = LocalAccentColor.current,
                                         selectedTextColor = LocalAccentColor.current,
                                         indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = Color.White.copy(alpha = 0.5f),
-                                        unselectedTextColor = Color.White.copy(alpha = 0.5f)
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                     ),
                                     modifier = Modifier.testTag("nav_equalizer")
                                 )
                                 NavigationBarItem(
                                     selected = currentTab == 3,
                                     onClick = { viewModel.selectTab(3) },
-                                    icon = { Icon(if (currentTab == 3) Icons.Default.Palette else Icons.Outlined.Palette, contentDescription = "Themes") },
-                                    label = { Text("Themes", fontSize = 10.sp, fontWeight = if (currentTab == 3) FontWeight.Bold else FontWeight.SemiBold) },
+                                    icon = { Icon(if (currentTab == 3) Icons.Default.Settings else Icons.Outlined.Settings, contentDescription = "Settings") },
+                                    label = { Text("Settings", fontSize = 10.sp, fontWeight = if (currentTab == 3) FontWeight.Bold else FontWeight.SemiBold) },
                                     colors = NavigationBarItemDefaults.colors(
                                         selectedIconColor = LocalAccentColor.current,
                                         selectedTextColor = LocalAccentColor.current,
                                         indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = Color.White.copy(alpha = 0.5f),
-                                        unselectedTextColor = Color.White.copy(alpha = 0.5f)
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                     ),
-                                    modifier = Modifier.testTag("nav_themes")
+                                    modifier = Modifier.testTag("nav_settings")
                                 )
                             }
                         }
@@ -163,7 +194,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                         0 -> LibraryScreen(viewModel = viewModel)
                         1 -> PlayerScreen(viewModel = viewModel)
                         2 -> EqualizerScreen(viewModel = viewModel)
-                        3 -> ThemesScreen(viewModel = viewModel)
+                        3 -> SettingsScreen(viewModel = viewModel)
                     }
                 }
             }
@@ -190,9 +221,9 @@ fun MiniPlayerBar(
             .clip(RoundedCornerShape(20.dp))
             .clickable { onBarClick() },
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF161922).copy(alpha = 0.85f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
         ),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -222,14 +253,14 @@ fun MiniPlayerBar(
                         text = title,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = artist,
                         fontSize = 11.sp,
-                        color = Color.White.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

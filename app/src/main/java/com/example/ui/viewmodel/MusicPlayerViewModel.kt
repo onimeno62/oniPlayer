@@ -6,6 +6,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import com.example.data.database.OniDatabase
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
@@ -19,6 +26,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
+
+private val android.content.Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "oni_settings")
+private val THEME_OPTION_KEY = stringPreferencesKey("theme_option")
+private val ACCENT_COLOR_KEY = stringPreferencesKey("accent_color_hex")
+private val MATERIAL_YOU_KEY = booleanPreferencesKey("material_you_enabled")
+private val GLASS_EFFECT_KEY = booleanPreferencesKey("glass_effect_enabled")
+private val BLUR_STRENGTH_KEY = floatPreferencesKey("blur_strength")
+private val CORNER_RADIUS_KEY = floatPreferencesKey("corner_radius")
+private val BACKGROUND_TRANSPARENCY_KEY = floatPreferencesKey("background_transparency")
 
 class MusicPlayerViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MusicPlayerViewModel"
@@ -36,8 +52,36 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _currentTheme = MutableStateFlow(OniTheme.HIGH_DENSITY)
     val currentTheme: StateFlow<OniTheme> = _currentTheme.asStateFlow()
 
+    // User selected theme option name ("Light", "Dark", "AMOLED", "Follow System")
+    private val _selectedThemeOption = MutableStateFlow("Dark")
+    val selectedThemeOption: StateFlow<String> = _selectedThemeOption.asStateFlow()
+
+    // Custom Accent Color hex string (defaulting to Purple: #7C4DFF)
+    private val _customAccentColor = MutableStateFlow("#7C4DFF")
+    val customAccentColor: StateFlow<String> = _customAccentColor.asStateFlow()
+
+    // Material You toggle state (default false)
+    private val _materialYouEnabled = MutableStateFlow(false)
+    val materialYouEnabled: StateFlow<Boolean> = _materialYouEnabled.asStateFlow()
+
+    // Glass Effect toggle state (default true)
+    private val _glassEffectEnabled = MutableStateFlow(true)
+    val glassEffectEnabled: StateFlow<Boolean> = _glassEffectEnabled.asStateFlow()
+
+    // Blur strength state (default 20f, range 0-100)
+    private val _blurStrength = MutableStateFlow(20f)
+    val blurStrength: StateFlow<Float> = _blurStrength.asStateFlow()
+
+    // Corner radius state (default 16f, range 8-32)
+    private val _cornerRadius = MutableStateFlow(16f)
+    val cornerRadius: StateFlow<Float> = _cornerRadius.asStateFlow()
+
+    // Background transparency state (default 50f, range 0-100)
+    private val _backgroundTransparency = MutableStateFlow(50f)
+    val backgroundTransparency: StateFlow<Float> = _backgroundTransparency.asStateFlow()
+
     // Screen selection / Tab state
-    private val _currentTab = MutableStateFlow(1) // 0: Songs/Library, 1: Player, 2: Equalizer, 3: Themes
+    private val _currentTab = MutableStateFlow(1) // 0: Songs/Library, 1: Player, 2: Equalizer, 3: Settings
     val currentTab: StateFlow<Int> = _currentTab.asStateFlow()
 
     // Library category selection & hierarchical navigation states
@@ -205,6 +249,91 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         activeInstance = this
         scanAndLoad()
         
+        // Load saved theme option from DataStore
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[THEME_OPTION_KEY] ?: "Dark" }
+                    .collect { savedOption ->
+                        _selectedThemeOption.value = savedOption
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading saved theme: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[ACCENT_COLOR_KEY] ?: "#7C4DFF" }
+                    .collect { savedAccent ->
+                        _customAccentColor.value = savedAccent
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading saved accent color: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[MATERIAL_YOU_KEY] ?: false }
+                    .collect { savedMaterialYou ->
+                        _materialYouEnabled.value = savedMaterialYou
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading material you preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[GLASS_EFFECT_KEY] ?: true }
+                    .collect { savedGlass ->
+                        _glassEffectEnabled.value = savedGlass
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading glass effect preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[BLUR_STRENGTH_KEY] ?: 20f }
+                    .collect { savedBlur ->
+                        _blurStrength.value = savedBlur
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading blur strength preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[CORNER_RADIUS_KEY] ?: 16f }
+                    .collect { savedRadius ->
+                        _cornerRadius.value = savedRadius
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading corner radius preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[BACKGROUND_TRANSPARENCY_KEY] ?: 50f }
+                    .collect { savedTransparency ->
+                        _backgroundTransparency.value = savedTransparency
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading background transparency preference: ${e.message}")
+            }
+        }
+        
         // Listen to completion of song to auto-skip
         audioEngine.onPlaybackCompleted = {
             skipNext()
@@ -250,6 +379,109 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun setTheme(theme: OniTheme) {
         _currentTheme.value = theme
+    }
+
+    fun updateThemeFromOption(option: String, isSystemDark: Boolean) {
+        val theme = when (option) {
+            "Light" -> OniTheme.AERO_LIGHT
+            "Dark" -> OniTheme.CLASSIC_DARK
+            "AMOLED" -> OniTheme.COSMIC_OBSIDIAN
+            "Follow System" -> if (isSystemDark) OniTheme.CLASSIC_DARK else OniTheme.AERO_LIGHT
+            else -> OniTheme.CLASSIC_DARK
+        }
+        _currentTheme.value = theme
+    }
+
+    fun setThemeOption(option: String, isSystemDark: Boolean) {
+        _selectedThemeOption.value = option
+        updateThemeFromOption(option, isSystemDark)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[THEME_OPTION_KEY] = option
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving theme option: ${e.message}")
+            }
+        }
+    }
+
+    fun setCustomAccentColor(hex: String) {
+        _customAccentColor.value = hex
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[ACCENT_COLOR_KEY] = hex
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving custom accent color: ${e.message}")
+            }
+        }
+    }
+
+    fun setMaterialYouEnabled(enabled: Boolean) {
+        _materialYouEnabled.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[MATERIAL_YOU_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving material you preference: ${e.message}")
+            }
+        }
+    }
+
+    fun setGlassEffectEnabled(enabled: Boolean) {
+        _glassEffectEnabled.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[GLASS_EFFECT_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving glass effect preference: ${e.message}")
+            }
+        }
+    }
+
+    fun setBlurStrength(strength: Float) {
+        _blurStrength.value = strength
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[BLUR_STRENGTH_KEY] = strength
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving blur strength preference: ${e.message}")
+            }
+        }
+    }
+
+    fun setCornerRadius(radius: Float) {
+        _cornerRadius.value = radius
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[CORNER_RADIUS_KEY] = radius
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving corner radius preference: ${e.message}")
+            }
+        }
+    }
+
+    fun setBackgroundTransparency(transparency: Float) {
+        _backgroundTransparency.value = transparency
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[BACKGROUND_TRANSPARENCY_KEY] = transparency
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving background transparency preference: ${e.message}")
+            }
+        }
     }
 
     // --- Media Playback Controls ---
