@@ -196,6 +196,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _currentPlaylist = MutableStateFlow<List<SongEntity>>(emptyList())
     val currentPlaylist: StateFlow<List<SongEntity>> = _currentPlaylist.asStateFlow()
 
+    // Emits an IntentSender whenever the OS needs one-time user consent to delete a
+    // MediaStore-owned file we don't have direct write access to (rename cleanup).
+    private val _pendingDeleteRequest = MutableSharedFlow<android.content.IntentSender>(extraBufferCapacity = 1)
+    val pendingDeleteRequest: SharedFlow<android.content.IntentSender> = _pendingDeleteRequest.asSharedFlow()
+
     // Shuffle and Repeat modes
     private val _isShuffle = MutableStateFlow(false)
     val isShuffle: StateFlow<Boolean> = _isShuffle.asStateFlow()
@@ -1031,7 +1036,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     Log.d("MusicPlayerViewModel", "ContentResolver update failed, falling back to copy & delete")
                     try {
                         oldFile.copyTo(newFile, overwrite = true)
-                        
+
                         var deleteSuccess = oldFile.delete()
                         if (!deleteSuccess) {
                             try {
@@ -1053,42 +1058,56 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                             success = true
                             Log.d("MusicPlayerViewModel", "Successfully deleted original file after copying.")
                         } else {
-                            // If it cannot be deleted immediately (e.g. locked by system/player), we truncate its contents
-                            // to 0 bytes so it doesn't take disk space and is ignored by our scanner, and we proceed.
-                            try {
-                                java.io.FileOutputStream(oldFile).use { fos ->
-                                    fos.write(ByteArray(0))
-                                }
-                                Log.d("MusicPlayerViewModel", "Truncated locked original file to 0 bytes to prevent duplicate indexing")
-                            } catch (e: Exception) {
-                                Log.w("MusicPlayerViewModel", "Could not truncate locked old file: ${e.message}")
-                            }
-                            
+                            // The old file couldn't be removed — almost always because it's a
+                            // MediaStore-owned file on scoped storage and we lack write access to it.
+                            // The rename itself still succeeds (the song now points at newFile), but
+                            // we must never let the leftover old file silently reappear as a duplicate.
                             success = true
-                            Log.w("MusicPlayerViewModel", "Original file deletion deferred. Retrying in background.")
-                            
-                            // Schedule background deletion retries
-                            viewModelScope.launch(Dispatchers.IO) {
-                                for (attempt in 1..15) {
-                                    kotlinx.coroutines.delay(2000)
-                                    System.gc()
-                                    System.runFinalization()
-                                    if (oldFile.delete()) {
-                                        Log.d("MusicPlayerViewModel", "Deleted locked original file on background attempt $attempt")
-                                        break
+                            repository.markPendingCleanup(oldFile.absolutePath)
+                            Log.w(
+                                "MusicPlayerViewModel",
+                                "Could not delete original file (likely missing storage permission). " +
+                                "Tracking as pending cleanup: ${oldFile.absolutePath}"
+                            )
+
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                                // Ask the user for one-time consent to delete this specific file.
+                                try {
+                                    val songUri = android.content.ContentUris.withAppendedId(
+                                        android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                        songId.toLong()
+                                    )
+                                    val deleteRequest = android.provider.MediaStore.createDeleteRequest(
+                                        getApplication<android.app.Application>().contentResolver,
+                                        listOf(songUri)
+                                    )
+                                    _pendingDeleteRequest.tryEmit(deleteRequest.intentSender)
+                                } catch (e: Exception) {
+                                    Log.e("MusicPlayerViewModel", "Failed to build delete consent request: ${e.message}")
+                                }
+                            } else {
+                                // Pre-Android 11: no consent API available. Truncate to reclaim disk
+                                // space if possible; the pending-cleanup filter in scanAndSyncMusic()
+                                // is what actually prevents the duplicate, whether or not this works.
+                                try {
+                                    java.io.FileOutputStream(oldFile).use { fos ->
+                                        fos.write(ByteArray(0))
                                     }
-                                    try {
-                                        val contentResolver = getApplication<android.app.Application>().contentResolver
-                                        val songUri = android.content.ContentUris.withAppendedId(
-                                            android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                                            songId.toLong()
-                                        )
-                                        val deletedRows = contentResolver.delete(songUri, null, null)
-                                        if (deletedRows > 0) {
-                                            Log.d("MusicPlayerViewModel", "ContentResolver deleted locked MediaStore row on background attempt $attempt")
+                                } catch (e: Exception) {
+                                    Log.w("MusicPlayerViewModel", "Could not truncate locked old file: ${e.message}")
+                                }
+
+                                viewModelScope.launch(Dispatchers.IO) {
+                                    for (attempt in 1..15) {
+                                        kotlinx.coroutines.delay(2000)
+                                        System.gc()
+                                        System.runFinalization()
+                                        if (oldFile.delete()) {
+                                            repository.clearPendingCleanup(oldFile.absolutePath)
+                                            Log.d("MusicPlayerViewModel", "Deleted locked original file on background attempt $attempt")
                                             break
                                         }
-                                    } catch (e: Exception) {}
+                                    }
                                 }
                             }
                         }
@@ -1178,6 +1197,17 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     onError(e.message ?: "Unknown error")
                 }
             }
+        }
+    }
+
+    /**
+     * Called by MainActivity after the user approves or denies the MediaStore delete-consent
+     * prompt triggered from renameSongFile(). Re-syncs so the pending-cleanup filter re-checks
+     * whether the leftover file is actually gone now.
+     */
+    fun onDeleteConsentResult() {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.scanAndSyncMusic()
         }
     }
 

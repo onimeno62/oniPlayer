@@ -26,6 +26,19 @@ class MusicRepository(
 ) {
     private val TAG = "MusicRepository"
 
+    // Paths of files that a rename operation couldn't delete (usually a scoped-storage
+    // permission problem). Every scan filters these out so a leftover physical duplicate
+    // can never re-enter the library as a duplicate song, even before it's actually deleted.
+    private val pendingCleanupPaths = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    fun markPendingCleanup(path: String) {
+        pendingCleanupPaths.add(path)
+    }
+
+    fun clearPendingCleanup(path: String) {
+        pendingCleanupPaths.remove(path)
+    }
+
     val allSongs: Flow<List<SongEntity>> = songDao.getAllSongs()
     val favoriteSongs: Flow<List<SongEntity>> = songDao.getFavoriteSongs()
     val allPresets: Flow<List<EqualizerPresetEntity>> = songDao.getAllPresets()
@@ -71,6 +84,17 @@ class MusicRepository(
                     val album = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM))
                     val duration = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION))
                     val filePath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA))
+
+                    // Known leftover from a rename that couldn't fully clean up its old file yet.
+                    // Try an opportunistic delete; either way, never let it re-enter the library.
+                    if (filePath != null && pendingCleanupPaths.contains(filePath)) {
+                        val leftoverFile = java.io.File(filePath)
+                        if (!leftoverFile.exists() || leftoverFile.delete()) {
+                            clearPendingCleanup(filePath)
+                        }
+                        Log.d(TAG, "Skipping known pending-cleanup duplicate: $filePath")
+                        continue
+                    }
 
                     // Verify if the physical file exists on disk and is non-empty to prevent duplicates or ghost records
                     if (filePath != null && filePath.isNotEmpty()) {
