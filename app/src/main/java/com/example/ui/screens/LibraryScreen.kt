@@ -13,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -107,6 +108,9 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     }
     val lastPlayedSong = remember(songs) {
         songs.filter { it.lastPlayedTimestamp > 0 }.maxByOrNull { it.lastPlayedTimestamp }
+    }
+    val recentlyPlayedSongs = remember(songs) {
+        songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }
     }
 
     // Sort songs inside lists dynamically
@@ -377,6 +381,24 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                     unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 )
             )
+
+            if (searchQuery.isBlank() && activeCategoryIndex == null) {
+                HorizontalSongRow(
+                    title = "Recently Played",
+                    songs = recentlyPlayedSongs,
+                    onSongClick = { viewModel.playSong(it, recentlyPlayedSongs) }
+                )
+                HorizontalSongRow(
+                    title = "Most Played",
+                    songs = mostPlayedSongs,
+                    onSongClick = { viewModel.playSong(it, mostPlayedSongs) }
+                )
+                HorizontalSongRow(
+                    title = "Recently Added",
+                    songs = recentlyAddedSongs,
+                    onSongClick = { viewModel.playSong(it, recentlyAddedSongs) }
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
         } else {
@@ -1486,6 +1508,72 @@ fun StatChip(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+fun HorizontalSongRow(
+    title: String,
+    songs: List<SongEntity>,
+    onSongClick: (SongEntity) -> Unit
+) {
+    if (songs.isEmpty()) return
+
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(songs.take(15)) { song ->
+                HorizontalSongCard(song = song, onClick = { onSongClick(song) })
+            }
+        }
+    }
+}
+
+@Composable
+fun HorizontalSongCard(
+    song: SongEntity,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(120.dp)
+            .clickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = song.albumArtUri,
+            contentDescription = "Cover art",
+            modifier = Modifier
+                .size(120.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentScale = ContentScale.Crop,
+            error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = song.customTitle ?: song.title,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = song.customArtist ?: song.artist,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
