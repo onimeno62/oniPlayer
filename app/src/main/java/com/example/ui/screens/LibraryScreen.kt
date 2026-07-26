@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -1251,6 +1252,10 @@ fun MainLibraryDashboard(
     onSelectCategory: (Int) -> Unit,
     onPlaySong: (SongEntity, List<SongEntity>) -> Unit
 ) {
+    var showAllCategories by rememberSaveable { mutableStateOf(false) }
+    // Indices into categoryList: All Songs (0), Favorites (5), Playlists (8), Folders (1)
+    val quickAccessCategoryIndices = remember { listOf(0, 5, 8, 1) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 96.dp)
@@ -1380,34 +1385,27 @@ fun MainLibraryDashboard(
             }
         }
 
-        // 6. Categories Section Header
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Categories",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                IconButton(onClick = onToggleLayoutMode) {
-                    Icon(
-                        imageVector = if (layoutMode == "grid") Icons.Default.ViewList else Icons.Default.GridView,
-                        contentDescription = "Toggle Layout",
-                        tint = MaterialTheme.colorScheme.primary
+        // 6. Categories / Quick Access Section
+        if (!showAllCategories) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Quick Access",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
             }
-        }
 
-        // 7. Category Cards (Grid or List)
-        if (layoutMode == "grid") {
-            categoryList.chunked(2).forEach { rowPair ->
+            // Quick Access Cards (2x2 Grid)
+            quickAccessCategoryIndices.chunked(2).forEach { rowIndices ->
                 item {
                     Row(
                         modifier = Modifier
@@ -1415,24 +1413,28 @@ fun MainLibraryDashboard(
                             .padding(horizontal = 16.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        val cat1 = rowPair[0]
-                        val index1 = categoryList.indexOf(cat1)
-                        Box(modifier = Modifier.weight(1f)) {
-                            CategoryCard(
-                                category = cat1,
-                                isGrid = true,
-                                onClick = { onSelectCategory(index1) }
-                            )
-                        }
-                        if (rowPair.size > 1) {
-                            val cat2 = rowPair[1]
-                            val index2 = categoryList.indexOf(cat2)
+                        val idx1 = rowIndices[0]
+                        val cat1 = categoryList.getOrNull(idx1)
+                        if (cat1 != null) {
                             Box(modifier = Modifier.weight(1f)) {
                                 CategoryCard(
-                                    category = cat2,
+                                    category = cat1,
                                     isGrid = true,
-                                    onClick = { onSelectCategory(index2) }
+                                    onClick = { onSelectCategory(idx1) }
                                 )
+                            }
+                        }
+                        if (rowIndices.size > 1) {
+                            val idx2 = rowIndices[1]
+                            val cat2 = categoryList.getOrNull(idx2)
+                            if (cat2 != null) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    CategoryCard(
+                                        category = cat2,
+                                        isGrid = true,
+                                        onClick = { onSelectCategory(idx2) }
+                                    )
+                                }
                             }
                         } else {
                             Spacer(modifier = Modifier.weight(1f))
@@ -1440,15 +1442,114 @@ fun MainLibraryDashboard(
                     }
                 }
             }
+
+            // See all categories button
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                        .clickable { showAllCategories = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "See all categories",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         } else {
-            categoryList.forEachIndexed { index, category ->
-                item {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        CategoryCard(
-                            category = category,
-                            isGrid = false,
-                            onClick = { onSelectCategory(index) }
-                        )
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "All Categories",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = { showAllCategories = false },
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Icon(Icons.Default.ExpandLess, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Show less")
+                        }
+                        IconButton(onClick = onToggleLayoutMode) {
+                            Icon(
+                                imageVector = if (layoutMode == "grid") Icons.Default.ViewList else Icons.Default.GridView,
+                                contentDescription = "Toggle Layout",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // All Category Cards (Grid or List)
+            if (layoutMode == "grid") {
+                categoryList.chunked(2).forEach { rowPair ->
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            val cat1 = rowPair[0]
+                            val index1 = categoryList.indexOf(cat1)
+                            Box(modifier = Modifier.weight(1f)) {
+                                CategoryCard(
+                                    category = cat1,
+                                    isGrid = true,
+                                    onClick = { onSelectCategory(index1) }
+                                )
+                            }
+                            if (rowPair.size > 1) {
+                                val cat2 = rowPair[1]
+                                val index2 = categoryList.indexOf(cat2)
+                                Box(modifier = Modifier.weight(1f)) {
+                                    CategoryCard(
+                                        category = cat2,
+                                        isGrid = true,
+                                        onClick = { onSelectCategory(index2) }
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            } else {
+                categoryList.forEachIndexed { index, category ->
+                    item {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            CategoryCard(
+                                category = category,
+                                isGrid = false,
+                                onClick = { onSelectCategory(index) }
+                            )
+                        }
                     }
                 }
             }
