@@ -75,6 +75,12 @@ class MusicRepository(
                 MediaStore.Audio.Media.DATA
             )
 
+            // Pull existing Room rows up-front so we know which songs already have their
+            // extended tags backfilled, and can skip re-reading the file for those on repeat scans.
+            val existingSongsList = songDao.getAllSongs().first()
+            val existingSongsMap = existingSongsList.associateBy { it.id }
+            val existingSongsByPath = existingSongsList.associateBy { it.filePath }
+
             val cursor: Cursor? = contentResolver.query(uri, projection, selection, null, null)
             if (cursor != null) {
                 while (cursor.moveToNext()) {
@@ -114,13 +120,65 @@ class MusicRepository(
                     // Construct default album art Uri
                     val artworkUri = Uri.parse("content://media/external/audio/media/$id/albumart").toString()
 
+                    // Extended tags (genre, album artist, composer, disc/track number, year, comment)
+                    // aren't in the MediaStore projection above, so read them from the file directly.
+                    // Skip the read if this song was already backfilled in a previous scan, so repeat
+                    // scans of a large library stay fast.
+                    val existingForMeta = existingSongsMap[id] ?: existingSongsByPath[filePath]
+                    val alreadyBackfilled = existingForMeta != null && (
+                        existingForMeta.genre != "Local Audio" ||
+                        existingForMeta.albumArtist.isNotEmpty() ||
+                        existingForMeta.composer.isNotEmpty() ||
+                        existingForMeta.disc.isNotEmpty() ||
+                        existingForMeta.track.isNotEmpty() ||
+                        existingForMeta.year.isNotEmpty() ||
+                        existingForMeta.comment.isNotEmpty()
+                    )
+
+                    var extGenre = "Local Audio"
+                    var extAlbumArtist = ""
+                    var extComposer = ""
+                    var extDisc = ""
+                    var extTrack = ""
+                    var extYear = ""
+                    var extComment = ""
+
+                    if (alreadyBackfilled && existingForMeta != null) {
+                        extGenre = existingForMeta.genre
+                        extAlbumArtist = existingForMeta.albumArtist
+                        extComposer = existingForMeta.composer
+                        extDisc = existingForMeta.disc
+                        extTrack = existingForMeta.track
+                        extYear = existingForMeta.year
+                        extComment = existingForMeta.comment
+                    } else if (filePath != null) {
+                        try {
+                            val fileMeta = com.example.data.api.GeminiMusicService.readActualFileMetadata(filePath)
+                            extGenre = fileMeta.genre?.takeIf { it.isNotBlank() } ?: "Unknown Genre"
+                            extAlbumArtist = fileMeta.albumArtist ?: ""
+                            extComposer = fileMeta.composer ?: ""
+                            extDisc = fileMeta.disc ?: ""
+                            extTrack = fileMeta.track ?: ""
+                            extYear = fileMeta.year ?: ""
+                            extComment = fileMeta.comment ?: ""
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to read extended tags for $filePath: ${e.message}")
+                        }
+                    }
+
                     localSongs.add(
                         SongEntity(
                             id = id,
                             title = title,
                             artist = if (artist == "<unknown>") "Unknown Artist" else artist,
                             album = if (album == "<unknown>") "Unknown Album" else album,
-                            genre = "Local Audio",
+                            genre = extGenre,
+                            albumArtist = extAlbumArtist,
+                            composer = extComposer,
+                            disc = extDisc,
+                            track = extTrack,
+                            year = extYear,
+                            comment = extComment,
                             duration = duration,
                             filePath = filePath,
                             albumArtUri = artworkUri
@@ -129,11 +187,6 @@ class MusicRepository(
                 }
                 cursor.close()
             }
-
-            // Get existing songs in Room to preserve custom lyrics or custom overrides
-            val existingSongsList = songDao.getAllSongs().first()
-            val existingSongsMap = existingSongsList.associateBy { it.id }
-            val existingSongsByPath = existingSongsList.associateBy { it.filePath }
 
             // If local storage is empty (very common in emulator/container), pre-populate with premium online preview tracks
             if (localSongs.isEmpty()) {

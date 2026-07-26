@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -99,7 +100,10 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         songs.filter { it.playCount > 0 }.sortedByDescending { it.playCount }
     }
     val recentlyAddedSongs = remember(songs) {
-        songs.sortedByDescending { it.id }
+        songs.sortedByDescending { it.dateAdded }
+    }
+    val lastPlayedSong = remember(songs) {
+        songs.filter { it.lastPlayedTimestamp > 0 }.maxByOrNull { it.lastPlayedTimestamp }
     }
 
     // Sort songs inside lists dynamically
@@ -283,7 +287,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 }
             }
         } else if (activeCategoryIndex == null) {
-            // Main Poweramp Library Hub Header
+            // Dashboard greeting header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -293,14 +297,14 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             ) {
                 Column {
                     Text(
-                        text = "ONIPLAYER LIBRARY",
+                        text = greetingForTime(),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = "Categories",
+                        text = "Your Library",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -333,6 +337,15 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         }
                     }
                 }
+            }
+
+            // Continue Listening hero card — only shown once a song has actually been played
+            if (lastPlayedSong != null) {
+                ContinueListeningHero(
+                    song = lastPlayedSong,
+                    onPlayClick = { viewModel.playSong(lastPlayedSong, songs) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Global Library Search input bar
@@ -1287,6 +1300,118 @@ fun formatDuration(ms: Long): String {
         String.format("%d:%02d:%02d", hr, min, sec)
     } else {
         String.format("%d:%02d", min, sec)
+    }
+}
+
+fun greetingForTime(): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when {
+        hour < 5 -> "LATE NIGHT TUNES"
+        hour < 12 -> "GOOD MORNING"
+        hour < 17 -> "GOOD AFTERNOON"
+        hour < 21 -> "GOOD EVENING"
+        else -> "GOOD NIGHT"
+    }
+}
+
+@Composable
+fun ContinueListeningHero(
+    song: SongEntity,
+    onPlayClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(180.dp)
+            .clip(RoundedCornerShape(28.dp))
+    ) {
+        // Full-bleed blurred album art background
+        AsyncImage(
+            model = song.albumArtUri,
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .blur(30.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+            contentScale = ContentScale.Crop
+        )
+
+        // Gradient scrim so text stays readable regardless of the artwork
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.20f),
+                            Color.Black.copy(alpha = 0.75f)
+                        )
+                    )
+                )
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            AsyncImage(
+                model = song.albumArtUri,
+                contentDescription = "Cover art",
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.15f)),
+                contentScale = ContentScale.Crop,
+                error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
+            )
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "CONTINUE LISTENING",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.75f),
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = song.customTitle ?: song.title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.customArtist ?: song.artist,
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            IconButton(
+                onClick = onPlayClick,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.White, CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.Black,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
     }
 }
 
