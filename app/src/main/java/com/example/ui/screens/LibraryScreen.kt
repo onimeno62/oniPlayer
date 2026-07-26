@@ -6,8 +6,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -347,6 +350,15 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
+
+            // Quick stats strip
+            LibraryStatsStrip(
+                songCount = songs.size,
+                artistCount = uniqueArtists.size,
+                albumCount = uniqueAlbums.size,
+                favoriteCount = favorites.size
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Global Library Search input bar
             OutlinedTextField(
@@ -1411,6 +1423,68 @@ fun ContinueListeningHero(
                     modifier = Modifier.size(28.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun LibraryStatsStrip(
+    songCount: Int,
+    artistCount: Int,
+    albumCount: Int,
+    favoriteCount: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        StatChip(icon = Icons.Default.MusicNote, value = songCount.toString(), label = "Songs", tint = Color(0xFF9C27B0))
+        StatChip(icon = Icons.Default.Person, value = artistCount.toString(), label = "Artists", tint = Color(0xFF009688))
+        StatChip(icon = Icons.Default.Album, value = albumCount.toString(), label = "Albums", tint = Color(0xFFE91E63))
+        StatChip(icon = Icons.Filled.Favorite, value = favoriteCount.toString(), label = "Favorites", tint = Color(0xFFF44336))
+    }
+}
+
+@Composable
+fun StatChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: String,
+    label: String,
+    tint: Color
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)), RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(tint.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = value,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
