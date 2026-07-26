@@ -102,8 +102,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         songs.groupBy { it.genre.ifEmpty { "General" } }
     }
     val mostPlayedSongs = remember(songs) {
-        val played = songs.filter { it.playCount > 0 }.sortedByDescending { it.playCount }
-        if (played.isNotEmpty()) played else songs.sortedByDescending { it.playCount }
+        songs.filter { it.playCount > 0 }.sortedByDescending { it.playCount }
     }
     val recentlyAddedSongs = remember(songs) {
         songs.sortedByDescending { it.dateAdded }
