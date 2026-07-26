@@ -101,7 +101,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         songs.groupBy { it.genre.ifEmpty { "General" } }
     }
     val mostPlayedSongs = remember(songs) {
-        songs.filter { it.playCount > 0 }.sortedByDescending { it.playCount }
+        val played = songs.filter { it.playCount > 0 }.sortedByDescending { it.playCount }
+        if (played.isNotEmpty()) played else songs.sortedByDescending { it.playCount }
     }
     val recentlyAddedSongs = remember(songs) {
         songs.sortedByDescending { it.dateAdded }
@@ -256,299 +257,179 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         )
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent)
-    ) {
-        // --- 1. Top Header & Search Panel ---
-        if (searchQuery.isNotBlank()) {
-            // Instant Search Result Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { viewModel.updateSearchQuery("") },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
-                ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Clear Search")
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = "SEARCH RESULTS",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "Found ${sortedSongs.size} tracks",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-            }
-        } else if (activeCategoryIndex == null) {
-            // Dashboard greeting header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = greetingForTime(),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "Your Library",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Poweramp Options Menu Button
-                    IconButton(
-                        onClick = { showOptionsMenu = true },
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Tune, contentDescription = "Library Options", tint = MaterialTheme.colorScheme.primary)
-                    }
-
-                    // Rescan Library Shortcut
-                    IconButton(
-                        onClick = {
-                            viewModel.rescanLibrary()
-                            Toast.makeText(context, "Scanning local storage...", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        if (isScanning) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Scan Library", tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-            }
-
-            // Continue Listening hero card — only shown once a song has actually been played
-            if (lastPlayedSong != null) {
-                ContinueListeningHero(
-                    song = lastPlayedSong,
-                    onPlayClick = { viewModel.playSong(lastPlayedSong, songs) }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Quick stats strip
-            LibraryStatsStrip(
-                songCount = songs.size,
-                artistCount = uniqueArtists.size,
-                albumCount = uniqueAlbums.size,
-                favoriteCount = favorites.size
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Global Library Search input bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateSearchQuery(it) },
-                placeholder = { Text("Search title, artist, album...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .testTag("search_input"),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                )
-            )
-
-            if (searchQuery.isBlank() && activeCategoryIndex == null) {
-                HorizontalSongRow(
-                    title = "Recently Played",
-                    songs = recentlyPlayedSongs,
-                    onSongClick = { viewModel.playSong(it, recentlyPlayedSongs) }
-                )
-                HorizontalSongRow(
-                    title = "Most Played",
-                    songs = mostPlayedSongs,
-                    onSongClick = { viewModel.playSong(it, mostPlayedSongs) }
-                )
-                HorizontalSongRow(
-                    title = "Recently Added",
-                    songs = recentlyAddedSongs,
-                    onSongClick = { viewModel.playSong(it, recentlyAddedSongs) }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-        } else {
-            // Sub-category Header with Back Navigation
-            val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
-            val displayCategoryTitle = categoryList[activeCategoryIndex!!].title
-            val displaySubTitle = when {
-                selectedGroup != null -> selectedGroup!!
-                activePlaylist != null -> activePlaylist!!.name
-                activeSmartPlaylistType != null -> activeSmartPlaylistType!!
-                else -> ""
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        if (selectedGroup != null) {
-                            viewModel.setSelectedGroup(null)
-                        } else if (activePlaylist != null) {
-                            viewModel.setActivePlaylist(null)
-                        } else if (activeSmartPlaylistType != null) {
-                            viewModel.setActiveSmartPlaylistType(null)
-                        } else {
-                            viewModel.setActiveCategoryIndex(null)
-                        }
-                    },
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
-                ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isSubHierarchical) displayCategoryTitle.uppercase() else "LIBRARY CATEGORY",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = if (isSubHierarchical) displaySubTitle else displayCategoryTitle,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Filter icon inside deep library to show settings
-                IconButton(
-                    onClick = { showOptionsMenu = true },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), CircleShape)
-                ) {
-                    Icon(Icons.Default.Tune, contentDescription = "Sort Settings", tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-
-            // Local Search inside active category
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateSearchQuery(it) },
-                placeholder = { Text("Filter current list...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        // --- 2. Screen Body Content ---
-        Box(
+    if (activeCategoryIndex == null && searchQuery.isBlank()) {
+        MainLibraryDashboard(
+            songs = songs,
+            lastPlayedSong = lastPlayedSong,
+            recentlyPlayedSongs = recentlyPlayedSongs,
+            mostPlayedSongs = mostPlayedSongs,
+            recentlyAddedSongs = recentlyAddedSongs,
+            uniqueArtistsCount = uniqueArtists.size,
+            uniqueAlbumsCount = uniqueAlbums.size,
+            favoritesCount = favorites.size,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
+            isScanning = isScanning,
+            showOptionsMenu = { showOptionsMenu = true },
+            onRescan = {
+                viewModel.rescanLibrary()
+                Toast.makeText(context, "Scanning local storage...", Toast.LENGTH_SHORT).show()
+            },
+            layoutMode = layoutMode,
+            onToggleLayoutMode = {
+                layoutMode = if (layoutMode == "grid") "list" else "grid"
+            },
+            categoryList = categoryList,
+            onSelectCategory = { viewModel.setActiveCategoryIndex(it) },
+            onPlaySong = { song, songList -> viewModel.playSong(song, songList) }
+        )
+    } else {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
+                .fillMaxSize()
+                .background(Color.Transparent)
         ) {
+            // --- 1. Top Header & Search Panel ---
             if (searchQuery.isNotBlank()) {
-                // If searching, directly display matching songs
-                SongsListView(
-                    songs = sortedSongs,
-                    viewModel = viewModel,
-                    sortBy = sortBy,
-                    isSortAscending = isSortAscending,
-                    onShowTrackMenu = { songForMenu = it }
-                )
-            } else if (activeCategoryIndex == null) {
-                // RENDER MAIN CATEGORIES OVERVIEW (Grid / List)
-                if (layoutMode == "grid") {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                // Instant Search Result Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { viewModel.updateSearchQuery("") },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
                     ) {
-                        categoryList.forEachIndexed { index, category ->
-                            item {
-                                CategoryCard(
-                                    category = category,
-                                    isGrid = true,
-                                    onClick = {
-                                        viewModel.setActiveCategoryIndex(index)
-                                    }
-                                )
-                            }
-                        }
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Clear Search")
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 96.dp)
-                    ) {
-                        categoryList.forEachIndexed { index, category ->
-                            item {
-                                CategoryCard(
-                                    category = category,
-                                    isGrid = false,
-                                    onClick = {
-                                        viewModel.setActiveCategoryIndex(index)
-                                    }
-                                )
-                            }
-                        }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "SEARCH RESULTS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Found ${sortedSongs.size} tracks",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
                     }
                 }
             } else {
-                // RENDER DETAILED CATEGORY VIEW
-                when (activeCategoryIndex) {
+                // Sub-category Header with Back Navigation
+                val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
+                val displayCategoryTitle = categoryList[activeCategoryIndex!!].title
+                val displaySubTitle = when {
+                    selectedGroup != null -> selectedGroup!!
+                    activePlaylist != null -> activePlaylist!!.name
+                    activeSmartPlaylistType != null -> activeSmartPlaylistType!!
+                    else -> ""
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (selectedGroup != null) {
+                                viewModel.setSelectedGroup(null)
+                            } else if (activePlaylist != null) {
+                                viewModel.setActivePlaylist(null)
+                            } else if (activeSmartPlaylistType != null) {
+                                viewModel.setActiveSmartPlaylistType(null)
+                            } else {
+                                viewModel.setActiveCategoryIndex(null)
+                            }
+                        },
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isSubHierarchical) displayCategoryTitle.uppercase() else "LIBRARY CATEGORY",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = if (isSubHierarchical) displaySubTitle else displayCategoryTitle,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // Filter icon inside deep library to show settings
+                    IconButton(
+                        onClick = { showOptionsMenu = true },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Tune, contentDescription = "Sort Settings", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                // Local Search inside active category
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.updateSearchQuery(it) },
+                    placeholder = { Text("Filter current list...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // --- 2. Screen Body Content ---
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                if (searchQuery.isNotBlank()) {
+                    // If searching, directly display matching songs
+                    SongsListView(
+                        songs = sortedSongs,
+                        viewModel = viewModel,
+                        sortBy = sortBy,
+                        isSortAscending = isSortAscending,
+                        onShowTrackMenu = { songForMenu = it }
+                    )
+                } else {
+                    // RENDER DETAILED CATEGORY VIEW
+                    when (activeCategoryIndex) {
                     0 -> { // All Songs
                         SongsListView(
                             songs = sortedSongs,
@@ -680,6 +561,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             }
         }
     }
+}
 
     // Poweramp Style Options Menu Dialog
     if (showOptionsMenu) {
@@ -1345,6 +1227,232 @@ fun greetingForTime(): String {
         hour < 17 -> "GOOD AFTERNOON"
         hour < 21 -> "GOOD EVENING"
         else -> "GOOD NIGHT"
+    }
+}
+
+@Composable
+fun MainLibraryDashboard(
+    songs: List<SongEntity>,
+    lastPlayedSong: SongEntity?,
+    recentlyPlayedSongs: List<SongEntity>,
+    mostPlayedSongs: List<SongEntity>,
+    recentlyAddedSongs: List<SongEntity>,
+    uniqueArtistsCount: Int,
+    uniqueAlbumsCount: Int,
+    favoritesCount: Int,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    isScanning: Boolean,
+    showOptionsMenu: () -> Unit,
+    onRescan: () -> Unit,
+    layoutMode: String,
+    onToggleLayoutMode: () -> Unit,
+    categoryList: List<CategoryInfo>,
+    onSelectCategory: (Int) -> Unit,
+    onPlaySong: (SongEntity, List<SongEntity>) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 96.dp)
+    ) {
+        // 1. Dashboard greeting header
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = greetingForTime(),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "Your Library",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Poweramp Options Menu Button
+                    IconButton(
+                        onClick = showOptionsMenu,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Tune, contentDescription = "Library Options", tint = MaterialTheme.colorScheme.primary)
+                    }
+
+                    // Rescan Library Shortcut
+                    IconButton(
+                        onClick = onRescan,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+                    ) {
+                        if (isScanning) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Scan Library", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Continue Listening hero card — only shown once a song has actually been played
+        if (lastPlayedSong != null) {
+            item {
+                ContinueListeningHero(
+                    song = lastPlayedSong,
+                    onPlayClick = { onPlaySong(lastPlayedSong, songs) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        // 3. Quick stats strip
+        item {
+            LibraryStatsStrip(
+                songCount = songs.size,
+                artistCount = uniqueArtistsCount,
+                albumCount = uniqueAlbumsCount,
+                favoriteCount = favoritesCount
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // 4. Global Library Search input bar
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = { Text("Search title, artist, album...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .testTag("search_input"),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // 5. Horizontal song rows
+        if (recentlyPlayedSongs.isNotEmpty()) {
+            item {
+                HorizontalSongRow(
+                    title = "Recently Played",
+                    songs = recentlyPlayedSongs,
+                    onSongClick = { onPlaySong(it, recentlyPlayedSongs) }
+                )
+            }
+        }
+
+        if (mostPlayedSongs.isNotEmpty()) {
+            item {
+                HorizontalSongRow(
+                    title = "Most Played",
+                    songs = mostPlayedSongs,
+                    onSongClick = { onPlaySong(it, mostPlayedSongs) }
+                )
+            }
+        }
+
+        if (recentlyAddedSongs.isNotEmpty()) {
+            item {
+                HorizontalSongRow(
+                    title = "Recently Added",
+                    songs = recentlyAddedSongs,
+                    onSongClick = { onPlaySong(it, recentlyAddedSongs) }
+                )
+            }
+        }
+
+        // 6. Categories Section Header
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Categories",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                IconButton(onClick = onToggleLayoutMode) {
+                    Icon(
+                        imageVector = if (layoutMode == "grid") Icons.Default.ViewList else Icons.Default.GridView,
+                        contentDescription = "Toggle Layout",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+
+        // 7. Category Cards (Grid or List)
+        if (layoutMode == "grid") {
+            categoryList.chunked(2).forEach { rowPair ->
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val cat1 = rowPair[0]
+                        val index1 = categoryList.indexOf(cat1)
+                        Box(modifier = Modifier.weight(1f)) {
+                            CategoryCard(
+                                category = cat1,
+                                isGrid = true,
+                                onClick = { onSelectCategory(index1) }
+                            )
+                        }
+                        if (rowPair.size > 1) {
+                            val cat2 = rowPair[1]
+                            val index2 = categoryList.indexOf(cat2)
+                            Box(modifier = Modifier.weight(1f)) {
+                                CategoryCard(
+                                    category = cat2,
+                                    isGrid = true,
+                                    onClick = { onSelectCategory(index2) }
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        } else {
+            categoryList.forEachIndexed { index, category ->
+                item {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        CategoryCard(
+                            category = category,
+                            isGrid = false,
+                            onClick = { onSelectCategory(index) }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
