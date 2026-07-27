@@ -12,6 +12,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.example.ui.theme.LocalCornerRadius
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -39,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -642,7 +644,7 @@ fun CategoryCard(
                 .fillMaxWidth()
                 .height(130.dp)
                 .clickable { onClick() },
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(dashboardRadiusLarge()),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
             ),
@@ -700,7 +702,7 @@ fun CategoryCard(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(dashboardRadiusSmall()))
                     .background(category.iconBgColor),
                 contentAlignment = Alignment.Center
             ) {
@@ -1208,6 +1210,18 @@ fun borderStrokeDefault(): BorderStroke {
     )
 }
 
+// Shared, theme-driven corner radius tiers for the dashboard. All three scale together
+// whenever the user's corner-radius setting (LocalCornerRadius) changes, instead of each
+// card picking its own hardcoded value.
+@Composable
+fun dashboardRadiusLarge(): Dp = (LocalCornerRadius.current * 1.5f).dp
+
+@Composable
+fun dashboardRadiusMedium(): Dp = LocalCornerRadius.current.dp
+
+@Composable
+fun dashboardRadiusSmall(): Dp = (LocalCornerRadius.current * 0.75f).dp
+
 fun formatDuration(ms: Long): String {
     val sec = (ms / 1000) % 60
     val min = (ms / (1000 * 60)) % 60
@@ -1566,7 +1580,7 @@ fun ContinueListeningHero(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .height(180.dp)
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(dashboardRadiusLarge()))
     ) {
         // Full-bleed blurred album art background
         AsyncImage(
@@ -1604,7 +1618,7 @@ fun ContinueListeningHero(
                 contentDescription = "Cover art",
                 modifier = Modifier
                     .size(64.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(dashboardRadiusSmall()))
                     .background(Color.White.copy(alpha = 0.15f)),
                 contentScale = ContentScale.Crop,
                 error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
@@ -1685,11 +1699,12 @@ fun StatChip(
     label: String,
     tint: Color
 ) {
+    val chipShape = RoundedCornerShape(dashboardRadiusSmall())
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(chipShape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)), RoundedCornerShape(18.dp))
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)), chipShape)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1761,7 +1776,7 @@ fun HorizontalSongCard(
             contentDescription = "Cover art",
             modifier = Modifier
                 .size(120.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(dashboardRadiusMedium()))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
             contentScale = ContentScale.Crop,
             error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
