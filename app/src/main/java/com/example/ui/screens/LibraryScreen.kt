@@ -12,6 +12,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.LocalAccentGlowColor
 import com.example.ui.theme.LocalCornerRadius
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -1593,7 +1595,24 @@ fun ContinueListeningHero(
             contentScale = ContentScale.Crop
         )
 
-        // Gradient scrim so text stays readable regardless of the artwork
+        // Subtle diagonal wash using the app's dynamic accent palette (theme- or
+        // currently-playing-song-driven), so the hero ties into the same color
+        // language as the rest of the app instead of sitting on flat black.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            LocalAccentColor.current.copy(alpha = 0.30f),
+                            LocalAccentGlowColor.current.copy(alpha = 0.15f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // Gradient scrim so text stays readable regardless of the artwork or accent wash above
         Box(
             modifier = Modifier
                 .fillMaxSize()
