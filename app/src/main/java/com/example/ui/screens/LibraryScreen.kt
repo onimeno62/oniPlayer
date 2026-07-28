@@ -63,6 +63,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val playlists by viewModel.allPlaylists.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
+    val currentSong by viewModel.audioEngine.currentSong.collectAsState()
+    val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
 
     val context = LocalContext.current
 
@@ -268,9 +270,12 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         )
     )
 
-    if (activeCategoryIndex == null && searchQuery.isBlank()) {
+    if (activeCategoryIndex == null) {
         MainLibraryDashboard(
             songs = songs,
+            sortedSongs = sortedSongs,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
             lastPlayedSong = lastPlayedSong,
             recentlyPlayedSongs = recentlyPlayedSongs,
             mostPlayedSongs = mostPlayedSongs,
@@ -293,7 +298,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             categoryList = categoryList,
             onSelectCategory = { viewModel.setActiveCategoryIndex(it) },
             onPlaySong = { song, songList -> viewModel.playSong(song, songList) },
-            searchFocusRequester = searchFocusRequester
+            onShowTrackMenu = { songForMenu = it }
         )
     } else {
         Column(
@@ -301,66 +306,15 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 .fillMaxSize()
                 .background(Color.Transparent)
         ) {
-            // --- 1. Top Header & Search Panel ---
-            if (searchQuery.isNotBlank()) {
-                // Instant Search Results — a real editable field, so typing can continue
-                // seamlessly after the dashboard's field is swapped out for this one.
-                val keyboardController = LocalSoftwareKeyboardController.current
-                LaunchedEffect(Unit) {
-                    searchFocusRequester.requestFocus()
-                    keyboardController?.show()
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { viewModel.updateSearchQuery("") },
-                        modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Clear Search")
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.updateSearchQuery(it) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(searchFocusRequester)
-                            .testTag("search_input"),
-                        placeholder = { Text("Search title, artist, album...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                        trailingIcon = {
-                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                        )
-                    )
-                }
-                Text(
-                    text = "Found ${sortedSongs.size} tracks",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-                )
-            } else {
-                // Sub-category Header with Back Navigation
-                val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
-                val displayCategoryTitle = categoryList[activeCategoryIndex!!].title
-                val displaySubTitle = when {
-                    selectedGroup != null -> selectedGroup!!
-                    activePlaylist != null -> activePlaylist!!.name
-                    activeSmartPlaylistType != null -> activeSmartPlaylistType!!
-                    else -> ""
-                }
+            // Sub-category Header with Back Navigation
+            val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
+            val displayCategoryTitle = categoryList[activeCategoryIndex!!].title
+            val displaySubTitle = when {
+                selectedGroup != null -> selectedGroup!!
+                activePlaylist != null -> activePlaylist!!.name
+                activeSmartPlaylistType != null -> activeSmartPlaylistType!!
+                else -> ""
+            }
 
                 Row(
                     modifier = Modifier
@@ -440,7 +394,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
-            }
 
             // --- 2. Screen Body Content ---
             Box(
@@ -770,6 +723,114 @@ fun CategoryCard(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+fun SongItemRow(
+    song: SongEntity,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    onShowTrackMenu: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else Color.Transparent
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onShowTrackMenu
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = song.albumArtUri,
+            contentDescription = "Cover art",
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentScale = ContentScale.Crop,
+            error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.customTitle ?: song.title,
+                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = (song.customArtist ?: song.artist) + " • " + (song.customAlbum ?: song.album),
+                fontSize = 13.sp,
+                color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        if (isCurrent) {
+            if (isPlaying) {
+                PlayingEqualizerWave(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.VolumeDown,
+                    contentDescription = "Playing",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = 8.dp).size(20.dp)
+                )
+            }
+        }
+
+        if (song.playCount > 0) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "🔥 ${song.playCount}",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        Text(
+            text = formatDuration(song.duration),
+            fontSize = 12.sp,
+            color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(onClick = onShowTrackMenu) {
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = "More",
+                tint = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 fun SongsListView(
     songs: List<SongEntity>,
     viewModel: MusicPlayerViewModel,
@@ -815,105 +876,13 @@ fun SongsListView(
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 96.dp)
         ) {
             items(songs) { song ->
-                val isCurrent = song.id == currentSong?.id
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            else Color.Transparent
-                        )
-                        .combinedClickable(
-                            onClick = { viewModel.playSong(song, songs) },
-                            onLongClick = { onShowTrackMenu(song) }
-                        )
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AsyncImage(
-                        model = song.albumArtUri,
-                        contentDescription = "Cover art",
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                        contentScale = ContentScale.Crop,
-                        error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
-                    )
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = song.customTitle ?: song.title,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
-                            fontSize = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = (song.customArtist ?: song.artist) + " • " + (song.customAlbum ?: song.album),
-                            fontSize = 13.sp,
-                            color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    if (isCurrent) {
-                        if (isPlaying) {
-                            PlayingEqualizerWave(
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.VolumeDown,
-                                contentDescription = "Playing",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 8.dp).size(20.dp)
-                            )
-                        }
-                    }
-
-                    // Poweramp style playCount badge if playCount > 0
-                    if (song.playCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "🔥 ${song.playCount}",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = formatDuration(song.duration),
-                        fontSize = 12.sp,
-                        color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    IconButton(onClick = { onShowTrackMenu(song) }) {
-                        Icon(
-                            Icons.Default.MoreVert, 
-                            contentDescription = "More",
-                            tint = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                SongItemRow(
+                    song = song,
+                    isCurrent = song.id == currentSong?.id,
+                    isPlaying = isPlaying,
+                    onClick = { viewModel.playSong(song, songs) },
+                    onShowTrackMenu = { onShowTrackMenu(song) }
+                )
             }
         }
     }
@@ -1275,6 +1244,9 @@ fun greetingForTime(): String {
 @Composable
 fun MainLibraryDashboard(
     songs: List<SongEntity>,
+    sortedSongs: List<SongEntity>,
+    currentSong: SongEntity?,
+    isPlaying: Boolean,
     lastPlayedSong: SongEntity?,
     recentlyPlayedSongs: List<SongEntity>,
     mostPlayedSongs: List<SongEntity>,
@@ -1292,7 +1264,7 @@ fun MainLibraryDashboard(
     categoryList: List<CategoryInfo>,
     onSelectCategory: (Int) -> Unit,
     onPlaySong: (SongEntity, List<SongEntity>) -> Unit,
-    searchFocusRequester: FocusRequester
+    onShowTrackMenu: (SongEntity) -> Unit
 ) {
     var showAllCategories by rememberSaveable { mutableStateOf(false) }
     // Indices into categoryList: All Songs (0), Favorites (5), Playlists (8), Folders (1)
@@ -1353,29 +1325,7 @@ fun MainLibraryDashboard(
             }
         }
 
-        // 2. Continue Listening hero card — only shown once a song has actually been played
-        if (lastPlayedSong != null) {
-            item {
-                ContinueListeningHero(
-                    song = lastPlayedSong,
-                    onPlayClick = { onPlaySong(lastPlayedSong, songs) }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
-
-        // 3. Quick stats strip
-        item {
-            LibraryStatsStrip(
-                songCount = songs.size,
-                artistCount = uniqueArtistsCount,
-                albumCount = uniqueAlbumsCount,
-                favoriteCount = favoritesCount
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // 4. Global Library Search input bar
+        // 2. Global Library Search input bar
         item {
             OutlinedTextField(
                 value = searchQuery,
@@ -1384,9 +1334,15 @@ fun MainLibraryDashboard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .focusRequester(searchFocusRequester)
                     .testTag("search_input"),
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        }
+                    }
+                },
                 singleLine = true,
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -1396,6 +1352,68 @@ fun MainLibraryDashboard(
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
+
+        if (searchQuery.isNotBlank()) {
+            item {
+                Text(
+                    text = "Found ${sortedSongs.size} tracks",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                )
+            }
+
+            if (sortedSongs.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No tracks found matching \"$searchQuery\"",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                items(sortedSongs, key = { it.id }) { song ->
+                    Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        SongItemRow(
+                            song = song,
+                            isCurrent = song.id == currentSong?.id,
+                            isPlaying = isPlaying,
+                            onClick = { onPlaySong(song, sortedSongs) },
+                            onShowTrackMenu = { onShowTrackMenu(song) }
+                        )
+                    }
+                }
+            }
+        } else {
+            // 3. Continue Listening hero card — only shown once a song has actually been played
+            if (lastPlayedSong != null) {
+                item {
+                    ContinueListeningHero(
+                        song = lastPlayedSong,
+                        onPlayClick = { onPlaySong(lastPlayedSong, songs) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+            // 4. Quick stats strip
+            item {
+                LibraryStatsStrip(
+                    songCount = songs.size,
+                    artistCount = uniqueArtistsCount,
+                    albumCount = uniqueAlbumsCount,
+                    favoriteCount = favoritesCount
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
         // 5. Horizontal song rows
         if (recentlyPlayedSongs.isNotEmpty()) {
@@ -1601,6 +1619,7 @@ fun MainLibraryDashboard(
             }
         }
     }
+}
 }
 
 @Composable
