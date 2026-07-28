@@ -12,9 +12,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.example.ui.theme.LocalAccentColor
 import com.example.ui.theme.LocalAccentGlowColor
 import com.example.ui.theme.LocalCornerRadius
@@ -67,10 +64,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
 
     val context = LocalContext.current
-
-    // Shared between the dashboard's search field and the search-results header's field,
-    // so focus (and the keyboard) carries over automatically when the UI swaps between them.
-    val searchFocusRequester = remember { FocusRequester() }
 
     // Poweramp Style Screen states backed by ViewModel
     val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsState()
@@ -1012,7 +1005,8 @@ fun TagEditorDialog(
     AdvancedTagEditorDialog(song, viewModel, onDismiss)
 }
 
-// Poweramp Options Menu Layout Dialog
+// Library Settings — modern bottom sheet
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryOptionsMenu(
     layoutMode: String,
@@ -1026,174 +1020,264 @@ fun LibraryOptionsMenu(
     onShuffleAll: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = borderStrokeDefault(),
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val accent = LocalAccentColor.current
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 4.dp)
+                    .width(36.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+            )
+        }
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Column {
                     Text(
                         text = "Library Settings",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
+                        fontSize = 20.sp,
                         color = MaterialTheme.colorScheme.onBackground
                     )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "LAYOUT STYLE",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf("grid" to "Grid (2 Cols)", "list" to "List View").forEach { (mode, label) ->
-                        val isSelected = layoutMode == mode
-                        Button(
-                            onClick = { onLayoutChange(mode) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            contentPadding = PaddingValues(vertical = 10.dp)
-                        ) {
-                            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "SORT SONGS BY",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val options = listOf(
-                        "title" to "Song Title",
-                        "artist" to "Artist Name",
-                        "duration" to "Duration Length",
-                        "play_count" to "Times Played"
+                    Text(
+                        text = "Customize how your library looks and plays",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    options.forEach { (option, label) ->
-                        val isSelected = sortBy == option
-                        Row(
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // LAYOUT STYLE — segmented pill toggle
+            Text(
+                text = "LAYOUT STYLE",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(dashboardRadiusMedium()))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(
+                    Triple("grid", "Grid", Icons.Default.GridView),
+                    Triple("list", "List", Icons.Default.ViewList)
+                ).forEach { (mode, label, icon) ->
+                    val isSelected = layoutMode == mode
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(dashboardRadiusSmall()))
+                            .background(if (isSelected) accent else Color.Transparent)
+                            .clickable { onLayoutChange(mode) }
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            label,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // SORT SONGS BY
+            Text(
+                text = "SORT SONGS BY",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val options = listOf(
+                    Triple("title", "Song Title", Icons.Default.SortByAlpha),
+                    Triple("artist", "Artist Name", Icons.Default.Person),
+                    Triple("duration", "Duration Length", Icons.Default.Timer),
+                    Triple("play_count", "Times Played", Icons.Default.Whatshot)
+                )
+                options.forEach { (option, label, icon) ->
+                    val isSelected = sortBy == option
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(dashboardRadiusSmall()))
+                            .background(if (isSelected) accent.copy(alpha = 0.12f) else Color.Transparent)
+                            .clickable { onSortByChange(option) }
+                            .padding(vertical = 10.dp, horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { onSortByChange(option) }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) accent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = { onSortByChange(option) }
+                            Icon(
+                                icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isSelected) accent else MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            label,
+                            fontSize = 14.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (isSelected) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = accent
+                            )
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(dashboardRadiusSmall()))
+                    .clickable { onSortAscendingChange(!isSortAscending) }
+                    .padding(vertical = 10.dp, horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (isSortAscending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Ascending Order (A-Z)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
+                Switch(
+                    checked = isSortAscending,
+                    onCheckedChange = { onSortAscendingChange(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = accent
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // QUICK ACTIONS
+            Text(
+                text = "QUICK ACTIONS",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onSortAscendingChange(!isSortAscending) }
-                        .padding(vertical = 4.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .weight(1f)
+                        .clip(RoundedCornerShape(dashboardRadiusMedium()))
+                        .background(accent)
+                        .clickable(onClick = onPlayAll)
+                        .padding(vertical = 14.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Ascending Order (A-Z)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Switch(
-                        checked = isSortAscending,
-                        onCheckedChange = { onSortAscendingChange(it) }
-                    )
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Play All", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "QUICK ACTIONS",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(dashboardRadiusMedium()))
+                        .background(MaterialTheme.colorScheme.secondary)
+                        .clickable(onClick = onShuffleAll)
+                        .padding(vertical = 14.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(
-                        onClick = onPlayAll,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Play All", fontSize = 11.sp)
-                    }
-
-                    Button(
-                        onClick = onShuffleAll,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.onSecondary
-                        )
-                    ) {
-                        Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Shuffle", fontSize = 11.sp)
-                    }
+                    Icon(Icons.Default.Shuffle, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Shuffle", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondary)
                 }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-                OutlinedButton(
-                    onClick = onRescan,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Rescan Music Library")
-                }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(dashboardRadiusMedium()))
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)), RoundedCornerShape(dashboardRadiusMedium()))
+                    .clickable(onClick = onRescan)
+                    .padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Rescan Music Library", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
