@@ -12,6 +12,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.example.ui.theme.LocalAccentColor
 import com.example.ui.theme.LocalAccentGlowColor
 import com.example.ui.theme.LocalCornerRadius
@@ -62,6 +65,10 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val isScanning by viewModel.isScanning.collectAsState()
 
     val context = LocalContext.current
+
+    // Shared between the dashboard's search field and the search-results header's field,
+    // so focus (and the keyboard) carries over automatically when the UI swaps between them.
+    val searchFocusRequester = remember { FocusRequester() }
 
     // Poweramp Style Screen states backed by ViewModel
     val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsState()
@@ -285,7 +292,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             },
             categoryList = categoryList,
             onSelectCategory = { viewModel.setActiveCategoryIndex(it) },
-            onPlaySong = { song, songList -> viewModel.playSong(song, songList) }
+            onPlaySong = { song, songList -> viewModel.playSong(song, songList) },
+            searchFocusRequester = searchFocusRequester
         )
     } else {
         Column(
@@ -295,7 +303,14 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         ) {
             // --- 1. Top Header & Search Panel ---
             if (searchQuery.isNotBlank()) {
-                // Instant Search Result Header
+                // Instant Search Results — a real editable field, so typing can continue
+                // seamlessly after the dashboard's field is swapped out for this one.
+                val keyboardController = LocalSoftwareKeyboardController.current
+                LaunchedEffect(Unit) {
+                    searchFocusRequester.requestFocus()
+                    keyboardController?.show()
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -308,23 +323,34 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                     ) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Clear Search")
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = "SEARCH RESULTS",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 1.sp
+                    Spacer(modifier = Modifier.width(12.dp))
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.updateSearchQuery(it) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(searchFocusRequester)
+                            .testTag("search_input"),
+                        placeholder = { Text("Search title, artist, album...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                        trailingIcon = {
+                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                         )
-                        Text(
-                            text = "Found ${sortedSongs.size} tracks",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
+                    )
                 }
+                Text(
+                    text = "Found ${sortedSongs.size} tracks",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                )
             } else {
                 // Sub-category Header with Back Navigation
                 val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
@@ -1265,7 +1291,8 @@ fun MainLibraryDashboard(
     onToggleLayoutMode: () -> Unit,
     categoryList: List<CategoryInfo>,
     onSelectCategory: (Int) -> Unit,
-    onPlaySong: (SongEntity, List<SongEntity>) -> Unit
+    onPlaySong: (SongEntity, List<SongEntity>) -> Unit,
+    searchFocusRequester: FocusRequester
 ) {
     var showAllCategories by rememberSaveable { mutableStateOf(false) }
     // Indices into categoryList: All Songs (0), Favorites (5), Playlists (8), Folders (1)
@@ -1357,6 +1384,7 @@ fun MainLibraryDashboard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .focusRequester(searchFocusRequester)
                     .testTag("search_input"),
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                 singleLine = true,

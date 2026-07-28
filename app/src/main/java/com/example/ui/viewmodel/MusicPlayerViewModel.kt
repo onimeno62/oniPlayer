@@ -374,6 +374,14 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         _currentTab.value = tab
     }
 
+    // Always resets Library back to its dashboard, regardless of what category or
+    // search state was left active — used specifically by the bottom nav's Library tab.
+    fun goToLibraryDashboard() {
+        _currentTab.value = 0
+        _activeCategoryIndex.value = null
+        _searchQuery.value = ""
+    }
+
     fun selectCategory(index: Int) {
         _activeCategoryIndex.value = index
     }

@@ -112,7 +112,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             ) {
                                 NavigationBarItem(
                                     selected = currentTab == 0,
-                                    onClick = { viewModel.selectTab(0) },
+                                    onClick = { viewModel.goToLibraryDashboard() },
                                     icon = { Icon(if (currentTab == 0) Icons.Default.LibraryMusic else Icons.Outlined.LibraryMusic, contentDescription = "Library") },
                                     label = { Text("Library", fontSize = 10.sp, fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.SemiBold) },
                                     colors = NavigationBarItemDefaults.colors(
