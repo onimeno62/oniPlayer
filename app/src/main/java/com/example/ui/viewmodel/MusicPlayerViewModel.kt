@@ -36,6 +36,12 @@ private val BLUR_STRENGTH_KEY = floatPreferencesKey("blur_strength")
 private val CORNER_RADIUS_KEY = floatPreferencesKey("corner_radius")
 private val BACKGROUND_TRANSPARENCY_KEY = floatPreferencesKey("background_transparency")
 
+enum class ShuffleMode {
+    RANDOM,          // pure random pick
+    DISCOVER,        // weighted toward songs with low play counts
+    FAVORITES_BOOST   // weighted toward favorited songs
+}
+
 class MusicPlayerViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MusicPlayerViewModel"
 
@@ -207,6 +213,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _isRepeat = MutableStateFlow(false)
     val isRepeat: StateFlow<Boolean> = _isRepeat.asStateFlow()
+
+    // Which algorithm _isShuffle uses when it's on. Independent of the on/off toggle so the
+    // existing Player screen shuffle button keeps working unchanged — it only flips _isShuffle,
+    // while this remembers which algorithm to use whenever shuffle is active.
+    private val _shuffleMode = MutableStateFlow(ShuffleMode.RANDOM)
+    val shuffleMode: StateFlow<ShuffleMode> = _shuffleMode.asStateFlow()
 
     // Search query for library
     private val _searchQuery = MutableStateFlow("")
@@ -604,6 +616,37 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    // Public entry point for "Shuffle All"-style quick actions that don't have a "current song"
+    // to exclude — picks a starting song using the same weighting as pickShuffleIndex.
+    fun pickShuffleStartSong(playlist: List<SongEntity>): SongEntity? {
+        if (playlist.isEmpty()) return null
+        val index = pickShuffleIndex(playlist, excludeIndex = -1)
+        return playlist.getOrNull(index)
+    }
+
+    // Picks a shuffle target according to the active ShuffleMode. Falls back to pure random
+    // whenever weights can't produce a meaningful bias (e.g. everyone has the same play count).
+    private fun pickShuffleIndex(playlist: List<SongEntity>, excludeIndex: Int): Int {
+        if (playlist.size <= 1) return 0
+
+        val weights: List<Double> = when (_shuffleMode.value) {
+            ShuffleMode.DISCOVER -> playlist.map { 1.0 / (1.0 + it.playCount) }
+            ShuffleMode.FAVORITES_BOOST -> playlist.map { if (it.isFavorite) 4.0 else 1.0 }
+            ShuffleMode.RANDOM -> return playlist.indices.filter { it != excludeIndex }.random()
+        }
+
+        val total = weights.withIndex().filter { it.index != excludeIndex }.sumOf { it.value }
+        if (total <= 0.0) return playlist.indices.filter { it != excludeIndex }.random()
+
+        var roll = Math.random() * total
+        for ((index, weight) in weights.withIndex()) {
+            if (index == excludeIndex) continue
+            if (roll < weight) return index
+            roll -= weight
+        }
+        return playlist.indices.filter { it != excludeIndex }.last()
+    }
+
     fun skipNext() {
         val playlist = _currentPlaylist.value
         val current = audioEngine.currentSong.value ?: return
@@ -621,7 +664,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
 
         val nextIndex = if (_isShuffle.value) {
-            playlist.indices.random()
+            pickShuffleIndex(playlist, currentIndex)
         } else {
             (currentIndex + 1) % playlist.size
         }
@@ -642,7 +685,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         if (currentIndex == -1) return
 
         val prevIndex = if (_isShuffle.value) {
-            playlist.indices.random()
+            pickShuffleIndex(playlist, currentIndex)
         } else {
             if (currentIndex - 1 < 0) playlist.size - 1 else currentIndex - 1
         }
@@ -656,6 +699,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun toggleShuffle() {
         _isShuffle.value = !_isShuffle.value
+    }
+
+    // Picking a mode also turns shuffle on, since choosing an algorithm implies wanting it active.
+    fun setShuffleMode(mode: ShuffleMode) {
+        _shuffleMode.value = mode
+        _isShuffle.value = true
     }
 
     fun toggleRepeat() {

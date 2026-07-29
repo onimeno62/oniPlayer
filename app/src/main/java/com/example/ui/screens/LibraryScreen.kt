@@ -21,7 +21,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +52,7 @@ import coil.compose.AsyncImage
 import androidx.activity.compose.BackHandler
 import com.example.data.entity.SongEntity
 import com.example.ui.viewmodel.MusicPlayerViewModel
+import com.example.ui.viewmodel.ShuffleMode
 import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -68,6 +71,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     // Poweramp Style Screen states backed by ViewModel
     val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsState()
     val selectedGroup by viewModel.selectedGroup.collectAsState()
+    val shuffleMode by viewModel.shuffleMode.collectAsState()
     val activePlaylist by viewModel.activePlaylist.collectAsState()
     val activeSmartPlaylistType by viewModel.activeSmartPlaylistType.collectAsState()
 
@@ -401,7 +405,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         viewModel = viewModel,
                         sortBy = sortBy,
                         isSortAscending = isSortAscending,
-                        onShowTrackMenu = { songForMenu = it }
+                        onShowTrackMenu = { songForMenu = it },
+                        layoutMode = layoutMode
                     )
                 } else {
                     // RENDER DETAILED CATEGORY VIEW
@@ -412,7 +417,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     1 -> { // Folders
@@ -424,7 +430,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             isSortAscending = isSortAscending,
                             selectedGroup = selectedGroup,
                             onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     2 -> { // Albums
@@ -436,7 +443,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             isSortAscending = isSortAscending,
                             selectedGroup = selectedGroup,
                             onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     3 -> { // Artists
@@ -448,7 +456,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             isSortAscending = isSortAscending,
                             selectedGroup = selectedGroup,
                             onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     4 -> { // Genres
@@ -460,7 +469,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             isSortAscending = isSortAscending,
                             selectedGroup = selectedGroup,
                             onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     5 -> { // Favorites
@@ -469,7 +479,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     6 -> { // Most Played
@@ -483,7 +494,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     7 -> { // Recently Added
@@ -497,7 +509,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             sortBy = sortBy,
                             isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     8 -> { // Playlists
@@ -548,6 +561,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             onSortByChange = { sortBy = it },
             isSortAscending = isSortAscending,
             onSortAscendingChange = { isSortAscending = it },
+            shuffleMode = shuffleMode,
+            onShuffleModeChange = { viewModel.setShuffleMode(it) },
             onRescan = {
                 viewModel.rescanLibrary()
                 Toast.makeText(context, "Scanning local storage...", Toast.LENGTH_SHORT).show()
@@ -562,11 +577,11 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             },
             onShuffleAll = {
                 if (songs.isNotEmpty()) {
-                    val shuffled = songs.shuffled()
-                    viewModel.playSong(shuffled.first(), shuffled)
                     if (!viewModel.isShuffle.value) {
                         viewModel.toggleShuffle()
                     }
+                    val startSong = viewModel.pickShuffleStartSong(songs) ?: songs.first()
+                    viewModel.playSong(startSong, songs)
                     Toast.makeText(context, "Shuffling all songs", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(context, "No songs to play", Toast.LENGTH_SHORT).show()
@@ -829,7 +844,8 @@ fun SongsListView(
     viewModel: MusicPlayerViewModel,
     sortBy: String,
     isSortAscending: Boolean,
-    onShowTrackMenu: (SongEntity) -> Unit
+    onShowTrackMenu: (SongEntity) -> Unit,
+    layoutMode: String = "list"
 ) {
     val currentSong by viewModel.audioEngine.currentSong.collectAsState()
     val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
@@ -850,6 +866,74 @@ fun SongsListView(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+        }
+    } else if (layoutMode == "album_grid") {
+        val gridState = rememberLazyGridState()
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            state = gridState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(songs, key = { it.id }) { song ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(dashboardRadiusMedium()))
+                        .clickable { viewModel.playSong(song, songs) }
+                ) {
+                    Box {
+                        AsyncImage(
+                            model = song.albumArtUri,
+                            contentDescription = "Cover art",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(dashboardRadiusMedium()))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                            contentScale = ContentScale.Crop,
+                            error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
+                        )
+                        IconButton(
+                            onClick = { onShowTrackMenu(song) },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(4.dp)
+                                .background(Color.Black.copy(alpha = 0.35f), CircleShape)
+                                .size(28.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                        if (song.id == currentSong?.id && isPlaying) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(6.dp)
+                            ) {
+                                PlayingEqualizerWave(color = Color.White)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = song.customTitle ?: song.title,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (song.id == currentSong?.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = song.customArtist ?: song.artist,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     } else {
@@ -890,7 +974,8 @@ fun GroupedListView(
     isSortAscending: Boolean,
     selectedGroup: String?,
     onSelectedGroupChange: (String?) -> Unit,
-    onShowTrackMenu: (SongEntity) -> Unit
+    onShowTrackMenu: (SongEntity) -> Unit,
+    layoutMode: String = "list"
 ) {
     if (selectedGroup != null) {
         val songsInGroup = groupedData[selectedGroup] ?: emptyList()
@@ -933,7 +1018,8 @@ fun GroupedListView(
                 viewModel = viewModel,
                 sortBy = sortBy,
                 isSortAscending = isSortAscending,
-                onShowTrackMenu = onShowTrackMenu
+                onShowTrackMenu = onShowTrackMenu,
+                layoutMode = layoutMode
             )
         }
     } else {
@@ -1015,6 +1101,8 @@ fun LibraryOptionsMenu(
     onSortByChange: (String) -> Unit,
     isSortAscending: Boolean,
     onSortAscendingChange: (Boolean) -> Unit,
+    shuffleMode: ShuffleMode,
+    onShuffleModeChange: (ShuffleMode) -> Unit,
     onRescan: () -> Unit,
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
@@ -1073,7 +1161,7 @@ fun LibraryOptionsMenu(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // LAYOUT STYLE — segmented pill toggle
+            // LAYOUT STYLE
             Text(
                 text = "LAYOUT STYLE",
                 fontSize = 11.sp,
@@ -1082,42 +1170,117 @@ fun LibraryOptionsMenu(
                 letterSpacing = 1.sp
             )
             Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(
-                    Triple("grid", "Grid", Icons.Default.GridView),
-                    Triple("list", "List", Icons.Default.ViewList)
-                ).forEach { (mode, label, icon) ->
+                    Triple("grid", "Grid" to "Category tiles, 2 columns", Icons.Default.GridView),
+                    Triple("list", "List" to "Rows with album art", Icons.Default.ViewList),
+                    Triple("album_grid", "Album Grid" to "Songs as big art tiles", Icons.Default.Apps)
+                ).forEach { (mode, labels, icon) ->
+                    val (label, description) = labels
                     val isSelected = layoutMode == mode
                     Row(
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxWidth()
                             .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                            .background(if (isSelected) accent else Color.Transparent)
+                            .background(if (isSelected) accent.copy(alpha = 0.12f) else Color.Transparent)
                             .clickable { onLayoutChange(mode) }
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
+                            .padding(vertical = 10.dp, horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            label,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) accent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isSelected) accent else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                label,
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                description,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accent)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // SHUFFLE MODE
+            Text(
+                text = "SHUFFLE MODE",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    Triple(ShuffleMode.RANDOM, "Random" to "Pure random pick", Icons.Default.Shuffle),
+                    Triple(ShuffleMode.DISCOVER, "Discover" to "Favors songs you rarely play", Icons.Default.Explore),
+                    Triple(ShuffleMode.FAVORITES_BOOST, "Favorites Boost" to "Favors your favorited songs", Icons.Default.Favorite)
+                ).forEach { (mode, labels, icon) ->
+                    val (label, description) = labels
+                    val isSelected = shuffleMode == mode
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(dashboardRadiusSmall()))
+                            .background(if (isSelected) accent.copy(alpha = 0.12f) else Color.Transparent)
+                            .clickable { onShuffleModeChange(mode) }
+                            .padding(vertical = 10.dp, horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) accent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isSelected) accent else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                label,
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                description,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accent)
+                        }
                     }
                 }
             }
