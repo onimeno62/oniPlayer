@@ -54,6 +54,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import com.example.ui.viewmodel.ShuffleMode
+import com.example.ui.library.LibraryDashboardScreen
+import com.example.ui.library.model.toAlbumUiModels
+import com.example.ui.library.model.toArtistUiModels
 import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -269,7 +272,9 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     )
 
     if (activeCategoryIndex == null) {
-        MainLibraryDashboard(
+        val albumUiModels = remember(songs) { songs.toAlbumUiModels() }
+        val artistUiModels = remember(songs) { songs.toArtistUiModels() }
+        LibraryDashboardScreen(
             songs = songs,
             sortedSongs = sortedSongs,
             currentSong = currentSong,
@@ -296,7 +301,9 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             categoryList = categoryList,
             onSelectCategory = { viewModel.setActiveCategoryIndex(it) },
             onPlaySong = { song, songList -> viewModel.playSong(song, songList) },
-            onShowTrackMenu = { songForMenu = it }
+            onShowTrackMenu = { songForMenu = it },
+            albumUiModels = albumUiModels,
+            artistUiModels = artistUiModels
         )
     } else {
         Column(
