@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import androidx.activity.compose.BackHandler
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import com.example.ui.viewmodel.ShuffleMode
@@ -58,22 +59,22 @@ import java.io.File
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(viewModel: MusicPlayerViewModel) {
-    val songs by viewModel.allSongs.collectAsState()
-    val favorites by viewModel.favoriteSongs.collectAsState()
-    val playlists by viewModel.allPlaylists.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val isScanning by viewModel.isScanning.collectAsState()
-    val currentSong by viewModel.audioEngine.currentSong.collectAsState()
-    val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
+    val songs by viewModel.allSongs.collectAsStateWithLifecycle()
+    val favorites by viewModel.favoriteSongs.collectAsStateWithLifecycle()
+    val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+    val currentSong by viewModel.audioEngine.currentSong.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.audioEngine.isPlaying.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
     // Poweramp Style Screen states backed by ViewModel
-    val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsState()
-    val selectedGroup by viewModel.selectedGroup.collectAsState()
-    val shuffleMode by viewModel.shuffleMode.collectAsState()
-    val activePlaylist by viewModel.activePlaylist.collectAsState()
-    val activeSmartPlaylistType by viewModel.activeSmartPlaylistType.collectAsState()
+    val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsStateWithLifecycle()
+    val selectedGroup by viewModel.selectedGroup.collectAsStateWithLifecycle()
+    val shuffleMode by viewModel.shuffleMode.collectAsStateWithLifecycle()
+    val activePlaylist by viewModel.activePlaylist.collectAsStateWithLifecycle()
+    val activeSmartPlaylistType by viewModel.activeSmartPlaylistType.collectAsStateWithLifecycle()
 
     // BackHandler for hierarchical back navigation
     BackHandler(enabled = activeCategoryIndex != null) {
@@ -847,8 +848,8 @@ fun SongsListView(
     onShowTrackMenu: (SongEntity) -> Unit,
     layoutMode: String = "list"
 ) {
-    val currentSong by viewModel.audioEngine.currentSong.collectAsState()
-    val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
+    val currentSong by viewModel.audioEngine.currentSong.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.audioEngine.isPlaying.collectAsStateWithLifecycle()
 
     if (songs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -868,7 +869,7 @@ fun SongsListView(
                 )
             }
         }
-    } else if (layoutMode == "album_grid") {
+    } else if (layoutMode == "grid") {
         val gridState = rememberLazyGridState()
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -1172,9 +1173,8 @@ fun LibraryOptionsMenu(
             Spacer(modifier = Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(
-                    Triple("grid", "Grid" to "Category tiles, 2 columns", Icons.Default.GridView),
-                    Triple("list", "List" to "Rows with album art", Icons.Default.ViewList),
-                    Triple("album_grid", "Album Grid" to "Songs as big art tiles", Icons.Default.Apps)
+                    Triple("grid", "Grid" to "Category tiles & song art grids", Icons.Default.GridView),
+                    Triple("list", "List" to "Rows everywhere", Icons.Default.ViewList)
                 ).forEach { (mode, labels, icon) ->
                     val (label, description) = labels
                     val isSelected = layoutMode == mode
@@ -2156,7 +2156,7 @@ fun TrackMenuBottomSheetDialog(
         )
     }
 
-    val playlists by viewModel.allPlaylists.collectAsState()
+    val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
 
     if (showPlaylistSelect) {
         AlertDialog(
