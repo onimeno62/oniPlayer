@@ -48,8 +48,8 @@ fun OniAuraArtwork(
             label = "oni_aura_scale"
         )
         val animatedAlpha by infiniteTransition.animateFloat(
-            initialValue = 0.15f,
-            targetValue = 0.25f,
+            initialValue = 0.20f,
+            targetValue = 0.35f,
             animationSpec = infiniteRepeatable(
                 animation = tween(durationMillis = 3200, easing = LinearEasing),
                 repeatMode = RepeatMode.Reverse
@@ -58,7 +58,7 @@ fun OniAuraArtwork(
         )
         Pair(animatedScale, animatedAlpha)
     } else {
-        Pair(1.0f, 0.20f)
+        Pair(1.0f, 0.28f)
     }
 
     Box(
@@ -72,9 +72,10 @@ fun OniAuraArtwork(
                 .scale(scale)
                 .background(
                     brush = Brush.radialGradient(
-                        colors = listOf(
-                            glowColor.copy(alpha = alpha),
-                            Color.Transparent
+                        colorStops = arrayOf(
+                            0.0f to glowColor.copy(alpha = alpha),
+                            0.75f to glowColor.copy(alpha = alpha),
+                            1.0f to Color.Transparent
                         )
                     ),
                     shape = RoundedCornerShape(dashboardRadiusLarge())
