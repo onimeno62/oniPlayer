@@ -488,13 +488,11 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                 val songsByArtist = remember(songs, selectedGroup) {
                                     songs.filter { it.displayArtist.ifBlank { "Unknown Artist" } == selectedGroup }
                                 }
-                                val albumsByArtist = remember(albumUiModels, selectedGroup) {
-                                    albumUiModels.filter { album ->
-                                        album.artist == selectedGroup || songs.any { song ->
-                                            val songAlbumKey = "${song.displayAlbum.ifBlank { "Unknown Album" }}|${song.displayAlbumArtist}"
-                                            songAlbumKey == album.albumKey && song.displayArtist.ifBlank { "Unknown Artist" } == selectedGroup
-                                        }
-                                    }
+                                val albumsByArtist = remember(albumUiModels, songsByArtist) {
+                                    val artistAlbumKeys = songsByArtist.map { song ->
+                                        "${song.displayAlbum.ifBlank { "Unknown Album" }}|${song.displayAlbumArtist}"
+                                    }.toSet()
+                                    albumUiModels.filter { it.albumKey in artistAlbumKeys }
                                 }
                                 ArtistDetailScreen(
                                     artist = artist,
