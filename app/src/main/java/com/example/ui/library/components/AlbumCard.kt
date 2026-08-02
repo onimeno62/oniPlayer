@@ -20,6 +20,7 @@ import coil.compose.AsyncImage
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.screens.dashboardRadiusMedium
 import com.example.ui.screens.formatDuration
+import com.example.ui.theme.LocalAccentColor
 
 @Composable
 fun AlbumCard(
@@ -33,10 +34,9 @@ fun AlbumCard(
             .defaultMinSize(minHeight = 48.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(dashboardRadiusMedium()),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = glassCardColors(),
+        border = glassCardBorder(),
+        elevation = glassCardElevation()
     ) {
         Column(
             modifier = Modifier
@@ -48,7 +48,7 @@ fun AlbumCard(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    .background(LocalAccentColor.current.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (album.artworkUri != null) {
@@ -62,7 +62,7 @@ fun AlbumCard(
                     Icon(
                         imageVector = Icons.Default.Album,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                        tint = LocalAccentColor.current.copy(alpha = 0.7f),
                         modifier = Modifier.size(48.dp)
                     )
                 }

@@ -33,6 +33,7 @@ import com.example.ui.library.components.*
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.screens.*
+import com.example.ui.theme.LocalAccentColor
 
 @Composable
 fun LibraryDashboardScreen(
@@ -278,8 +279,6 @@ fun LibraryDashboardScreen(
                                 title = "Most Played",
                                 countText = "${mostPlayedSongs.size} tracks",
                                 icon = Icons.Default.Whatshot,
-                                iconBgColor = Color(0x1FFFC107),
-                                iconColor = Color(0xFFFFB300),
                                 onClick = { onSelectCategory(6) }
                             )
                         }
@@ -289,8 +288,6 @@ fun LibraryDashboardScreen(
                                 title = "Recently Played",
                                 countText = "${recentlyPlayedSongs.size} tracks",
                                 icon = Icons.Default.Schedule,
-                                iconBgColor = Color(0x1F2196F3),
-                                iconColor = Color(0xFF2196F3),
                                 onClick = { onSelectCategory(9) }
                             )
                         }
@@ -300,8 +297,6 @@ fun LibraryDashboardScreen(
                                 title = "Recently Added",
                                 countText = "${recentlyAddedSongs.size} tracks",
                                 icon = Icons.Default.QueueMusic,
-                                iconBgColor = Color(0x1F4CAF50),
-                                iconColor = Color(0xFF4CAF50),
                                 onClick = { onSelectCategory(7) }
                             )
                         }
@@ -311,8 +306,6 @@ fun LibraryDashboardScreen(
                                 title = "Favorites",
                                 countText = "$favoritesCount tracks",
                                 icon = Icons.Filled.Favorite,
-                                iconBgColor = Color(0x1FF44336),
-                                iconColor = Color(0xFFF44336),
                                 onClick = { onSelectCategory(5) }
                             )
                         }
@@ -582,8 +575,8 @@ private fun MadeForYouCard(
     title: String,
     countText: String,
     icon: ImageVector,
-    iconBgColor: Color,
-    iconColor: Color,
+    iconBgColor: Color = LocalAccentColor.current.copy(alpha = 0.12f),
+    iconColor: Color = LocalAccentColor.current,
     onClick: () -> Unit
 ) {
     Card(
@@ -592,10 +585,9 @@ private fun MadeForYouCard(
             .height(100.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(dashboardRadiusMedium()),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = glassCardColors(),
+        border = glassCardBorder(),
+        elevation = glassCardElevation()
     ) {
         Column(
             modifier = Modifier

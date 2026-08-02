@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.data.entity.SongEntity
 import com.example.ui.screens.dashboardRadiusLarge
@@ -26,6 +27,7 @@ fun OniAuraArtwork(
     modifier: Modifier = Modifier,
     songForPalette: SongEntity? = null,
     enableAnimation: Boolean = true,
+    auraBleed: Dp = 10.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
     val glowColor = if (songForPalette != null) {
@@ -78,11 +80,40 @@ fun OniAuraArtwork(
                     shape = RoundedCornerShape(dashboardRadiusLarge())
                 )
         )
-        content()
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(auraBleed)
+        ) {
+            content()
+        }
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "Full Bleed Usage")
+@Composable
+private fun OniAuraArtworkFullBleedPreview() {
+    OniAuraArtwork(
+        artworkUri = null,
+        modifier = Modifier.size(160.dp),
+        enableAnimation = true
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.DarkGray),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Full Bleed Hero",
+                color = Color.White
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Inset Usage")
 @Composable
 private fun OniAuraArtworkPreview() {
     OniAuraArtwork(
