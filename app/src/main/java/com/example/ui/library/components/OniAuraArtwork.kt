@@ -81,9 +81,7 @@ fun OniAuraArtwork(
                 )
         )
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                .padding(auraBleed)
+            modifier = Modifier.padding(auraBleed)
         ) {
             content()
         }
