@@ -55,6 +55,10 @@ import com.example.data.entity.SongEntity
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import com.example.ui.viewmodel.ShuffleMode
 import com.example.ui.library.LibraryDashboardScreen
+import com.example.ui.library.AlbumsScreen
+import com.example.ui.library.ArtistsScreen
+import com.example.ui.library.AlbumDetailScreen
+import com.example.ui.library.ArtistDetailScreen
 import com.example.ui.library.model.toAlbumUiModels
 import com.example.ui.library.model.toArtistUiModels
 import java.io.File
@@ -127,6 +131,9 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val recentlyPlayedSongs = remember(songs) {
         songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }
     }
+
+    val albumUiModels = remember(songs) { songs.toAlbumUiModels() }
+    val artistUiModels = remember(songs) { songs.toArtistUiModels() }
 
     // Sort songs inside lists dynamically
     val sortedSongs = remember(songs, sortBy, isSortAscending, searchQuery) {
@@ -272,8 +279,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     )
 
     if (activeCategoryIndex == null) {
-        val albumUiModels = remember(songs) { songs.toAlbumUiModels() }
-        val artistUiModels = remember(songs) { songs.toArtistUiModels() }
         LibraryDashboardScreen(
             songs = songs,
             sortedSongs = sortedSongs,
@@ -315,7 +320,13 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
             val displayCategoryTitle = categoryList[activeCategoryIndex!!].title
             val displaySubTitle = when {
-                selectedGroup != null -> selectedGroup!!
+                selectedGroup != null -> {
+                    when (activeCategoryIndex) {
+                        2 -> albumUiModels.find { it.albumKey == selectedGroup }?.title ?: selectedGroup!!
+                        3 -> artistUiModels.find { it.artistKey == selectedGroup }?.name ?: selectedGroup!!
+                        else -> selectedGroup!!
+                    }
+                }
                 activePlaylist != null -> activePlaylist!!.name
                 activeSmartPlaylistType != null -> activeSmartPlaylistType!!
                 else -> ""
@@ -443,30 +454,68 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         )
                     }
                     2 -> { // Albums
-                        GroupedListView(
-                            groupedData = uniqueAlbums,
-                            icon = Icons.Default.Album,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            selectedGroup = selectedGroup,
-                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
+                        if (selectedGroup != null) {
+                            val album = albumUiModels.find { it.albumKey == selectedGroup }
+                            if (album != null) {
+                                val songsInAlbum = remember(songs, selectedGroup) {
+                                    songs.filter { "${it.displayAlbum.ifBlank { "Unknown Album" }}|${it.displayAlbumArtist}" == selectedGroup }
+                                }
+                                AlbumDetailScreen(
+                                    album = album,
+                                    songsInAlbum = songsInAlbum,
+                                    currentSong = currentSong,
+                                    isPlaying = isPlaying,
+                                    onPlayAll = { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.first(), songsInAlbum) },
+                                    onShufflePlay = { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.random(), songsInAlbum) },
+                                    onSongClick = { viewModel.playSong(it, songsInAlbum) },
+                                    onShowTrackMenu = { songForMenu = it }
+                                )
+                            } else {
+                                viewModel.setSelectedGroup(null) // stale key, bail out safely
+                            }
+                        } else {
+                            AlbumsScreen(
+                                albums = albumUiModels,
+                                layoutMode = layoutMode,
+                                onAlbumClick = { viewModel.setSelectedGroup(it.albumKey) }
+                            )
+                        }
                     }
                     3 -> { // Artists
-                        GroupedListView(
-                            groupedData = uniqueArtists,
-                            icon = Icons.Default.Person,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            selectedGroup = selectedGroup,
-                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
+                        if (selectedGroup != null) {
+                            val artist = artistUiModels.find { it.artistKey == selectedGroup }
+                            if (artist != null) {
+                                val songsByArtist = remember(songs, selectedGroup) {
+                                    songs.filter { it.displayArtist.ifBlank { "Unknown Artist" } == selectedGroup }
+                                }
+                                val albumsByArtist = remember(albumUiModels, selectedGroup) {
+                                    albumUiModels.filter { album ->
+                                        album.artist == selectedGroup || songs.any { song ->
+                                            val songAlbumKey = "${song.displayAlbum.ifBlank { "Unknown Album" }}|${song.displayAlbumArtist}"
+                                            songAlbumKey == album.albumKey && song.displayArtist.ifBlank { "Unknown Artist" } == selectedGroup
+                                        }
+                                    }
+                                }
+                                ArtistDetailScreen(
+                                    artist = artist,
+                                    albumsByArtist = albumsByArtist,
+                                    songsByArtist = songsByArtist,
+                                    currentSong = currentSong,
+                                    isPlaying = isPlaying,
+                                    onPlayAll = { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.first(), songsByArtist) },
+                                    onShufflePlay = { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.random(), songsByArtist) },
+                                    onSongClick = { viewModel.playSong(it, songsByArtist) },
+                                    onShowTrackMenu = { songForMenu = it }
+                                )
+                            } else {
+                                viewModel.setSelectedGroup(null) // stale key, bail out safely
+                            }
+                        } else {
+                            ArtistsScreen(
+                                artists = artistUiModels,
+                                onArtistClick = { viewModel.setSelectedGroup(it.artistKey) }
+                            )
+                        }
                     }
                     4 -> { // Genres
                         GroupedListView(
