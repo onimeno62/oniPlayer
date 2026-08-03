@@ -212,7 +212,8 @@ fun PlaylistsView(
     viewModel: MusicPlayerViewModel,
     activePlaylist: PlaylistEntity?,
     onActivePlaylistChange: (PlaylistEntity?) -> Unit,
-    onShowTrackMenu: (SongEntity) -> Unit
+    onShowTrackMenu: (SongEntity) -> Unit,
+    layoutMode: String
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
@@ -253,11 +254,130 @@ fun PlaylistsView(
             }
 
             if (playlists.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.QueueMusic, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("No playlists created yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                com.example.ui.library.components.LibraryEmptyState(
+                    title = "No Playlists",
+                    message = "No playlists created yet. Create one or import an M3U playlist.",
+                    modifier = Modifier.fillMaxSize().weight(1f),
+                    icon = Icons.Default.QueueMusic
+                )
+            } else if (layoutMode == "grid") {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize().weight(1f),
+                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(playlists.size, key = { index -> playlists[index].id }) { index ->
+                        val playlist = playlists[index]
+                        val songIds = remember(playlist.songIdsJson) {
+                            try {
+                                val array = org.json.JSONArray(playlist.songIdsJson)
+                                List(array.length()) { array.getString(it) }
+                            } catch (e: Exception) {
+                                emptyList()
+                            }
+                        }
+
+                        val firstSongArtUri = remember(songs, playlist.songIdsJson) {
+                            try {
+                                val array = org.json.JSONArray(playlist.songIdsJson)
+                                if (array.length() > 0) {
+                                    val firstId = array.getString(0)
+                                    songs.find { it.id == firstId }?.albumArtUri
+                                } else {
+                                    null
+                                }
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+
+                        Card(
+                            onClick = { onActivePlaylistChange(playlist) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(0.85f),
+                            shape = RoundedCornerShape(dashboardRadiusMedium()),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(dashboardRadiusMedium()))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (firstSongArtUri != null) {
+                                            coil.compose.AsyncImage(
+                                                model = firstSongArtUri,
+                                                contentDescription = "Playlist Cover",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop,
+                                                error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(36.dp)
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = playlist.name,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onBackground,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            fontSize = 14.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${songIds.size} tracks",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.deletePlaylist(playlist.id)
+                                        Toast.makeText(context, "Playlist Deleted", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .background(Color.Black.copy(alpha = 0.35f), CircleShape)
+                                        .size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Playlist",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             } else {
@@ -370,16 +490,20 @@ fun PlaylistsView(
             }
 
             if (playlistSongs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("This playlist has no tracks yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                com.example.ui.library.components.LibraryEmptyState(
+                    title = "Empty Playlist",
+                    message = "This playlist has no tracks yet. Add some tracks from the songs menu.",
+                    modifier = Modifier.fillMaxSize(),
+                    icon = Icons.Default.QueueMusic
+                )
             } else {
                 SongsListView(
                     songs = playlistSongs,
                     viewModel = viewModel,
                     sortBy = "title",
                     isSortAscending = true,
-                    onShowTrackMenu = onShowTrackMenu
+                    onShowTrackMenu = onShowTrackMenu,
+                    layoutMode = layoutMode
                 )
             }
         }
@@ -731,6 +855,7 @@ fun BatchTagEditorView(
 fun AdvancedSearchView(
     songs: List<SongEntity>,
     viewModel: MusicPlayerViewModel,
+    layoutMode: String,
     onShowTrackMenu: (SongEntity) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
@@ -854,16 +979,20 @@ fun AdvancedSearchView(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (filteredSongs.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                Text("No matching tracks", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            com.example.ui.library.components.LibraryEmptyState(
+                title = "No matching tracks",
+                message = "Try adjusting your search filters or query.",
+                modifier = Modifier.fillMaxSize().weight(1f),
+                icon = Icons.Default.Search
+            )
         } else {
             SongsListView(
                 songs = filteredSongs,
                 viewModel = viewModel,
                 sortBy = "title",
                 isSortAscending = true,
-                onShowTrackMenu = onShowTrackMenu
+                onShowTrackMenu = onShowTrackMenu,
+                layoutMode = layoutMode
             )
         }
     }

@@ -39,6 +39,8 @@ fun ArtistDetailScreen(
     onShufflePlay: () -> Unit,
     onSongClick: (SongEntity) -> Unit,
     onShowTrackMenu: (SongEntity) -> Unit,
+    layoutMode: String,
+    viewModel: com.example.ui.viewmodel.MusicPlayerViewModel,
     modifier: Modifier = Modifier
 ) {
     val sortedSongs = remember(songsByArtist) {
@@ -49,148 +51,139 @@ fun ArtistDetailScreen(
         )
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
+    Column(
+        modifier = modifier.fillMaxSize()
     ) {
         // Artist Header Section
-        item {
-            Column(
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Circular Avatar
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp, horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(LocalAccentColor.current.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
             ) {
-                // Circular Avatar
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(LocalAccentColor.current.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (artist.artworkUri != null) {
-                        AsyncImage(
-                            model = artist.artworkUri,
-                            contentDescription = "Avatar for ${artist.name}",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        val initial = artist.name.trim().take(1).uppercase().ifEmpty { "?" }
-                        Text(
-                            text = initial,
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = LocalAccentColor.current
-                        )
-                    }
+                if (artist.artworkUri != null) {
+                    AsyncImage(
+                        model = artist.artworkUri,
+                        contentDescription = "Avatar for ${artist.name}",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    val initial = artist.name.trim().take(1).uppercase().ifEmpty { "?" }
+                    Text(
+                        text = initial,
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = LocalAccentColor.current
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = artist.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
-                val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
-                Text(
-                    text = "$albumText • $songText",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = artist.name,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
+            val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
+            Text(
+                text = "$albumText • $songText",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         // Action Buttons
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = onPlayAll,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = LocalAccentColor.current,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
-                Button(
-                    onClick = onPlayAll,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = LocalAccentColor.current,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Play All", fontWeight = FontWeight.Bold)
-                }
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Play All", fontWeight = FontWeight.Bold)
+            }
 
-                FilledTonalButton(
-                    onClick = onShufflePlay,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Shuffle,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Shuffle", fontWeight = FontWeight.Bold)
-                }
+            FilledTonalButton(
+                onClick = onShufflePlay,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Shuffle,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Shuffle", fontWeight = FontWeight.Bold)
             }
         }
 
         // Albums Horizontal Row (if any)
         if (albumsByArtist.isNotEmpty()) {
-            item {
-                OniSectionHeader(
-                    title = "Albums",
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    items(albumsByArtist, key = { it.albumKey }) { album ->
-                        AlbumCard(
-                            album = album,
-                            onClick = {} // Not clickable this stage per spec
-                        )
-                    }
+            OniSectionHeader(
+                title = "Albums",
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+            ) {
+                items(albumsByArtist, key = { it.albumKey }) { album ->
+                    AlbumCard(
+                        album = album,
+                        onClick = {} // Not clickable this stage per spec
+                    )
                 }
             }
         }
 
         // Songs Header
-        item {
-            OniSectionHeader(
-                title = "Songs",
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
+        OniSectionHeader(
+            title = "Songs",
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+        )
 
         // Songs List
-        items(sortedSongs, key = { it.id }) { song ->
-            SongRow(
-                song = song,
-                isCurrent = song.id == currentSong?.id,
-                isPlaying = isPlaying,
-                onClick = { onSongClick(song) },
-                onShowMenu = { onShowTrackMenu(song) },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+        Box(modifier = Modifier.weight(1f)) {
+            com.example.ui.screens.SongsListView(
+                songs = sortedSongs,
+                viewModel = viewModel,
+                sortBy = "title",
+                isSortAscending = true,
+                onShowTrackMenu = onShowTrackMenu,
+                layoutMode = layoutMode
             )
         }
     }

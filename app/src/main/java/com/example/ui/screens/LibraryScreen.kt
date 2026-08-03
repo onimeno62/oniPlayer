@@ -503,7 +503,9 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                     onPlayAll = { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.first(), songsByArtist) },
                                     onShufflePlay = { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.random(), songsByArtist) },
                                     onSongClick = { viewModel.playSong(it, songsByArtist) },
-                                    onShowTrackMenu = { songForMenu = it }
+                                    onShowTrackMenu = { songForMenu = it },
+                                    layoutMode = layoutMode,
+                                    viewModel = viewModel
                                 )
                             } else {
                                 viewModel.setSelectedGroup(null) // stale key, bail out safely
@@ -511,6 +513,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         } else {
                             ArtistsScreen(
                                 artists = artistUiModels,
+                                layoutMode = layoutMode,
                                 onArtistClick = { viewModel.setSelectedGroup(it.artistKey) }
                             )
                         }
@@ -575,7 +578,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             viewModel = viewModel,
                             activePlaylist = activePlaylist,
                             onActivePlaylistChange = { viewModel.setActivePlaylist(it) },
-                            onShowTrackMenu = { songForMenu = it }
+                            onShowTrackMenu = { songForMenu = it },
+                            layoutMode = layoutMode
                         )
                     }
                     9 -> { // Smart Playlists
@@ -598,6 +602,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         AdvancedSearchView(
                             songs = songs,
                             viewModel = viewModel,
+                            layoutMode = layoutMode,
                             onShowTrackMenu = { songForMenu = it }
                         )
                     }
@@ -1068,8 +1073,75 @@ fun GroupedListView(
         }
     } else {
         if (groupedData.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No categorized music", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            com.example.ui.library.components.LibraryEmptyState(
+                title = "No Categorized Music",
+                message = "We couldn't find any categorized tracks in this section.",
+                modifier = Modifier.fillMaxSize(),
+                icon = icon
+            )
+        } else if (layoutMode == "grid") {
+            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val groupedList = groupedData.toList()
+                items(groupedList.size, key = { index -> groupedList[index].first }) { index ->
+                    val (name, list) = groupedList[index]
+                    Card(
+                        onClick = { onSelectedGroupChange(name) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1.2f),
+                        shape = RoundedCornerShape(dashboardRadiusMedium()),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(dashboardRadiusMedium())),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = name,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            Text(
+                                text = "${list.size} ${if (list.size == 1) "song" else "songs"}",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         } else {
             LazyColumn(
