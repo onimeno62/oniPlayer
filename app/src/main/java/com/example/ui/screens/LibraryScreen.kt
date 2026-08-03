@@ -906,23 +906,12 @@ fun SongsListView(
     val isPlaying by viewModel.audioEngine.isPlaying.collectAsStateWithLifecycle()
 
     if (songs.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.Default.MusicOff,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    "No songs found",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
+        com.example.ui.library.components.LibraryEmptyState(
+            title = "No songs found",
+            message = "Scan your local storage to import music or add songs.",
+            modifier = Modifier.fillMaxSize(),
+            icon = Icons.Default.MusicOff
+        )
     } else if (layoutMode == "grid") {
         val gridState = rememberLazyGridState()
         LazyVerticalGrid(
@@ -974,7 +963,7 @@ fun SongsListView(
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = song.customTitle ?: song.title,
+                        text = song.displayTitle,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (song.id == currentSong?.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
@@ -982,7 +971,7 @@ fun SongsListView(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = song.customArtist ?: song.artist,
+                        text = song.displayArtist,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -1007,13 +996,13 @@ fun SongsListView(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 96.dp)
         ) {
-            items(songs) { song ->
-                SongItemRow(
+            items(songs, key = { it.id }) { song ->
+                com.example.ui.library.components.SongRow(
                     song = song,
                     isCurrent = song.id == currentSong?.id,
                     isPlaying = isPlaying,
                     onClick = { viewModel.playSong(song, songs) },
-                    onShowTrackMenu = { onShowTrackMenu(song) }
+                    onShowMenu = { onShowTrackMenu(song) }
                 )
             }
         }
