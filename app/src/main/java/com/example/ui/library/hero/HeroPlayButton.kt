@@ -28,7 +28,7 @@ fun HeroPlayButton(
 ) {
     Box(
         modifier = modifier
-            .size(52.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(tintColor)
             .clickable(onClick = onClick)

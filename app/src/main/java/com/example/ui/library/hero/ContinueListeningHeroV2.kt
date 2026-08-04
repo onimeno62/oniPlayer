@@ -104,7 +104,7 @@ fun ContinueListeningHeroV2(
                     ) {
                         ArtworkPanel(artworkUri = song.albumArtUri)
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
 
                         MetadataPanel(
                             song = song,
