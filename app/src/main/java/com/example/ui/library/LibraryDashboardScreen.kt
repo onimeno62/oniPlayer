@@ -34,6 +34,7 @@ import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.screens.*
 import com.example.ui.theme.LocalAccentColor
+import com.example.ui.library.hero.ContinueListeningHeroV2
 
 @Composable
 fun LibraryDashboardScreen(
@@ -60,7 +61,8 @@ fun LibraryDashboardScreen(
     onPlaySong: (SongEntity, List<SongEntity>) -> Unit,
     onShowTrackMenu: (SongEntity) -> Unit,
     albumUiModels: List<AlbumUiModel>,
-    artistUiModels: List<ArtistUiModel>
+    artistUiModels: List<ArtistUiModel>,
+    viewModel: com.example.ui.viewmodel.MusicPlayerViewModel
 ) {
     var showAllCategories by rememberSaveable { mutableStateOf(false) }
     // Indices into categoryList: All Songs (0), Favorites (5), Playlists (8), Folders (1)
@@ -235,21 +237,27 @@ fun LibraryDashboardScreen(
             }
         } else {
             // 3. When searchQuery is blank and library not empty:
-            // Continue Listening hero — aura glow applied only to this artwork
+            // Continue Listening hero v2 - Foundation Stage A
             if (lastPlayedSong != null) {
                 item(key = "continue_listening_hero") {
-                    OniAuraArtwork(
-                        artworkUri = lastPlayedSong.albumArtUri,
+                    ContinueListeningHeroV2(
+                        song = lastPlayedSong,
+                        isPlaying = isPlaying && (currentSong?.id == lastPlayedSong.id),
+                        viewModel = viewModel,
+                        onPlayPauseClick = {
+                            if (currentSong?.id == lastPlayedSong.id) {
+                                viewModel.togglePlayPause()
+                            } else {
+                                onPlaySong(lastPlayedSong, songs)
+                            }
+                        },
+                        onOpenNowPlaying = {
+                            viewModel.selectTab(1) // jump to Full Player
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = LibrarySpacing.lg),
-                        songForPalette = lastPlayedSong
-                    ) {
-                        ContinueListeningHero(
-                            song = lastPlayedSong,
-                            onPlayClick = { onPlaySong(lastPlayedSong, songs) }
-                        )
-                    }
+                            .padding(horizontal = LibrarySpacing.lg)
+                    )
                     Spacer(modifier = Modifier.height(LibrarySpacing.lg))
                 }
             }

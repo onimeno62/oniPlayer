@@ -308,7 +308,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             onPlaySong = { song, songList -> viewModel.playSong(song, songList) },
             onShowTrackMenu = { songForMenu = it },
             albumUiModels = albumUiModels,
-            artistUiModels = artistUiModels
+            artistUiModels = artistUiModels,
+            viewModel = viewModel
         )
     } else {
         Column(
