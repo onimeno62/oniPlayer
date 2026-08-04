@@ -15,9 +15,11 @@ import coil.compose.AsyncImage
 @Composable
 fun HeroBackground(
     artworkUri: String?,
-    dominantColor: Color,
+    colors: HeroColors,
+    reduceMotion: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val dominantColor = colors.dominant
     Box(modifier = modifier.fillMaxSize()) {
         // Full-bleed blurred album art background
         AsyncImage(
@@ -43,6 +45,13 @@ fun HeroBackground(
                         )
                     )
                 )
+        )
+
+        // Oni Flow organic animation layer (left-biased and masked before the play button)
+        OniFlow(
+            colors = colors,
+            reduceMotion = reduceMotion,
+            modifier = Modifier.fillMaxSize()
         )
 
         // Gradient scrim so text stays readable
