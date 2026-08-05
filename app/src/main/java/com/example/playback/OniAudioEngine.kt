@@ -7,6 +7,7 @@ import android.media.MediaPlayer
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
+import android.media.audiofx.Visualizer
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -34,9 +35,16 @@ class OniAudioEngine private constructor(private val context: Context) {
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
     private var virtualizer: Virtualizer? = null
+    private var visualizer: Visualizer? = null
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+    private val _beatEnergy = MutableStateFlow(0f)
+    val beatEnergy: StateFlow<Float> = _beatEnergy.asStateFlow()
+
+    private val _isPreparing = MutableStateFlow(false)
+    val isPreparing: StateFlow<Boolean> = _isPreparing.asStateFlow()
 
     private val _currentSong = MutableStateFlow<SongEntity?>(null)
     val currentSong: StateFlow<SongEntity?> = _currentSong.asStateFlow()
@@ -80,6 +88,7 @@ class OniAudioEngine private constructor(private val context: Context) {
                 setOnPreparedListener { mp ->
                     _duration.value = mp.duration.toLong()
                     isPrepared = true
+                    _isPreparing.value = false
                     mp.start()
                     _isPlaying.value = true
                     setupAudioEffects(mp.audioSessionId)
@@ -94,6 +103,7 @@ class OniAudioEngine private constructor(private val context: Context) {
                 setOnErrorListener { mp, what, extra ->
                     Log.e(TAG, "MediaPlayer error: what=$what, extra=$extra")
                     _isPlaying.value = false
+                    _isPreparing.value = false
                     stopPositionUpdate()
                     false
                 }
@@ -127,6 +137,59 @@ class OniAudioEngine private constructor(private val context: Context) {
                 applyVirtualizer()
             }
 
+            // 4. Visualizer setup
+            try {
+                val captureSizeRange = Visualizer.getCaptureSizeRange()
+                if (captureSizeRange != null && captureSizeRange.size >= 2) {
+                    val minSize = captureSizeRange[0]
+                    val maxSize = captureSizeRange[1]
+                    val finalCaptureSize = 1024.coerceIn(minSize, maxSize)
+
+                    visualizer = Visualizer(audioSessionId).apply {
+                        captureSize = finalCaptureSize
+                        setDataCaptureListener(
+                            object : Visualizer.OnDataCaptureListener {
+                                override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {}
+                                override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
+                                    if (fft == null || fft.isEmpty()) return
+                                    val numBins = fft.size / 2
+                                    val targetBins = (numBins * 0.15f).toInt().coerceAtLeast(1)
+                                    var sumMagnitude = 0f
+                                    var count = 0
+                                    for (i in 1..targetBins) {
+                                        val realIndex = i * 2
+                                        val imagIndex = i * 2 + 1
+                                        if (imagIndex < fft.size) {
+                                            val r = fft[realIndex].toFloat()
+                                            val im = fft[imagIndex].toFloat()
+                                            val magnitude = kotlin.math.sqrt(r * r + im * im)
+                                            sumMagnitude += magnitude
+                                            count++
+                                        }
+                                    }
+                                    val averageRaw = if (count > 0) sumMagnitude / count else 0f
+                                    val normalized = (averageRaw / 40f).coerceIn(0f, 1f)
+
+                                    val current = _beatEnergy.value
+                                    _beatEnergy.value = if (normalized > current) {
+                                        normalized
+                                    } else {
+                                        current * 0.85f + normalized * 0.15f
+                                    }
+                                }
+                            },
+                            20000, // ~20Hz in millihertz
+                            false,
+                            true
+                        )
+                        enabled = true
+                    }
+                    Log.d(TAG, "Visualizer configured successfully with capture size $finalCaptureSize")
+                }
+            } catch (ex: Exception) {
+                Log.e(TAG, "Failed to create/configure Visualizer: ${ex.message}", ex)
+            }
+
             Log.d(TAG, "Audio effects configured successfully for session $audioSessionId")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create/configure audio effects: ${e.message}", e)
@@ -141,6 +204,14 @@ class OniAudioEngine private constructor(private val context: Context) {
             bassBoost = null
             virtualizer?.release()
             virtualizer = null
+
+            try {
+                visualizer?.enabled = false
+                visualizer?.release()
+            } catch (ex: Exception) {
+                Log.e(TAG, "Error disabling/releasing visualizer: ${ex.message}")
+            }
+            visualizer = null
         } catch (e: Exception) {
             Log.e(TAG, "Error releasing audio effects: ${e.message}")
         }
@@ -158,6 +229,7 @@ class OniAudioEngine private constructor(private val context: Context) {
         stopPositionUpdate()
         _position.value = 0L
         isPrepared = false
+        _isPreparing.value = true
 
         try {
             initMediaPlayer() // Re-initialize to cleanly apply fresh audioSessionId
@@ -176,6 +248,7 @@ class OniAudioEngine private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Error trying to play song: ${song.title}, path: ${song.filePath}. Msg: ${e.message}", e)
             _isPlaying.value = false
+            _isPreparing.value = false
         }
     }
 
@@ -218,6 +291,7 @@ class OniAudioEngine private constructor(private val context: Context) {
         try {
             mediaPlayer?.stop()
             _isPlaying.value = false
+            _isPreparing.value = false
             stopPositionUpdate()
             _position.value = 0L
             stopPlaybackService()
@@ -232,6 +306,7 @@ class OniAudioEngine private constructor(private val context: Context) {
             mediaPlayer = null
             releaseAudioEffects()
             isPrepared = false
+            _isPreparing.value = false
         } catch (e: Exception) {
             Log.e(TAG, "Error resetting/releasing media player to release file: ${e.message}")
         }
@@ -248,6 +323,7 @@ class OniAudioEngine private constructor(private val context: Context) {
 
     fun release() {
         scope.cancel()
+        _isPreparing.value = false
         mediaPlayer?.release()
         mediaPlayer = null
         releaseAudioEffects()
