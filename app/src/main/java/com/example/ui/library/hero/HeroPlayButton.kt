@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +35,8 @@ fun HeroPlayButton(
     tintColor: Color,
     reduceMotion: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false
 ) {
     // 1. Idle vertical floating oscillation (±1dp, 5s cycle, EaseInOut)
     val floatOffset = if (reduceMotion) {
@@ -94,11 +96,19 @@ fun HeroPlayButton(
             .semantics { role = Role.Button },
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-            contentDescription = if (isPlaying) "Pause" else "Play",
-            tint = Color.White,
-            modifier = Modifier.size(28.dp)
-        )
+        if (isLoading) {
+            CircularProgressIndicator(
+                color = Color.White,
+                strokeWidth = 2.5.dp,
+                modifier = Modifier.size(24.dp)
+            )
+        } else {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp)
+            )
+        }
     }
 }

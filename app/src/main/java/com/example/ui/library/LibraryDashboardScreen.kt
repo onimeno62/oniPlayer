@@ -34,6 +34,7 @@ import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.screens.*
 import com.example.ui.theme.LocalAccentColor
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.library.hero.ContinueListeningHeroV2
 
 @Composable
@@ -240,10 +241,12 @@ fun LibraryDashboardScreen(
             // Continue Listening hero v2 - Foundation Stage A
             if (lastPlayedSong != null) {
                 item(key = "continue_listening_hero") {
+                    val isPreparing = viewModel.audioEngine.isPreparing.collectAsStateWithLifecycle().value && (currentSong?.id == lastPlayedSong.id)
                     ContinueListeningHeroV2(
                         song = lastPlayedSong,
                         isPlaying = isPlaying && (currentSong?.id == lastPlayedSong.id),
                         viewModel = viewModel,
+                        isPreparing = isPreparing,
                         onPlayPauseClick = {
                             if (currentSong?.id == lastPlayedSong.id) {
                                 viewModel.togglePlayPause()

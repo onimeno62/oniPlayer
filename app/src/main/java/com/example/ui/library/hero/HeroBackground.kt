@@ -21,6 +21,7 @@ fun HeroBackground(
     artworkUri: String?,
     colors: HeroColors,
     reduceMotion: Boolean,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val dominantColor = colors.dominant
@@ -84,13 +85,14 @@ fun HeroBackground(
         // Oni Flow organic animation layer (left-biased and masked before the play button)
         OniFlow(
             colors = colors,
-            reduceMotion = reduceMotion,
+            reduceMotion = reduceMotion || isLoading,
             modifier = Modifier.fillMaxSize()
         )
 
         // Glass refraction sweep layer (subtle, 0.05-0.10 peak alpha diagonal band)
         GlassRefractionSweep(
             reduceMotion = reduceMotion,
+            isLoading = isLoading,
             modifier = Modifier.fillMaxSize()
         )
 

@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
@@ -29,6 +30,7 @@ fun OniAura(
     reduceMotion: Boolean,
     cornerRadius: Dp,
     bleed: Dp,
+    beatPulse: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     var canvasSize by remember { mutableStateOf(Size.Zero) }
@@ -98,6 +100,11 @@ fun OniAura(
             .onSizeChanged { intSize ->
                 canvasSize = Size(intSize.width.toFloat(), intSize.height.toFloat())
             }
+            .graphicsLayer {
+                val scale = 1f + (0.05f * beatPulse)
+                scaleX = scale
+                scaleY = scale
+            }
             .blur(8.dp) // Soft blur applied once to the entire Canvas layer
     ) {
         val pathLength = pathMeasure.length
@@ -118,12 +125,19 @@ fun OniAura(
             }
 
             // Dual-pass rendering for a gorgeous, high-fidelity premium glow effect
+            // Modulated dynamically on beats
+            val bgAlpha = (0.40f + 0.30f * beatPulse).coerceAtMost(0.95f)
+            val fgAlpha = (0.85f + 0.15f * beatPulse).coerceAtMost(1.00f)
+
+            val bgStrokeWidth = (5.dp + (3.dp * beatPulse)).toPx()
+            val fgStrokeWidth = (2.dp + (1.dp * beatPulse)).toPx()
+
             // Thicker background glow (softer, lower alpha)
             drawPath(
                 path = segmentPath,
-                color = color.copy(alpha = 0.40f),
+                color = color.copy(alpha = bgAlpha),
                 style = Stroke(
-                    width = 5.dp.toPx(),
+                    width = bgStrokeWidth,
                     cap = StrokeCap.Round
                 )
             )
@@ -131,9 +145,9 @@ fun OniAura(
             // Thinner foreground core (sharper, higher alpha)
             drawPath(
                 path = segmentPath,
-                color = color.copy(alpha = 0.85f),
+                color = color.copy(alpha = fgAlpha),
                 style = Stroke(
-                    width = 2.dp.toPx(),
+                    width = fgStrokeWidth,
                     cap = StrokeCap.Round
                 )
             )

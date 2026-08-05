@@ -13,23 +13,25 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun GlassRefractionSweep(
     reduceMotion: Boolean,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     if (reduceMotion) return
 
     val infiniteTransition = rememberInfiniteTransition(label = "GlassSweep")
+    val duration = if (isLoading) 1100 else 10000
     val progress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 10000, easing = LinearEasing),
+            animation = tween(durationMillis = duration, easing = if (isLoading) EaseInOut else LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "SweepProgress"
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        val sweepDurationPercent = 0.15f // first 1.5s of a 10s cycle is 15%
+        val sweepDurationPercent = if (isLoading) 1.0f else 0.15f
         if (progress < sweepDurationPercent) {
             val subProgress = progress / sweepDurationPercent // map perfectly to 0f..1f
 
