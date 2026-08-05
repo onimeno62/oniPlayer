@@ -102,7 +102,11 @@ fun ContinueListeningHeroV2(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ArtworkPanel(artworkUri = song.albumArtUri)
+                        ArtworkPanel(
+                            artworkUri = song.albumArtUri,
+                            isPlaying = isPlaying,
+                            reduceMotion = reduceMotion
+                        )
 
                         Spacer(modifier = Modifier.width(12.dp))
 
@@ -116,6 +120,7 @@ fun ContinueListeningHeroV2(
                         HeroPlayButton(
                             isPlaying = isPlaying,
                             tintColor = accentColor,
+                            reduceMotion = reduceMotion,
                             onClick = onPlayPauseClick
                         )
                     }
@@ -124,7 +129,8 @@ fun ContinueListeningHeroV2(
                     HeroProgressBar(
                         position = position,
                         duration = duration,
-                        tintColor = accentColor
+                        tintColor = accentColor,
+                        onOpenNowPlaying = onOpenNowPlaying
                     )
                 }
             }
