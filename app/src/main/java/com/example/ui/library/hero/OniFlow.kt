@@ -130,7 +130,7 @@ fun OniFlow(
         // Even on API < 31 where blur is a no-op, these radial gradients provide natural soft feathering.
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(colors.dominant.copy(alpha = 0.22f), Color.Transparent),
+                colors = listOf(colors.dominant.copy(alpha = 0.42f), Color.Transparent),
                 center = Offset(blob1X.value * width, blob1Y.value * height),
                 radius = blob1Radius.value * density
             ),
@@ -140,7 +140,7 @@ fun OniFlow(
 
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(colors.secondary.copy(alpha = 0.18f), Color.Transparent),
+                colors = listOf(colors.secondary.copy(alpha = 0.36f), Color.Transparent),
                 center = Offset(blob2X.value * width, blob2Y.value * height),
                 radius = blob2Radius.value * density
             ),
@@ -150,7 +150,7 @@ fun OniFlow(
 
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(colors.dominant.copy(alpha = 0.15f), Color.Transparent),
+                colors = listOf(colors.dominant.copy(alpha = 0.30f), Color.Transparent),
                 center = Offset(blob3X.value * width, blob3Y.value * height),
                 radius = blob3Radius.value * density
             ),

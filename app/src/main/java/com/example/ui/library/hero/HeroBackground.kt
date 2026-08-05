@@ -50,7 +50,7 @@ fun HeroBackground(
             modifier = Modifier
                 .fillMaxSize()
                 .blur(30.dp)
-                .background(dominantColor.copy(alpha = 0.2f)),
+                .background(dominantColor.copy(alpha = 0.30f)),
             contentScale = ContentScale.Crop
         )
 
@@ -71,8 +71,8 @@ fun HeroBackground(
                     drawRect(
                         brush = Brush.linearGradient(
                             colors = listOf(
-                                dominantColor.copy(alpha = 0.35f),
-                                dominantColor.copy(alpha = 0.15f),
+                                dominantColor.copy(alpha = 0.55f),
+                                dominantColor.copy(alpha = 0.25f),
                                 Color.Transparent
                             ),
                             start = Offset(startX, startY),
@@ -103,8 +103,8 @@ fun HeroBackground(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.25f),
-                            Color.Black.copy(alpha = 0.80f)
+                            Color.Black.copy(alpha = 0.15f),
+                            Color.Black.copy(alpha = 0.55f)
                         )
                     )
                 )
