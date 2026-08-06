@@ -1054,6 +1054,7 @@ fun AdvancedTagEditorDialog(
     viewModel: MusicPlayerViewModel,
     onDismiss: () -> Unit
 ) {
+    val song = remember { song }
     var title by remember { mutableStateOf(song.customTitle ?: song.title) }
     var artist by remember { mutableStateOf(song.customArtist ?: song.artist) }
     var album by remember { mutableStateOf(song.customAlbum ?: song.album) }
@@ -1085,6 +1086,13 @@ fun AdvancedTagEditorDialog(
     // Tag search states
     var searchTitle by remember { mutableStateOf(song.customTitle ?: song.title) }
     var searchArtist by remember { mutableStateOf(song.customArtist ?: song.artist) }
+
+    LaunchedEffect(title) {
+        searchTitle = title
+    }
+    LaunchedEffect(artist) {
+        searchArtist = artist
+    }
     var selectedTagSource by remember { mutableStateOf("All Sources") }
     var isSearchingTags by remember { mutableStateOf(false) }
     var hasSearchedTags by remember { mutableStateOf(false) }
@@ -1722,119 +1730,119 @@ fun AdvancedTagEditorDialog(
                                             else -> MaterialTheme.colorScheme.outline
                                         }
 
-                                        Card(
-                                            onClick = { selectedTagResultIndex = idx },
-                                            shape = RoundedCornerShape(16.dp),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) 
-                                                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                                            ),
-                                            border = BorderStroke(
-                                                width = if (isSelected) 2.dp else 1.dp,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary 
-                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(12.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                            Card(
+                                                onClick = { selectedTagResultIndex = idx },
+                                                shape = RoundedCornerShape(16.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) 
+                                                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                                ),
+                                                border = BorderStroke(
+                                                    width = if (isSelected) 2.dp else 1.dp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary 
+                                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                                ),
+                                                modifier = Modifier.fillMaxWidth()
                                             ) {
-                                                Box(
+                                                Row(
                                                     modifier = Modifier
-                                                        .size(50.dp)
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color.DarkGray)
+                                                        .fillMaxWidth()
+                                                        .padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    AsyncImage(
-                                                        model = item.albumArtUri ?: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=150",
-                                                        contentDescription = "Cover thumb",
-                                                        contentScale = ContentScale.Crop,
-                                                        modifier = Modifier.fillMaxSize()
-                                                    )
-                                                }
-                                                
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        modifier = Modifier.fillMaxWidth()
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(50.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(Color.DarkGray)
                                                     ) {
-                                                        Text(
-                                                            text = item.title,
-                                                            fontSize = 13.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                                            modifier = Modifier.weight(1f)
+                                                        AsyncImage(
+                                                            model = item.albumArtUri ?: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=150",
+                                                            contentDescription = "Cover thumb",
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier.fillMaxSize()
                                                         )
-                                                        
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .clip(RoundedCornerShape(6.dp))
-                                                                .background(sourceColor.copy(alpha = 0.15f))
-                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = sourceName,
-                                                                fontSize = 9.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = sourceColor
-                                                            )
-                                                        }
                                                     }
                                                     
-                                                    Text(
-                                                        text = "Artist: ${item.artist} | Album: ${item.album}",
-                                                        fontSize = 11.sp,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
+                                                    Spacer(modifier = Modifier.width(12.dp))
                                                     
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) {
-                                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
-                                                            Spacer(modifier = Modifier.width(2.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) {
                                                             Text(
-                                                                text = "Confidence: ${item.confidence} | ${item.year}",
-                                                                fontSize = 10.sp,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                text = item.title,
+                                                                fontSize = 13.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                                                modifier = Modifier.weight(1f)
                                                             )
+                                                            
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .clip(RoundedCornerShape(6.dp))
+                                                                    .background(sourceColor.copy(alpha = 0.15f))
+                                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                            ) {
+                                                                Text(
+                                                                    text = sourceName,
+                                                                    fontSize = 9.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = sourceColor
+                                                                )
+                                                            }
                                                         }
                                                         
-                                                        if (isSelected) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.CheckCircle,
-                                                                contentDescription = "Selected",
-                                                                tint = MaterialTheme.colorScheme.primary,
-                                                                modifier = Modifier.size(16.dp)
-                                                            )
+                                                        Text(
+                                                            text = "Artist: ${item.artist} | Album: ${item.album}",
+                                                            fontSize = 11.sp,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                        
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
+                                                                Spacer(modifier = Modifier.width(2.dp))
+                                                                Text(
+                                                                    text = "Confidence: ${item.confidence} | ${item.year}",
+                                                                    fontSize = 10.sp,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                )
+                                                            }
+                                                            
+                                                            if (isSelected) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.CheckCircle,
+                                                                    contentDescription = "Selected",
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(16.dp)
+                                                                )
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
-                                        }
-                                    }
 
-                                    selectedTagResultIndex?.let { index ->
-                                        if (index < tagResults.size) {
-                                            val res = tagResults[index]
-                                            item {
+                                            if (isSelected) {
                                                 Card(
                                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
                                                     border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                                                     shape = RoundedCornerShape(16.dp),
-                                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                                                 ) {
                                                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                                         Text(
@@ -1851,26 +1859,26 @@ fun AdvancedTagEditorDialog(
                                                             verticalAlignment = Alignment.CenterVertically
                                                         ) {
                                                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                                Text("Title: ${res.title}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                                                Text("Artist: ${res.artist}", fontSize = 12.sp)
-                                                                Text("Album: ${res.album}", fontSize = 12.sp)
-                                                                Text("Genre: ${res.genre} | Year: ${res.year}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                Text("Title: ${item.title}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                                                Text("Artist: ${item.artist}", fontSize = 12.sp)
+                                                                Text("Album: ${item.album}", fontSize = 12.sp)
+                                                                Text("Genre: ${item.genre} | Year: ${item.year}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                             }
                                                             
                                                             Button(
                                                                 onClick = {
-                                                                    title = res.title
-                                                                    artist = res.artist
-                                                                    album = res.album
-                                                                    albumArtist = res.albumArtist
-                                                                    genre = res.genre
-                                                                    composer = res.composer
-                                                                    disc = res.disc
-                                                                    track = res.track
-                                                                    year = res.year
-                                                                    comment = res.comment
-                                                                    bpm = res.bpm
-                                                                    albumArtUri = res.albumArtUri
+                                                                    title = item.title
+                                                                    artist = item.artist
+                                                                    album = item.album
+                                                                    albumArtist = item.albumArtist
+                                                                    genre = item.genre
+                                                                    composer = item.composer
+                                                                    disc = item.disc
+                                                                    track = item.track
+                                                                    year = item.year
+                                                                    comment = item.comment
+                                                                    bpm = item.bpm
+                                                                    albumArtUri = item.albumArtUri
                                                                     Toast.makeText(context, "Pre-filled tags in Edit tab!", Toast.LENGTH_SHORT).show()
                                                                     activeTab = 0 // Switch back to manual tag fine-tuning!
                                                                 },
