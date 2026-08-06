@@ -1,6 +1,12 @@
 package com.example.ui.screens
 
 import android.widget.Toast
+import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -75,6 +81,33 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val isPlaying by viewModel.audioEngine.isPlaying.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+
+    val storagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.rescanLibrary()
+            Toast.makeText(context, "Scanning local storage...", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Storage permission is required to scan local music files.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val triggerScanWithPermission = {
+        val hasPermission = ContextCompat.checkSelfPermission(context, storagePermission) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            viewModel.rescanLibrary()
+            Toast.makeText(context, "Scanning local storage...", Toast.LENGTH_SHORT).show()
+        } else {
+            launcher.launch(storagePermission)
+        }
+    }
 
     // Poweramp Style Screen states backed by ViewModel
     val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsStateWithLifecycle()
@@ -295,10 +328,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             onSearchQueryChange = { viewModel.updateSearchQuery(it) },
             isScanning = isScanning,
             showOptionsMenu = { showOptionsMenu = true },
-            onRescan = {
-                viewModel.rescanLibrary()
-                Toast.makeText(context, "Scanning local storage...", Toast.LENGTH_SHORT).show()
-            },
+            onRescan = triggerScanWithPermission,
             layoutMode = layoutMode,
             onToggleLayoutMode = {
                 layoutMode = if (layoutMode == "grid") "list" else "grid"
@@ -624,10 +654,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             onSortAscendingChange = { isSortAscending = it },
             shuffleMode = shuffleMode,
             onShuffleModeChange = { viewModel.setShuffleMode(it) },
-            onRescan = {
-                viewModel.rescanLibrary()
-                Toast.makeText(context, "Scanning local storage...", Toast.LENGTH_SHORT).show()
-            },
+            onRescan = triggerScanWithPermission,
             onPlayAll = {
                 if (songs.isNotEmpty()) {
                     viewModel.playSong(songs.first(), songs)
