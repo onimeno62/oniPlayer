@@ -721,6 +721,48 @@ object GeminiMusicService {
     }
 
     /**
+     * Uses Gemini to generate/search an artist's summary.
+     */
+    suspend fun fetchArtistSummaryFromGemini(artistName: String): String = withContext(Dispatchers.IO) {
+        val apiKey = getApiKey()
+        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+            Log.e(TAG, "Gemini API Key is missing or default placeholder for fetching artist summary.")
+            return@withContext "Error: Gemini API Key is missing or default placeholder. Please set GEMINI_API_KEY in the Secrets panel."
+        }
+
+        val prompt = """
+            Create a comprehensive, engaging, and professional biography and summary for the artist: "$artistName".
+            Include details like their primary musical genres, active years, notable accomplishments, general impact, and most famous songs if applicable.
+            Keep the response structured, clear, and informative (around 2 to 3 paragraphs, nicely formatted).
+            If the artist is not famous or recognizable, write a creative and general description of what kind of artist they appear to be based on their name.
+        """.trimIndent()
+
+        val requestJson = buildRequestBody(prompt, "You are a professional music historian and critic. Write a clean, structured, and informative biography. Use markdown for headings, bolding, or lists to make it beautiful.", false)
+
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = requestJson.toRequestBody(mediaType)
+
+        val request = Request.Builder()
+            .url("$API_URL?key=$apiKey")
+            .post(body)
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext "Error: Server returned code ${response.code} ${response.message}"
+                }
+                val responseBody = response.body?.string() ?: return@withContext "Error: Empty response body"
+                val responseText = parseGeminiResponse(responseBody) ?: return@withContext "Error: Failed to parse response from Gemini"
+                responseText
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching artist summary with Gemini: ${e.message}", e)
+            "Error: ${e.message}"
+        }
+    }
+
+    /**
      * Uses Gemini to parse and optimize music tags (title, artist, album, genre) from file metadata and name.
      */
     suspend fun optimizeMusicTags(

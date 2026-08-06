@@ -4,6 +4,7 @@ import androidx.room.*
 import com.example.data.entity.SongEntity
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.PlaylistEntity
+import com.example.data.entity.ArtistSummaryEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -74,4 +75,17 @@ interface SongDao {
 
     @Query("DELETE FROM playlists WHERE id = :playlistId")
     suspend fun deletePlaylistById(playlistId: String)
+
+    // --- Artist Summary Queries ---
+    @Query("SELECT * FROM artist_summaries WHERE artistName = :artistName LIMIT 1")
+    suspend fun getArtistSummary(artistName: String): ArtistSummaryEntity?
+
+    @Query("SELECT * FROM artist_summaries WHERE artistName = :artistName LIMIT 1")
+    fun getArtistSummaryFlow(artistName: String): Flow<ArtistSummaryEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertArtistSummary(artistSummary: ArtistSummaryEntity)
+
+    @Query("DELETE FROM artist_summaries WHERE artistName = :artistName")
+    suspend fun deleteArtistSummary(artistName: String)
 }

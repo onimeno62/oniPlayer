@@ -17,6 +17,8 @@ import com.example.data.database.OniDatabase
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
 import com.example.data.entity.PlaylistEntity
+import com.example.data.entity.ArtistSummaryEntity
+import com.example.data.api.GeminiMusicService
 import com.example.data.repository.MusicRepository
 import com.example.playback.OniAudioEngine
 import com.example.ui.theme.OniTheme
@@ -819,6 +821,67 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun deleteSongPhysically(songId: String) {
+        viewModelScope.launch {
+            val song = withContext(Dispatchers.IO) {
+                database.songDao().getSongById(songId)
+            }
+            if (song != null) {
+                val success = withContext(Dispatchers.IO) {
+                    var fileDeleted = false
+                    try {
+                        val file = File(song.filePath)
+                        if (file.exists()) {
+                            fileDeleted = file.delete()
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MusicPlayerViewModel", "Failed to delete file directly: ${e.message}")
+                    }
+                    
+                    try {
+                        val contentResolver = getApplication<Application>().contentResolver
+                        val songIdLong = songId.toLongOrNull()
+                        if (songIdLong != null) {
+                            val songUri = android.content.ContentUris.withAppendedId(
+                                android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                songIdLong
+                            )
+                            val deletedRows = contentResolver.delete(songUri, null, null)
+                            if (deletedRows > 0) {
+                                fileDeleted = true
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MusicPlayerViewModel", "Failed to delete from MediaStore: ${e.message}")
+                    }
+                    fileDeleted
+                }
+
+                if (!success && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    try {
+                        val songIdLong = songId.toLongOrNull()
+                        if (songIdLong != null) {
+                            val songUri = android.content.ContentUris.withAppendedId(
+                                android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                songIdLong
+                            )
+                            val deleteRequest = android.provider.MediaStore.createDeleteRequest(
+                                getApplication<Application>().contentResolver,
+                                listOf(songUri)
+                            )
+                            _pendingDeleteRequest.tryEmit(deleteRequest.intentSender)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MusicPlayerViewModel", "Failed to build delete consent request: ${e.message}")
+                    }
+                }
+            }
+
+            // Always delete from local DB library
+            deleteSong(songId)
+        }
+    }
+
     // --- Equalizer Customization ---
 
     fun updateBand(bandIndex: Int, gainDb: Float) {
@@ -1310,6 +1373,49 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     audioEngine.updateCurrentSongMetadata(updated)
                 }
             }
+        }
+    }
+
+    // --- Artist Summary ---
+    private val _artistSummary = MutableStateFlow<String?>(null)
+    val artistSummary: StateFlow<String?> = _artistSummary.asStateFlow()
+
+    private val _isSearchingArtistSummary = MutableStateFlow(false)
+    val isSearchingArtistSummary: StateFlow<Boolean> = _isSearchingArtistSummary.asStateFlow()
+
+    fun loadArtistSummary(artistName: String) {
+        viewModelScope.launch {
+            val saved = repository.getArtistSummary(artistName)
+            if (saved != null) {
+                _artistSummary.value = saved.summary
+            } else {
+                _artistSummary.value = null
+                // Trigger auto-search if not exists
+                searchArtistSummaryOnline(artistName)
+            }
+        }
+    }
+
+    fun searchArtistSummaryOnline(artistName: String) {
+        viewModelScope.launch {
+            _isSearchingArtistSummary.value = true
+            try {
+                val summary = GeminiMusicService.fetchArtistSummaryFromGemini(artistName)
+                repository.saveArtistSummary(artistName, summary)
+                _artistSummary.value = summary
+            } catch (e: Exception) {
+                Log.e("MusicPlayerViewModel", "Error searching artist summary", e)
+                _artistSummary.value = "Error: Failed to fetch biography. Please check network or Secrets panel API key configuration."
+            } finally {
+                _isSearchingArtistSummary.value = false
+            }
+        }
+    }
+
+    fun saveManualArtistSummary(artistName: String, summary: String) {
+        viewModelScope.launch {
+            repository.saveArtistSummary(artistName, summary)
+            _artistSummary.value = summary
         }
     }
 

@@ -1,10 +1,12 @@
 package com.example
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
@@ -23,6 +25,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val viewModel: MusicPlayerViewModel by viewModels()
 
+    @SuppressLint("InvalidFragmentVersionForActivityResult")
     private val deleteRequestLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) {
@@ -35,6 +38,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
         enableEdgeToEdge()
+        onBackPressedDispatcher.addCallback(this) {
+            moveTaskToBack(true)
+        }
         setContent {
             MainAppContainer(viewModel = viewModel)
         }
@@ -94,13 +100,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        @Suppress("DEPRECATION")
-        super.onBackPressed()
-        moveTaskToBack(true)
     }
 }
 

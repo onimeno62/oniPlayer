@@ -7,10 +7,11 @@ import androidx.room.RoomDatabase
 import com.example.data.entity.SongEntity
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.PlaylistEntity
+import com.example.data.entity.ArtistSummaryEntity
 
 @Database(
-    entities = [SongEntity::class, EqualizerPresetEntity::class, PlaylistEntity::class],
-    version = 3,
+    entities = [SongEntity::class, EqualizerPresetEntity::class, PlaylistEntity::class, ArtistSummaryEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class OniDatabase : RoomDatabase() {

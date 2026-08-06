@@ -157,6 +157,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
     var showSyncEditor by remember { mutableStateOf(false) }
     var isKaraokeModeFull by remember { mutableStateOf(false) }
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -236,18 +237,37 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                     )
                 }
 
-                IconButton(
-                    onClick = { showQueueSheet = true },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), CircleShape)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.QueueMusic,
-                        contentDescription = "Queue",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
+                    IconButton(
+                        onClick = { showQueueSheet = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Default.QueueMusic,
+                            contentDescription = "Queue",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.15f), CircleShape)
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.04f), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
 
@@ -957,6 +977,106 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                 onDismiss = { showTagEditor = false }
             )
         }
+
+        if (showDeleteConfirm && song != null) {
+            var deleteMode by remember { mutableStateOf("library") }
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text("Delete Track Options") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Choose how you want to delete \"${song.customTitle ?: song.title}\":",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        Card(
+                            onClick = { deleteMode = "library" },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (deleteMode == "library") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        ),
+                        border = BorderStroke(
+                            width = if (deleteMode == "library") 1.5.dp else 1.dp,
+                            color = if (deleteMode == "library") MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = (deleteMode == "library"), onClick = { deleteMode = "library" })
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Delete from Library Only", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Removes DB record but keeps physical audio file.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Card(
+                        onClick = { deleteMode = "physical" },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (deleteMode == "physical") MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        ),
+                        border = BorderStroke(
+                            width = if (deleteMode == "physical") 1.5.dp else 1.dp,
+                            color = if (deleteMode == "physical") MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (deleteMode == "physical"),
+                                onClick = { deleteMode = "physical" },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.error)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Delete Physically from Storage", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
+                                Text("Permanently deletes physical file and library DB record.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (deleteMode == "physical") {
+                            viewModel.deleteSongPhysically(song.id)
+                            Toast.makeText(context, "Deleted song physically", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.deleteSong(song.id)
+                            Toast.makeText(context, "Deleted song from library", Toast.LENGTH_SHORT).show()
+                        }
+                        showDeleteConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (deleteMode == "physical") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        contentColor = if (deleteMode == "physical") MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text(if (deleteMode == "physical") "Delete File" else "Remove Track")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
         // 8. FullScreen Immersive Scrolling Karaoke lyrics dialog (Exact specs requested)
         if (isKaraokeModeFull && song != null) {

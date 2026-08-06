@@ -12,6 +12,7 @@ import com.example.data.database.SongDao
 import com.example.data.entity.SongEntity
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.PlaylistEntity
+import com.example.data.entity.ArtistSummaryEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -419,5 +420,23 @@ class MusicRepository(
                 albumArtUri = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500"
             )
         )
+    }
+
+    // --- Artist Summary ---
+    suspend fun getArtistSummary(artistName: String): ArtistSummaryEntity? = withContext(Dispatchers.IO) {
+        songDao.getArtistSummary(artistName)
+    }
+
+    fun getArtistSummaryFlow(artistName: String): Flow<ArtistSummaryEntity?> {
+        return songDao.getArtistSummaryFlow(artistName)
+    }
+
+    suspend fun saveArtistSummary(artistName: String, summary: String) = withContext(Dispatchers.IO) {
+        val entity = ArtistSummaryEntity(artistName, summary, System.currentTimeMillis())
+        songDao.insertArtistSummary(entity)
+    }
+
+    suspend fun deleteArtistSummary(artistName: String) = withContext(Dispatchers.IO) {
+        songDao.deleteArtistSummary(artistName)
     }
 }
