@@ -73,7 +73,7 @@ object GeminiMusicService {
 
     private fun getApiKey(): String {
         return try {
-            BuildConfig.GEMINI_API_KEY
+            BuildConfig.GEMINI_API_KEY.trim()
         } catch (e: Exception) {
             ""
         }
@@ -743,14 +743,17 @@ object GeminiMusicService {
         val body = requestJson.toRequestBody(mediaType)
 
         val request = Request.Builder()
-            .url("$API_URL?key=$apiKey")
+            .url(API_URL)
+            .addHeader("x-goog-api-key", apiKey)
             .post(body)
             .build()
 
         try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    return@withContext "Error: Server returned code ${response.code} ${response.message}"
+                    val errorBody = response.body?.string() ?: "No error body"
+                    Log.e(TAG, "Gemini API failed with code ${response.code}. Error body: $errorBody")
+                    return@withContext "Error: Server returned code ${response.code} ${response.message}\nDetail: $errorBody"
                 }
                 val responseBody = response.body?.string() ?: return@withContext "Error: Empty response body"
                 val responseText = parseGeminiResponse(responseBody) ?: return@withContext "Error: Failed to parse response from Gemini"
@@ -806,7 +809,8 @@ object GeminiMusicService {
         val body = requestJson.toRequestBody(mediaType)
 
         val request = Request.Builder()
-            .url("$API_URL?key=$apiKey")
+            .url(API_URL)
+            .addHeader("x-goog-api-key", apiKey)
             .post(body)
             .build()
 
@@ -858,7 +862,6 @@ object GeminiMusicService {
         if (isJson) {
             configObj.put("responseMimeType", "application/json")
         }
-        configObj.put("temperature", 0.2)
         root.put("generationConfig", configObj)
 
         return root.toString()
@@ -907,7 +910,6 @@ object GeminiMusicService {
         if (isJson) {
             configObj.put("responseMimeType", "application/json")
         }
-        configObj.put("temperature", 0.2)
         root.put("generationConfig", configObj)
 
         return root.toString()
@@ -1024,7 +1026,8 @@ object GeminiMusicService {
         val body = requestJson.toRequestBody(mediaType)
 
         val request = Request.Builder()
-            .url("$API_URL?key=$apiKey")
+            .url(API_URL)
+            .addHeader("x-goog-api-key", apiKey)
             .post(body)
             .build()
 
