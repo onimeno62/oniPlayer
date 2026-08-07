@@ -104,6 +104,7 @@ fun OniAura(
                 val scale = 1f + (0.05f * beatPulse)
                 scaleX = scale
                 scaleY = scale
+                clip = true
             }
             .blur(8.dp) // Soft blur applied once to the entire Canvas layer
     ) {

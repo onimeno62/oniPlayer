@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -92,6 +93,7 @@ fun ContinueListeningHeroV2(
         modifier = modifier
             .fillMaxWidth()
             .height(180.dp + auraBleed * 2)
+            .clipToBounds()
     ) {
         // Traveling Glow Perimeter Aura (Placed behind Card, sizing takes bleed into account)
         OniAura(
