@@ -1400,12 +1400,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             _isSearchingArtistSummary.value = true
             try {
-                val summary = GeminiMusicService.fetchArtistSummaryFromGemini(artistName)
+                val summary = GeminiMusicService.fetchArtistSummaryFromAudioDB(artistName)
                 repository.saveArtistSummary(artistName, summary)
                 _artistSummary.value = summary
             } catch (e: Exception) {
                 Log.e("MusicPlayerViewModel", "Error searching artist summary", e)
-                _artistSummary.value = "Error: Failed to fetch biography. Please check network or Secrets panel API key configuration."
+                _artistSummary.value = "Error: Failed to fetch biography from TheAudioDB. Please check your network connection."
             } finally {
                 _isSearchingArtistSummary.value = false
             }

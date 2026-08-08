@@ -721,6 +721,48 @@ object GeminiMusicService {
     }
 
     /**
+     * Uses TheAudioDB API to search and fetch an artist's biography.
+     */
+    suspend fun fetchArtistSummaryFromAudioDB(artistName: String): String = withContext(Dispatchers.IO) {
+        if (artistName.isBlank() || artistName.equals("Unknown Artist", ignoreCase = true)) {
+            return@withContext "No biography available for Unknown Artist."
+        }
+        val encodedArtist = try {
+            java.net.URLEncoder.encode(artistName, "UTF-8")
+        } catch (e: Exception) {
+            artistName
+        }
+        val url = "https://www.theaudiodb.com/api/v1/json/2/search.php?s=$encodedArtist"
+        
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext "Error: TheAudioDB API returned code ${response.code} ${response.message}"
+                }
+                val responseBody = response.body?.string() ?: return@withContext "Error: Empty response body from TheAudioDB"
+                val json = JSONObject(responseBody)
+                val artistsArray = json.optJSONArray("artists")
+                if (artistsArray != null && artistsArray.length() > 0) {
+                    val artistObj = artistsArray.getJSONObject(0)
+                    val biography = artistObj.optString("strBiography")
+                    if (!biography.isNullOrBlank()) {
+                        return@withContext biography
+                    }
+                }
+                "Biography not found on TheAudioDB for \"$artistName\"."
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching artist summary from TheAudioDB: ${e.message}", e)
+            "Error: ${e.message}"
+        }
+    }
+
+    /**
      * Uses Gemini to generate/search an artist's summary.
      */
     suspend fun fetchArtistSummaryFromGemini(artistName: String): String = withContext(Dispatchers.IO) {
