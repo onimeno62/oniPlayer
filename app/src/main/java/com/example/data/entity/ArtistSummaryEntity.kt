@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class ArtistSummaryEntity(
     @PrimaryKey val artistName: String,
     val summary: String,
-    val lastUpdated: Long = System.currentTimeMillis()
+    val lastUpdated: Long = System.currentTimeMillis(),
+    val artworkUri: String? = null
 )

@@ -432,7 +432,24 @@ class MusicRepository(
     }
 
     suspend fun saveArtistSummary(artistName: String, summary: String) = withContext(Dispatchers.IO) {
-        val entity = ArtistSummaryEntity(artistName, summary, System.currentTimeMillis())
+        val existing = songDao.getArtistSummary(artistName)
+        val entity = ArtistSummaryEntity(
+            artistName = artistName,
+            summary = summary,
+            lastUpdated = System.currentTimeMillis(),
+            artworkUri = existing?.artworkUri
+        )
+        songDao.insertArtistSummary(entity)
+    }
+
+    suspend fun saveArtistArtworkUri(artistName: String, artworkUri: String?) = withContext(Dispatchers.IO) {
+        val existing = songDao.getArtistSummary(artistName)
+        val entity = ArtistSummaryEntity(
+            artistName = artistName,
+            summary = existing?.summary ?: "",
+            lastUpdated = System.currentTimeMillis(),
+            artworkUri = artworkUri
+        )
         songDao.insertArtistSummary(entity)
     }
 

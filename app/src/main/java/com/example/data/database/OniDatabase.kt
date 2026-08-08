@@ -11,7 +11,7 @@ import com.example.data.entity.ArtistSummaryEntity
 
 @Database(
     entities = [SongEntity::class, EqualizerPresetEntity::class, PlaylistEntity::class, ArtistSummaryEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class OniDatabase : RoomDatabase() {

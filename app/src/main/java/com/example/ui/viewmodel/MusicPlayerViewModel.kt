@@ -1380,6 +1380,15 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _artistSummary = MutableStateFlow<String?>(null)
     val artistSummary: StateFlow<String?> = _artistSummary.asStateFlow()
 
+    private val _artistArtworkUri = MutableStateFlow<String?>(null)
+    val artistArtworkUri: StateFlow<String?> = _artistArtworkUri.asStateFlow()
+
+    private val _onlineArtistImages = MutableStateFlow<List<String>>(emptyList())
+    val onlineArtistImages: StateFlow<List<String>> = _onlineArtistImages.asStateFlow()
+
+    private val _isFetchingArtistImages = MutableStateFlow(false)
+    val isFetchingArtistImages: StateFlow<Boolean> = _isFetchingArtistImages.asStateFlow()
+
     private val _isSearchingArtistSummary = MutableStateFlow(false)
     val isSearchingArtistSummary: StateFlow<Boolean> = _isSearchingArtistSummary.asStateFlow()
 
@@ -1388,8 +1397,10 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             val saved = repository.getArtistSummary(artistName)
             if (saved != null) {
                 _artistSummary.value = saved.summary
+                _artistArtworkUri.value = saved.artworkUri
             } else {
                 _artistSummary.value = null
+                _artistArtworkUri.value = null
                 // Trigger auto-search if not exists
                 searchArtistSummaryOnline(artistName)
             }
@@ -1409,6 +1420,28 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             } finally {
                 _isSearchingArtistSummary.value = false
             }
+        }
+    }
+
+    fun fetchOnlineArtistImages(artistName: String) {
+        viewModelScope.launch {
+            _isFetchingArtistImages.value = true
+            try {
+                val images = GeminiMusicService.fetchArtistImagesFromAudioDB(artistName)
+                _onlineArtistImages.value = images
+            } catch (e: Exception) {
+                Log.e("MusicPlayerViewModel", "Error fetching online artist images", e)
+                _onlineArtistImages.value = emptyList()
+            } finally {
+                _isFetchingArtistImages.value = false
+            }
+        }
+    }
+
+    fun saveArtistArtworkUri(artistName: String, artworkUri: String?) {
+        viewModelScope.launch {
+            repository.saveArtistArtworkUri(artistName, artworkUri)
+            _artistArtworkUri.value = artworkUri
         }
     }
 

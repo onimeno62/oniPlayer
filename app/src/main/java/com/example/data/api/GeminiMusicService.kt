@@ -763,6 +763,59 @@ object GeminiMusicService {
     }
 
     /**
+     * Uses TheAudioDB API to search and fetch all non-blank artist image URLs.
+     */
+    suspend fun fetchArtistImagesFromAudioDB(artistName: String): List<String> = withContext(Dispatchers.IO) {
+        if (artistName.isBlank() || artistName.equals("Unknown Artist", ignoreCase = true)) {
+            return@withContext emptyList()
+        }
+        val encodedArtist = try {
+            java.net.URLEncoder.encode(artistName, "UTF-8")
+        } catch (e: Exception) {
+            artistName
+        }
+        val url = "https://www.theaudiodb.com/api/v1/json/2/search.php?s=$encodedArtist"
+        
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext emptyList()
+                val responseBody = response.body?.string() ?: return@withContext emptyList()
+                val json = JSONObject(responseBody)
+                val artistsArray = json.optJSONArray("artists")
+                if (artistsArray != null && artistsArray.length() > 0) {
+                    val artistObj = artistsArray.getJSONObject(0)
+                    val images = mutableListOf<String>()
+                    
+                    val imageKeys = listOf(
+                        "strArtistThumb",
+                        "strArtistFanart",
+                        "strArtistFanart2",
+                        "strArtistFanart3",
+                        "strArtistFanart4",
+                        "strArtistCutout",
+                        "strArtistBanner"
+                    )
+                    for (key in imageKeys) {
+                        val imgUrl = artistObj.optString(key)
+                        if (!imgUrl.isNullOrBlank()) {
+                            images.add(imgUrl)
+                        }
+                    }
+                    return@withContext images.distinct()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching artist images from TheAudioDB: ${e.message}", e)
+        }
+        emptyList()
+    }
+
+    /**
      * Uses Gemini to generate/search an artist's summary.
      */
     suspend fun fetchArtistSummaryFromGemini(artistName: String): String = withContext(Dispatchers.IO) {
