@@ -1,6 +1,7 @@
 package com.example.ui.library.model
 
 import com.example.data.entity.SongEntity
+import com.example.data.entity.ArtistSummaryEntity
 import java.io.File
 
 fun List<SongEntity>.toAlbumUiModels(): List<AlbumUiModel> {
@@ -30,7 +31,8 @@ fun List<SongEntity>.toAlbumUiModels(): List<AlbumUiModel> {
     }.sortedBy { it.title.lowercase() }
 }
 
-fun List<SongEntity>.toArtistUiModels(): List<ArtistUiModel> {
+fun List<SongEntity>.toArtistUiModels(summaries: List<ArtistSummaryEntity> = emptyList()): List<ArtistUiModel> {
+    val summaryMap = summaries.associateBy { it.artistName }
     return groupBy { song ->
         song.displayArtist.ifBlank { "Unknown Artist" }
     }.map { (artistKey, songsInGroup) ->
@@ -44,7 +46,7 @@ fun List<SongEntity>.toArtistUiModels(): List<ArtistUiModel> {
             name = artistKey,
             albumCount = albumCount,
             songCount = songsInGroup.size,
-            artworkUri = null
+            artworkUri = summaryMap[artistKey]?.artworkUri
         )
     }.sortedBy { it.name.lowercase() }
 }

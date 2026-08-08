@@ -47,7 +47,7 @@ fun ArtistRow(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(LocalAccentColor.current.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {

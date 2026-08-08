@@ -77,6 +77,9 @@ interface SongDao {
     suspend fun deletePlaylistById(playlistId: String)
 
     // --- Artist Summary Queries ---
+    @Query("SELECT * FROM artist_summaries")
+    fun getAllArtistSummariesFlow(): Flow<List<ArtistSummaryEntity>>
+
     @Query("SELECT * FROM artist_summaries WHERE artistName = :artistName LIMIT 1")
     suspend fun getArtistSummary(artistName: String): ArtistSummaryEntity?
 

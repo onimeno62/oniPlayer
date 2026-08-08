@@ -44,6 +44,7 @@ class MusicRepository(
     val favoriteSongs: Flow<List<SongEntity>> = songDao.getFavoriteSongs()
     val allPresets: Flow<List<EqualizerPresetEntity>> = songDao.getAllPresets()
     val allPlaylists: Flow<List<PlaylistEntity>> = songDao.getAllPlaylists()
+    val allArtistSummaries: Flow<List<ArtistSummaryEntity>> = songDao.getAllArtistSummariesFlow()
 
     suspend fun insertPlaylist(playlist: PlaylistEntity) = withContext(Dispatchers.IO) {
         songDao.insertPlaylist(playlist)
@@ -447,6 +448,16 @@ class MusicRepository(
         val entity = ArtistSummaryEntity(
             artistName = artistName,
             summary = existing?.summary ?: "",
+            lastUpdated = System.currentTimeMillis(),
+            artworkUri = artworkUri
+        )
+        songDao.insertArtistSummary(entity)
+    }
+
+    suspend fun saveArtistData(artistName: String, summary: String, artworkUri: String?) = withContext(Dispatchers.IO) {
+        val entity = ArtistSummaryEntity(
+            artistName = artistName,
+            summary = summary,
             lastUpdated = System.currentTimeMillis(),
             artworkUri = artworkUri
         )

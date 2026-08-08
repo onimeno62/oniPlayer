@@ -1,6 +1,9 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -37,6 +40,8 @@ private val GLASS_EFFECT_KEY = booleanPreferencesKey("glass_effect_enabled")
 private val BLUR_STRENGTH_KEY = floatPreferencesKey("blur_strength")
 private val CORNER_RADIUS_KEY = floatPreferencesKey("corner_radius")
 private val BACKGROUND_TRANSPARENCY_KEY = floatPreferencesKey("background_transparency")
+private val AUTO_SEARCH_ARTIST_DATA_KEY = booleanPreferencesKey("auto_search_artist_data")
+private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_only")
 
 enum class ShuffleMode {
     RANDOM,          // pure random pick
@@ -239,6 +244,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val allPlaylists: StateFlow<List<PlaylistEntity>> = repository.allPlaylists
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allArtistSummaries: StateFlow<List<ArtistSummaryEntity>> = repository.allArtistSummaries
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Equalizer UI Binding states
     private val _currentPresetName = MutableStateFlow("Flat")
     val currentPresetName: StateFlow<String> = _currentPresetName.asStateFlow()
@@ -352,6 +360,30 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 Log.e(TAG, "Error loading background transparency preference: ${e.message}")
             }
         }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[AUTO_SEARCH_ARTIST_DATA_KEY] ?: true }
+                    .collect { saved ->
+                        _autoSearchArtistData.value = saved
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading auto search artist data preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[AUTO_SEARCH_WIFI_ONLY_KEY] ?: true }
+                    .collect { saved ->
+                        _autoSearchWifiOnly.value = saved
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading auto search wifi only preference: ${e.message}")
+            }
+        }
         
         // Listen to completion of song to auto-skip
         audioEngine.onPlaybackCompleted = {
@@ -376,6 +408,35 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 
                 // Pre-load metadata into audioEngine without playing
                 audioEngine.setSongWithoutPlaying(lastPlayedSong)
+
+                // Trigger background artist info and artwork loading
+                viewModelScope.launch(Dispatchers.IO) {
+                    try {
+                        val uniqueArtists = initialSongs.map { it.displayArtist.ifBlank { "Unknown Artist" } }.distinct()
+                        uniqueArtists.forEach { artistName ->
+                            if (artistName != "Unknown Artist" && artistName.isNotBlank()) {
+                                val existing = repository.getArtistSummary(artistName)
+                                if (existing == null && _autoSearchArtistData.value) {
+                                    // Gentle throttle to avoid overloading network/APIs
+                                    kotlinx.coroutines.delay(1200)
+                                    try {
+                                        val summary = GeminiMusicService.fetchArtistSummaryFromAudioDB(artistName)
+                                        var savedArtworkUri: String? = null
+                                        val images = GeminiMusicService.fetchArtistImagesFromAudioDB(artistName)
+                                        if (images.isNotEmpty()) {
+                                            savedArtworkUri = images.firstOrNull { !it.isNullOrBlank() }
+                                        }
+                                        repository.saveArtistData(artistName, summary, savedArtworkUri)
+                                    } catch (e: Exception) {
+                                        Log.e("MusicPlayerViewModel", "Background artist fetch failed for $artistName: ${e.message}")
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MusicPlayerViewModel", "Error in background artist details scan", e)
+                    }
+                }
             }
         }
     }
@@ -1377,6 +1438,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     // --- Artist Summary ---
+    private val _autoSearchArtistData = MutableStateFlow(true)
+    val autoSearchArtistData: StateFlow<Boolean> = _autoSearchArtistData.asStateFlow()
+
+    private val _autoSearchWifiOnly = MutableStateFlow(true)
+    val autoSearchWifiOnly: StateFlow<Boolean> = _autoSearchWifiOnly.asStateFlow()
+
     private val _artistSummary = MutableStateFlow<String?>(null)
     val artistSummary: StateFlow<String?> = _artistSummary.asStateFlow()
 
@@ -1391,6 +1458,47 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _isSearchingArtistSummary = MutableStateFlow(false)
     val isSearchingArtistSummary: StateFlow<Boolean> = _isSearchingArtistSummary.asStateFlow()
+
+    fun setAutoSearchArtistData(enabled: Boolean) {
+        _autoSearchArtistData.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[AUTO_SEARCH_ARTIST_DATA_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving auto search artist data preference: ${e.message}")
+            }
+        }
+    }
+
+    fun setAutoSearchWifiOnly(enabled: Boolean) {
+        _autoSearchWifiOnly.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[AUTO_SEARCH_WIFI_ONLY_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving auto search wifi only preference: ${e.message}")
+            }
+        }
+    }
+
+    fun isWifiConnected(): Boolean {
+        return try {
+            val connectivityManager = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            if (connectivityManager != null) {
+                val activeNetwork = connectivityManager.activeNetwork
+                if (activeNetwork != null) {
+                    val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+                    capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                } else false
+            } else false
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     fun loadArtistSummary(artistName: String) {
         viewModelScope.launch {
@@ -1409,11 +1517,37 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun searchArtistSummaryOnline(artistName: String) {
         viewModelScope.launch {
+            // Check if automatic search is enabled
+            if (!_autoSearchArtistData.value) {
+                _artistSummary.value = "Automatic search is disabled. Enable in Settings to fetch biography and images."
+                return@launch
+            }
+
+            // Check if Wi-Fi only is active
+            if (_autoSearchWifiOnly.value && !isWifiConnected()) {
+                _artistSummary.value = "Automatic search is paused on mobile networks. Connect to Wi-Fi to fetch biography and images."
+                return@launch
+            }
+
             _isSearchingArtistSummary.value = true
             try {
+                // Fetch biography
                 val summary = GeminiMusicService.fetchArtistSummaryFromAudioDB(artistName)
-                repository.saveArtistSummary(artistName, summary)
+                
+                // Automatically fetch and save image URL
+                var savedArtworkUri: String? = null
+                try {
+                    val images = GeminiMusicService.fetchArtistImagesFromAudioDB(artistName)
+                    if (images.isNotEmpty()) {
+                        savedArtworkUri = images.firstOrNull { !it.isNullOrBlank() }
+                    }
+                } catch (imgEx: Exception) {
+                    Log.e("MusicPlayerViewModel", "Error fetching artist images automatically: ${imgEx.message}")
+                }
+
+                repository.saveArtistData(artistName, summary, savedArtworkUri)
                 _artistSummary.value = summary
+                _artistArtworkUri.value = savedArtworkUri
             } catch (e: Exception) {
                 Log.e("MusicPlayerViewModel", "Error searching artist summary", e)
                 _artistSummary.value = "Error: Failed to fetch biography from TheAudioDB. Please check your network connection."

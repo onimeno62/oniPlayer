@@ -130,6 +130,8 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
             if (category != null) {
                 if (category.id == "appearance") {
                     AppearanceSettingsScreen(viewModel = viewModel, onBack = { activeSubScreen = null })
+                } else if (category.id == "library_metadata") {
+                    LibraryMetadataSettingsScreen(viewModel = viewModel, onBack = { activeSubScreen = null })
                 } else {
                     SettingsDetailPlaceholder(
                         category = category,
@@ -863,6 +865,114 @@ fun SliderSettingRow(
                 .fillMaxWidth()
                 .testTag("${testTag ?: "slider"}_control")
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LibraryMetadataSettingsScreen(viewModel: MusicPlayerViewModel, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Library & Metadata",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.testTag("library_metadata_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Go back",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        },
+        containerColor = Color.Transparent
+    ) { paddingValues ->
+        val accentColor = LocalAccentColor.current
+        val autoSearchArtistData by viewModel.autoSearchArtistData.collectAsState()
+        val autoSearchWifiOnly by viewModel.autoSearchWifiOnly.collectAsState()
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // Artist Data Auto-Search Section
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Artist Data Settings",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = accentColor,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Configure how biography and pictures are fetched from online music databases.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SwitchSettingRow(
+                                title = "Automatically search artist data",
+                                description = "Automatically search and fetch the artist's biography and picture from web databases when loading an artist.",
+                                checked = autoSearchArtistData,
+                                onCheckedChange = { viewModel.setAutoSearchArtistData(it) },
+                                testTag = "setting_auto_search_artist"
+                            )
+
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                thickness = 1.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+
+                            SwitchSettingRow(
+                                title = "Only search on Wi-Fi",
+                                description = "To save mobile network usage, only search and download artist biography and artwork when connected to Wi-Fi.",
+                                checked = autoSearchWifiOnly,
+                                onCheckedChange = { viewModel.setAutoSearchWifiOnly(it) },
+                                testTag = "setting_auto_search_wifi_only"
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -77,92 +77,116 @@ fun ArtistDetailScreen(
     var isBiographyExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+    val artworkToDisplay = customArtworkUri ?: artist.artworkUri
+    val accentColor = LocalAccentColor.current
+
+    Box(
+        modifier = modifier.fillMaxSize()
     ) {
-        // Artist Header Section
-        Column(
+        // Full Width Background Image / Gradient
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .height(280.dp)
         ) {
-            // Circular Avatar Wrapper
-            Box(
-                modifier = Modifier
-                    .size(110.dp)
-                    .clickable {
-                        viewModel.fetchOnlineArtistImages(artist.name)
-                        showImagePickerDialog = true
-                    }
-            ) {
+            if (artworkToDisplay != null) {
+                AsyncImage(
+                    model = artworkToDisplay,
+                    contentDescription = "Background for ${artist.name}",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(LocalAccentColor.current.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val artworkToDisplay = customArtworkUri ?: artist.artworkUri
-                    if (artworkToDisplay != null) {
-                        AsyncImage(
-                            model = artworkToDisplay,
-                            contentDescription = "Avatar for ${artist.name}",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    accentColor.copy(alpha = 0.4f),
+                                    accentColor.copy(alpha = 0.05f)
+                                )
+                            )
                         )
-                    } else {
-                        val initial = artist.name.trim().take(1).uppercase().ifEmpty { "?" }
-                        Text(
-                            text = initial,
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = LocalAccentColor.current
+                )
+            }
+
+            // Dark/dimming gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.1f),
+                                Color.Black.copy(alpha = 0.4f),
+                                MaterialTheme.colorScheme.background
+                            )
                         )
-                    }
-                }
-                
-                // Small camera badge at bottom-right
-                Box(
+                    )
+            )
+        }
+
+        // Main content column over the background
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(modifier = Modifier.height(110.dp))
+
+            // Artist Information Overlay Header Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp, horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .size(32.dp)
-                        .align(Alignment.BottomEnd)
-                        .background(LocalAccentColor.current, CircleShape)
-                        .border(2.dp, MaterialTheme.colorScheme.background, CircleShape),
-                    contentAlignment = Alignment.Center
+                        .clickable {
+                            viewModel.fetchOnlineArtistImages(artist.name)
+                            showImagePickerDialog = true
+                        }
+                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
+                    Text(
+                        text = artist.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = Icons.Default.CameraAlt,
                         contentDescription = "Change picture",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(16.dp)
+                        tint = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
+                val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
+                Box(
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "$albumText • $songText",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.9f)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = artist.name,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
-            val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
-            Text(
-                text = "$albumText • $songText",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
 
         // Action Buttons
         Row(
@@ -748,6 +772,7 @@ fun ArtistDetailScreen(
             }
         }
     }
+}
 }
 
 @Composable

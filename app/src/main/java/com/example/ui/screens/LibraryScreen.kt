@@ -75,6 +75,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val songs by viewModel.allSongs.collectAsStateWithLifecycle()
     val favorites by viewModel.favoriteSongs.collectAsStateWithLifecycle()
     val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
+    val artistSummaries by viewModel.allArtistSummaries.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
     val currentSong by viewModel.audioEngine.currentSong.collectAsStateWithLifecycle()
@@ -166,7 +167,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     }
 
     val albumUiModels = remember(songs) { songs.toAlbumUiModels() }
-    val artistUiModels = remember(songs) { songs.toArtistUiModels() }
+    val artistUiModels = remember(songs, artistSummaries) { songs.toArtistUiModels(artistSummaries) }
 
     // Sort songs inside lists dynamically
     val sortedSongs = remember(songs, sortBy, isSortAscending, searchQuery) {
@@ -416,31 +417,34 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                     }
                 }
 
-                // Local Search inside active category
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.updateSearchQuery(it) },
-                    placeholder = { Text("Filter current list...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                // Local Search inside active category (hidden on detail sub-screens)
+                val isDetailActive = selectedGroup != null && (activeCategoryIndex == 3 || activeCategoryIndex == 2)
+                if (!isDetailActive) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.updateSearchQuery(it) },
+                        placeholder = { Text("Filter current list...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                }
                             }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                        )
                     )
-                )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
             // --- 2. Screen Body Content ---
             Box(
