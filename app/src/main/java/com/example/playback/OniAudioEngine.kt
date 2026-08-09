@@ -3,10 +3,6 @@ package com.example.playback
 import android.content.Context
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -23,7 +19,9 @@ class OniAudioEngine private constructor(context: Context) {
     }
 
     private val client = PlaybackControllerClient(context)
-    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val bandGains = FloatArray(5)
+    private var bassBoost = 0f
+    private var virtualizer = 0f
 
     val isPlaying: StateFlow<Boolean> = client.isPlaying
     val beatEnergy: StateFlow<Float> = client.beatEnergy
@@ -32,7 +30,7 @@ class OniAudioEngine private constructor(context: Context) {
     val position: StateFlow<Long> = client.position
     val duration: StateFlow<Long> = client.duration
 
-    /** Legacy callback is retained only for source compatibility; playback completion is service-owned. */
+    /** Legacy callback retained only for source compatibility; completion is service-owned. */
     var onPlaybackCompleted: (() -> Unit)? = null
 
     fun setSongWithoutPlaying(song: SongEntity) = client.setQueue(listOf(song), 0, false)
@@ -43,16 +41,25 @@ class OniAudioEngine private constructor(context: Context) {
     fun stop() = client.stop()
     fun clearCurrentSource() = client.clearCurrentSource()
     fun seekTo(positionMs: Long) = client.seekTo(positionMs)
-    fun setBandGain(bandIndex: Int, gainDb: Float) = client.setBandGain(bandIndex, gainDb)
-    fun getBandGains(): FloatArray = FloatArray(5)
-    fun setBassBoost(levelPercent: Float) = client.setBassBoost(levelPercent)
-    fun getBassBoost(): Float = 0f
-    fun setVirtualizer(levelPercent: Float) = client.setVirtualizer(levelPercent)
-    fun getVirtualizer(): Float = 0f
-    fun applyPreset(preset: EqualizerPresetEntity) = client.applyPreset(preset)
-
-    fun release() {
-        client.release()
-        scope.cancel()
+    fun setBandGain(bandIndex: Int, gainDb: Float) {
+        if (bandIndex in bandGains.indices) bandGains[bandIndex] = gainDb
+        client.setBandGain(bandIndex, gainDb)
     }
+    fun getBandGains(): FloatArray = bandGains.copyOf()
+    fun setBassBoost(levelPercent: Float) { bassBoost = levelPercent; client.setBassBoost(levelPercent) }
+    fun getBassBoost(): Float = bassBoost
+    fun setVirtualizer(levelPercent: Float) { virtualizer = levelPercent; client.setVirtualizer(levelPercent) }
+    fun getVirtualizer(): Float = virtualizer
+    fun applyPreset(preset: EqualizerPresetEntity) {
+        bandGains[0] = preset.band60Hz
+        bandGains[1] = preset.band230Hz
+        bandGains[2] = preset.band910Hz
+        bandGains[3] = preset.band4kHz
+        bandGains[4] = preset.band14kHz
+        bassBoost = preset.bassBoost
+        virtualizer = preset.virtualizer
+        client.applyPreset(preset)
+    }
+
+    fun release() = client.release()
 }
