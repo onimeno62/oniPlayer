@@ -46,7 +46,7 @@ fun List<SongEntity>.toArtistUiModels(summaries: List<ArtistSummaryEntity> = emp
             name = artistKey,
             albumCount = albumCount,
             songCount = songsInGroup.size,
-            artworkUri = summaryMap[artistKey]?.artworkUri
+            artworkUri = summaryMap[artistKey]?.artworkUri ?: songsInGroup.firstOrNull { !it.albumArtUri.isNullOrBlank() }?.albumArtUri
         )
     }.sortedBy { it.name.lowercase() }
 }

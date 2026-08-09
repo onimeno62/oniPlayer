@@ -3,12 +3,16 @@ package com.example.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -132,6 +136,8 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
                     AppearanceSettingsScreen(viewModel = viewModel, onBack = { activeSubScreen = null })
                 } else if (category.id == "library_metadata") {
                     LibraryMetadataSettingsScreen(viewModel = viewModel, onBack = { activeSubScreen = null })
+                } else if (category.id == "playback") {
+                    PlaybackSettingsScreen(viewModel = viewModel, onBack = { activeSubScreen = null })
                 } else {
                     SettingsDetailPlaceholder(
                         category = category,
@@ -905,6 +911,7 @@ fun LibraryMetadataSettingsScreen(viewModel: MusicPlayerViewModel, onBack: () ->
         val accentColor = LocalAccentColor.current
         val autoSearchArtistData by viewModel.autoSearchArtistData.collectAsState()
         val autoSearchWifiOnly by viewModel.autoSearchWifiOnly.collectAsState()
+        val nextSongDelaySeconds by viewModel.nextSongDelaySeconds.collectAsState()
 
         LazyColumn(
             modifier = Modifier
@@ -968,6 +975,398 @@ fun LibraryMetadataSettingsScreen(viewModel: MusicPlayerViewModel, onBack: () ->
                                 onCheckedChange = { viewModel.setAutoSearchWifiOnly(it) },
                                 testTag = "setting_auto_search_wifi_only"
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun WheelPicker(
+    value: Int,
+    range: List<Int>,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    labelFormatter: (Int) -> String = { it.toString() }
+) {
+    val lazyListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = range.indexOf(value).coerceAtLeast(0)
+    )
+    val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState)
+    val accentColor = LocalAccentColor.current
+
+    // Observe changes to the scrolling position to update the value
+    LaunchedEffect(lazyListState.isScrollInProgress) {
+        if (!lazyListState.isScrollInProgress) {
+            val centerIndex = lazyListState.firstVisibleItemIndex
+            if (centerIndex in range.indices) {
+                onValueChange(range[centerIndex])
+            }
+        }
+    }
+
+    // Keep state in sync with external value changes
+    LaunchedEffect(value) {
+        val targetIndex = range.indexOf(value)
+        if (targetIndex >= 0 && targetIndex != lazyListState.firstVisibleItemIndex) {
+            lazyListState.animateScrollToItem(targetIndex)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .height(110.dp)
+            .width(70.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Highlighting bar behind
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .background(accentColor.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                .border(1.dp, accentColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+        )
+
+        LazyColumn(
+            state = lazyListState,
+            flingBehavior = snapFlingBehavior,
+            contentPadding = PaddingValues(vertical = 37.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(range.size) { index ->
+                val itemValue = range[index]
+                val isSelected = itemValue == value
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onValueChange(itemValue)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = labelFormatter(itemValue),
+                        fontSize = if (isSelected) 18.sp else 14.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DurationPickerSettingRow(
+    title: String,
+    totalSeconds: Int,
+    onValueChange: (Int) -> Unit,
+    testTag: String? = null
+) {
+    val accentColor = LocalAccentColor.current
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = when {
+                    totalSeconds == 0 -> "No Delay (Instant)"
+                    totalSeconds < 60 -> "$totalSeconds seconds"
+                    totalSeconds % 60 == 0 -> "${totalSeconds / 60} minute${if (totalSeconds / 60 > 1) "s" else ""}"
+                    else -> "${totalSeconds / 60} min ${totalSeconds % 60} sec"
+                },
+                fontSize = 14.sp,
+                color = accentColor,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Picker controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Minutes Wheel Picker
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(90.dp)
+            ) {
+                Text(
+                    text = "MINUTES",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                WheelPicker(
+                    value = minutes,
+                    range = (0..30).toList(),
+                    onValueChange = { newMin ->
+                        onValueChange(newMin * 60 + seconds)
+                    },
+                    labelFormatter = { it.toString() }
+                )
+            }
+
+            // Divider / Colon
+            Text(
+                text = ":",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp)
+            )
+
+            // Seconds Wheel Picker
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(90.dp)
+            ) {
+                Text(
+                    text = "SECONDS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                WheelPicker(
+                    value = seconds,
+                    range = (0..59).toList(),
+                    onValueChange = { newSec ->
+                        onValueChange(minutes * 60 + newSec)
+                    },
+                    labelFormatter = { String.format("%02d", it) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Quick presets
+        Text(
+            text = "QUICK PRESETS",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val presets = listOf(
+                0 to "Instant",
+                5 to "5s",
+                10 to "10s",
+                30 to "30s",
+                60 to "1m",
+                120 to "2m"
+            )
+            val chunks = presets.chunked(3)
+            chunks.forEach { chunk ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    chunk.forEach { (secs, label) ->
+                        val isSelected = totalSeconds == secs
+                        SuggestionChip(
+                            onClick = { onValueChange(secs) },
+                            label = { 
+                                Text(
+                                    text = label, 
+                                    fontSize = 12.sp, 
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.align(Alignment.CenterVertically)
+                                ) 
+                            },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = if (isSelected) accentColor.copy(alpha = 0.15f) else Color.Transparent,
+                                labelColor = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            ),
+                            border = SuggestionChipDefaults.suggestionChipBorder(
+                                borderColor = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                enabled = true
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlaybackSettingsScreen(viewModel: MusicPlayerViewModel, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Playback Options",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.testTag("playback_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Go back",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        },
+        containerColor = Color.Transparent
+    ) { paddingValues ->
+        val accentColor = LocalAccentColor.current
+        val nextSongDelaySeconds by viewModel.nextSongDelaySeconds.collectAsState()
+        val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsState()
+        val crossfadeDurationSeconds by viewModel.crossfadeDurationSeconds.collectAsState()
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // Playback Delay Settings Section
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Auto-Play Delay Settings",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = accentColor,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Set a custom minutes/seconds delay before automatically playing the next song.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        DurationPickerSettingRow(
+                            title = "Next Song Delay",
+                            totalSeconds = nextSongDelaySeconds,
+                            onValueChange = { viewModel.setNextSongDelaySeconds(it) },
+                            testTag = "setting_playback_delay"
+                        )
+                    }
+                }
+            }
+
+            // Playback Crossfade Settings Section
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Playback Crossfade Settings",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = accentColor,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Smoothly fade out the current song and fade in the next song near the end of playback.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SwitchSettingRow(
+                                title = "Enable Crossfade",
+                                description = "Fade tracks into each other.",
+                                checked = crossfadeEnabled,
+                                onCheckedChange = { viewModel.setCrossfadeEnabled(it) },
+                                testTag = "setting_crossfade_enabled"
+                            )
+
+                            if (crossfadeEnabled) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    thickness = 1.dp,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+
+                                SliderSettingRow(
+                                    title = "Crossfade Duration",
+                                    value = crossfadeDurationSeconds.toFloat(),
+                                    onValueChange = { viewModel.setCrossfadeDurationSeconds(it.toInt()) },
+                                    valueRange = 1f..20f,
+                                    valueFormatter = { value -> "${value.toInt()} seconds" },
+                                    testTag = "setting_crossfade_duration"
+                                )
+                            }
                         }
                     }
                 }

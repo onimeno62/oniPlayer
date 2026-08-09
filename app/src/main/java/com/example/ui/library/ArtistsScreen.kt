@@ -11,6 +11,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +38,13 @@ fun ArtistsScreen(
     artists: List<ArtistUiModel>,
     layoutMode: String,
     onArtistClick: (ArtistUiModel) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    gridIndex: Int = 0,
+    gridOffset: Int = 0,
+    onGridScroll: (Int, Int) -> Unit = { _, _ -> },
+    listIndex: Int = 0,
+    listOffset: Int = 0,
+    onListScroll: (Int, Int) -> Unit = { _, _ -> }
 ) {
     if (artists.isEmpty()) {
         LibraryEmptyState(
@@ -44,8 +53,16 @@ fun ArtistsScreen(
             modifier = modifier.fillMaxSize()
         )
     } else if (layoutMode == "grid") {
+        val gridState = rememberLazyGridState(
+            initialFirstVisibleItemIndex = gridIndex,
+            initialFirstVisibleItemScrollOffset = gridOffset
+        )
+        LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
+            onGridScroll(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset)
+        }
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
+            state = gridState,
             contentPadding = PaddingValues(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -146,7 +163,15 @@ fun ArtistsScreen(
             }
         }
     } else {
+        val listState = rememberLazyListState(
+            initialFirstVisibleItemIndex = listIndex,
+            initialFirstVisibleItemScrollOffset = listOffset
+        )
+        LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+            onListScroll(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+        }
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = modifier.fillMaxSize()

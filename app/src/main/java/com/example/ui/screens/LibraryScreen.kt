@@ -512,7 +512,19 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             AlbumsScreen(
                                 albums = albumUiModels,
                                 layoutMode = layoutMode,
-                                onAlbumClick = { viewModel.setSelectedGroup(it.albumKey) }
+                                onAlbumClick = { viewModel.setSelectedGroup(it.albumKey) },
+                                gridIndex = viewModel.albumsGridIndex,
+                                gridOffset = viewModel.albumsGridOffset,
+                                onGridScroll = { index, offset ->
+                                    viewModel.albumsGridIndex = index
+                                    viewModel.albumsGridOffset = offset
+                                },
+                                listIndex = viewModel.albumsListIndex,
+                                listOffset = viewModel.albumsListOffset,
+                                onListScroll = { index, offset ->
+                                    viewModel.albumsListIndex = index
+                                    viewModel.albumsListOffset = offset
+                                }
                             )
                         }
                     }
@@ -549,7 +561,19 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                             ArtistsScreen(
                                 artists = artistUiModels,
                                 layoutMode = layoutMode,
-                                onArtistClick = { viewModel.setSelectedGroup(it.artistKey) }
+                                onArtistClick = { viewModel.setSelectedGroup(it.artistKey) },
+                                gridIndex = viewModel.artistsGridIndex,
+                                gridOffset = viewModel.artistsGridOffset,
+                                onGridScroll = { index, offset ->
+                                    viewModel.artistsGridIndex = index
+                                    viewModel.artistsGridOffset = offset
+                                },
+                                listIndex = viewModel.artistsListIndex,
+                                listOffset = viewModel.artistsListOffset,
+                                onListScroll = { index, offset ->
+                                    viewModel.artistsListIndex = index
+                                    viewModel.artistsListOffset = offset
+                                }
                             )
                         }
                     }
@@ -950,7 +974,14 @@ fun SongsListView(
             icon = Icons.Default.MusicOff
         )
     } else if (layoutMode == "grid") {
-        val gridState = rememberLazyGridState()
+        val gridState = rememberLazyGridState(
+            initialFirstVisibleItemIndex = viewModel.songsGridIndex,
+            initialFirstVisibleItemScrollOffset = viewModel.songsGridOffset
+        )
+        LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
+            viewModel.songsGridIndex = gridState.firstVisibleItemIndex
+            viewModel.songsGridOffset = gridState.firstVisibleItemScrollOffset
+        }
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             state = gridState,
@@ -1112,8 +1143,17 @@ fun GroupedListView(
                 icon = icon
             )
         } else if (layoutMode == "grid") {
+            val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState(
+                initialFirstVisibleItemIndex = viewModel.groupedGridIndex,
+                initialFirstVisibleItemScrollOffset = viewModel.groupedGridOffset
+            )
+            LaunchedEffect(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset) {
+                viewModel.groupedGridIndex = gridState.firstVisibleItemIndex
+                viewModel.groupedGridOffset = gridState.firstVisibleItemScrollOffset
+            }
             androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                 columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                state = gridState,
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1176,7 +1216,16 @@ fun GroupedListView(
                 }
             }
         } else {
+            val listState = rememberLazyListState(
+                initialFirstVisibleItemIndex = viewModel.groupedListIndex,
+                initialFirstVisibleItemScrollOffset = viewModel.groupedListOffset
+            )
+            LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+                viewModel.groupedListIndex = listState.firstVisibleItemIndex
+                viewModel.groupedListOffset = listState.firstVisibleItemScrollOffset
+            }
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 96.dp)
             ) {

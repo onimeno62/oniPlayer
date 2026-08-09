@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -27,6 +28,7 @@ import com.example.playback.OniAudioEngine
 import com.example.ui.theme.OniTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -42,6 +44,9 @@ private val CORNER_RADIUS_KEY = floatPreferencesKey("corner_radius")
 private val BACKGROUND_TRANSPARENCY_KEY = floatPreferencesKey("background_transparency")
 private val AUTO_SEARCH_ARTIST_DATA_KEY = booleanPreferencesKey("auto_search_artist_data")
 private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_only")
+private val PLAYBACK_DELAY_KEY = intPreferencesKey("playback_delay_seconds")
+private val CROSSFADE_ENABLED_KEY = booleanPreferencesKey("crossfade_enabled")
+private val CROSSFADE_DURATION_KEY = intPreferencesKey("crossfade_duration_seconds")
 
 enum class ShuffleMode {
     RANDOM,          // pure random pick
@@ -60,6 +65,28 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     // Library scroll position persistence
     var libraryScrollIndex: Int = 0
     var libraryScrollOffset: Int = 0
+
+    // Scroll positions for ArtistsScreen
+    var artistsGridIndex: Int = 0
+    var artistsGridOffset: Int = 0
+    var artistsListIndex: Int = 0
+    var artistsListOffset: Int = 0
+
+    // Scroll positions for AlbumsScreen
+    var albumsGridIndex: Int = 0
+    var albumsGridOffset: Int = 0
+    var albumsListIndex: Int = 0
+    var albumsListOffset: Int = 0
+
+    // Scroll positions for SongsListView Grid
+    var songsGridIndex: Int = 0
+    var songsGridOffset: Int = 0
+
+    // Scroll positions for GroupedListView (Folders, Genres, etc.)
+    var groupedGridIndex: Int = 0
+    var groupedGridOffset: Int = 0
+    var groupedListIndex: Int = 0
+    var groupedListOffset: Int = 0
 
     // User selected theme state
     private val _currentTheme = MutableStateFlow(OniTheme.HIGH_DENSITY)
@@ -88,6 +115,20 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     // Corner radius state (default 16f, range 8-32)
     private val _cornerRadius = MutableStateFlow(16f)
     val cornerRadius: StateFlow<Float> = _cornerRadius.asStateFlow()
+
+    private val _nextSongDelaySeconds = MutableStateFlow(0)
+    val nextSongDelaySeconds: StateFlow<Int> = _nextSongDelaySeconds.asStateFlow()
+
+    private val _playbackDelayCountdown = MutableStateFlow<Int?>(null)
+    val playbackDelayCountdown: StateFlow<Int?> = _playbackDelayCountdown.asStateFlow()
+
+    private var delayJob: Job? = null
+
+    private val _crossfadeEnabled = MutableStateFlow(false)
+    val crossfadeEnabled: StateFlow<Boolean> = _crossfadeEnabled.asStateFlow()
+
+    private val _crossfadeDurationSeconds = MutableStateFlow(5)
+    val crossfadeDurationSeconds: StateFlow<Int> = _crossfadeDurationSeconds.asStateFlow()
 
     // Background transparency state (default 50f, range 0-100)
     private val _backgroundTransparency = MutableStateFlow(50f)
@@ -384,10 +425,46 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 Log.e(TAG, "Error loading auto search wifi only preference: ${e.message}")
             }
         }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[PLAYBACK_DELAY_KEY] ?: 0 }
+                    .collect { savedDelay ->
+                        _nextSongDelaySeconds.value = savedDelay
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading playback delay preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[CROSSFADE_ENABLED_KEY] ?: false }
+                    .collect { enabled ->
+                        _crossfadeEnabled.value = enabled
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading crossfade enabled preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[CROSSFADE_DURATION_KEY] ?: 5 }
+                    .collect { duration ->
+                        _crossfadeDurationSeconds.value = duration
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading crossfade duration preference: ${e.message}")
+            }
+        }
         
         // Listen to completion of song to auto-skip
         audioEngine.onPlaybackCompleted = {
-            skipNext()
+            triggerAutoNextWithDelay()
         }
     }
 
@@ -575,6 +652,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     // --- Media Playback Controls ---
 
     fun playSong(song: SongEntity, playlist: List<SongEntity>) {
+        cancelDelay()
         _currentPlaylist.value = playlist
         _currentTab.value = 1 // Switch to Player tab immediately
 
@@ -664,6 +742,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun togglePlayPause() {
+        cancelDelay()
         if (audioEngine.isPlaying.value) {
             audioEngine.pause()
         } else {
@@ -711,6 +790,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun skipNext() {
+        cancelDelay()
         val playlist = _currentPlaylist.value
         val current = audioEngine.currentSong.value ?: return
         if (playlist.isEmpty()) return
@@ -740,6 +820,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun skipPrevious() {
+        cancelDelay()
         val playlist = _currentPlaylist.value
         val current = audioEngine.currentSong.value ?: return
         if (playlist.isEmpty()) return
@@ -1482,6 +1563,70 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving auto search wifi only preference: ${e.message}")
             }
+        }
+    }
+
+    fun setNextSongDelaySeconds(seconds: Int) {
+        _nextSongDelaySeconds.value = seconds
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[PLAYBACK_DELAY_KEY] = seconds
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving next song delay preference: ${e.message}")
+            }
+        }
+    }
+
+    fun setCrossfadeEnabled(enabled: Boolean) {
+        _crossfadeEnabled.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[CROSSFADE_ENABLED_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving crossfade enabled preference: ${e.message}")
+            }
+        }
+    }
+
+    fun setCrossfadeDurationSeconds(seconds: Int) {
+        _crossfadeDurationSeconds.value = seconds
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[CROSSFADE_DURATION_KEY] = seconds
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving crossfade duration preference: ${e.message}")
+            }
+        }
+    }
+
+    fun cancelDelay() {
+        delayJob?.cancel()
+        delayJob = null
+        _playbackDelayCountdown.value = null
+    }
+
+    fun triggerAutoNextWithDelay() {
+        cancelDelay()
+        val delaySecs = _nextSongDelaySeconds.value
+        if (delaySecs <= 0) {
+            skipNext()
+            return
+        }
+
+        delayJob = viewModelScope.launch {
+            for (remaining in delaySecs downTo 1) {
+                _playbackDelayCountdown.value = remaining
+                kotlinx.coroutines.delay(1000)
+            }
+            _playbackDelayCountdown.value = null
+            delayJob = null
+            skipNext()
         }
     }
 

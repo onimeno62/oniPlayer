@@ -73,6 +73,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
     val isFetchingLyrics by viewModel.isFetchingLyrics.collectAsState()
     val favoriteSongs by viewModel.favoriteSongs.collectAsState()
     val floatingLyricsEnabled by viewModel.floatingLyricsEnabled.collectAsState()
+    val playbackDelayCountdown by viewModel.playbackDelayCountdown.collectAsState()
 
     val context = LocalContext.current
     val accentColor = LocalAccentColor.current
@@ -516,6 +517,40 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                         )
+                    }
+                }
+
+                if (playbackDelayCountdown != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Next song in $playbackDelayCountdown seconds...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
                 }
 

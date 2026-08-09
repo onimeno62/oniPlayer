@@ -39,6 +39,9 @@ import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.theme.LocalAccentColor
 import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun ArtistDetailScreen(
@@ -55,6 +58,23 @@ fun ArtistDetailScreen(
     viewModel: com.example.ui.viewmodel.MusicPlayerViewModel,
     modifier: Modifier = Modifier
 ) {
+    var showImagePickerDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+            } catch (e: Exception) {
+                // Ignore if not a persistable URI
+            }
+            viewModel.saveArtistArtworkUri(artist.name, uri.toString())
+            showImagePickerDialog = false
+        }
+    }
+
     val sortedSongs = remember(songsByArtist) {
         songsByArtist.sortedWith(
             compareBy<SongEntity> { it.displayAlbum }
@@ -72,7 +92,6 @@ fun ArtistDetailScreen(
     val customArtworkUri by viewModel.artistArtworkUri.collectAsState()
 
     var showEditDialog by remember { mutableStateOf(false) }
-    var showImagePickerDialog by remember { mutableStateOf(false) }
     var editBiographyText by remember { mutableStateOf("") }
     var isBiographyExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -484,6 +503,7 @@ fun ArtistDetailScreen(
         if (showImagePickerDialog) {
             val onlineImages by viewModel.onlineArtistImages.collectAsState()
             val isFetchingImages by viewModel.isFetchingArtistImages.collectAsState()
+            var dialogSearchQuery by remember { mutableStateOf(artist.name) }
 
             Dialog(onDismissRequest = { showImagePickerDialog = false }) {
                 Surface(
@@ -495,9 +515,9 @@ fun ArtistDetailScreen(
                         .padding(horizontal = 8.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
                             text = "Select Artist Picture",
@@ -506,9 +526,42 @@ fun ArtistDetailScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
+                        // Manual Online Search Bar
+                        OutlinedTextField(
+                            value = dialogSearchQuery,
+                            onValueChange = { dialogSearchQuery = it },
+                            placeholder = { Text("Search online pictures...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.fetchOnlineArtistImages(dialogSearchQuery)
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Search, contentDescription = "Search Online")
+                                }
+                            }
+                        )
+
+                        // Manual Local Storage Picker Button
+                        Button(
+                            onClick = {
+                                imagePickerLauncher.launch("image/*")
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Pick from Local Storage")
+                        }
+
                         Text(
-                            text = "Drag left or right to browse online pictures from TheAudioDB, then tap Save.",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "Or browse online pictures from TheAudioDB below, then tap Save.",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
@@ -517,7 +570,7 @@ fun ArtistDetailScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(260.dp),
+                                    .height(200.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -536,7 +589,7 @@ fun ArtistDetailScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(260.dp),
+                                    .height(200.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -548,7 +601,7 @@ fun ArtistDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "No online pictures found for \"${artist.name}\".",
+                                    text = "No online pictures found for \"$dialogSearchQuery\".",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -560,7 +613,7 @@ fun ArtistDetailScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(260.dp),
+                                    .height(200.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 HorizontalPager(
