@@ -1,0 +1,149 @@
+name: Complete playback refactor
+
+on:
+  push:
+    branches:
+      - refactor/playback-architecture-media3
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply playback ownership cleanup
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('app/src/main/java/com/example/ui/viewmodel/MusicPlayerViewModel.kt')
+          text = path.read_text()
+          original = text
+
+          # Move ShuffleMode ownership to playback package.
+          text = text.replace('import com.example.playback.OniAudioEngine\n', 'import com.example.playback.OniAudioEngine\nimport com.example.playback.ShuffleMode\n', 1)
+          text = re.sub(r'\nenum class ShuffleMode \{.*?\n\}\n\nclass MusicPlayerViewModel', '\nclass MusicPlayerViewModel', text, count=1, flags=re.S)
+
+          # Remove static ViewModel ownership and lifecycle callback.
+          text = text.replace('        activeInstance = this\n', '', 1)
+          text = re.sub(r'\n        // Listen to completion of song to auto-skip\n        audioEngine\.onPlaybackCompleted = \{\n            triggerAutoNextWithDelay\(\)\n        \}\n', '\n', text, count=1)
+          text = re.sub(r'\n    override fun onCleared\(\) \{\n        super\.onCleared\(\)\n        if \(activeInstance == this\) \{\n            activeInstance = null\n        \}\n        karaokeMicEngine\.stopMic\(\)\n        // Note: We don\'t call audioEngine\.release\(\) here because the player is a shared singleton\n        // and background playback is managed by the MusicPlaybackService\.\n    \}\n\n    companion object \{\n        var activeInstance: MusicPlayerViewModel\? = null\n    \}\n', '\n    override fun onCleared() {\n        super.onCleared()\n        karaokeMicEngine.stopMic()\n        // Playback is owned by MusicPlaybackService and must survive ViewModel destruction.\n    }\n', text, count=1, flags=re.S)
+
+          # Replace local playback state with service-owned flows.
+          text = re.sub(r'\n    // Active playlist being played\n    private val _currentPlaylist = MutableStateFlow<List<SongEntity>>\(emptyList\(\)\)\n    val currentPlaylist: StateFlow<List<SongEntity>> = _currentPlaylist\.asStateFlow\(\)\n', '\n    // Playback queue is owned by the service/controller.\n    val currentPlaylist: StateFlow<List<SongEntity>> = audioEngine.queue\n', text, count=1)
+          text = re.sub(r'\n    // Shuffle and Repeat modes\n    private val _isShuffle = MutableStateFlow\(false\)\n    val isShuffle: StateFlow<Boolean> = _isShuffle\.asStateFlow\(\)\n\n    private val _isRepeat = MutableStateFlow\(false\)\n    val isRepeat: StateFlow<Boolean> = _isRepeat\.asStateFlow\(\)\n\n    // Which algorithm _isShuffle uses when it\'s on\. Independent of the on/off toggle so the\n    // existing Player screen shuffle button keeps working unchanged — it only flips _isShuffle,\n    // while this remembers which algorithm to use whenever shuffle is active\.\n    private val _shuffleMode = MutableStateFlow\(ShuffleMode\.RANDOM\)\n    val shuffleMode: StateFlow<ShuffleMode> = _shuffleMode\.asStateFlow\(\)\n', '\n    // Shuffle/repeat state is owned by the service/controller.\n    val isShuffle: StateFlow<Boolean> = audioEngine.isShuffle\n    val isRepeat: StateFlow<Boolean> = audioEngine.isRepeat\n    val shuffleMode: StateFlow<ShuffleMode> = audioEngine.shuffleMode\n', text, count=1, flags=re.S)
+
+          # Delay countdown is also service-owned.
+          text = re.sub(r'\n    private val _playbackDelayCountdown = MutableStateFlow<Int\?>\(null\)\n    val playbackDelayCountdown: StateFlow<Int\?> = _playbackDelayCountdown\.asStateFlow\(\)\n\n    private var delayJob: Job\? = null\n', '\n    val playbackDelayCountdown: StateFlow<Int?> = audioEngine.autoNextCountdown\n', text, count=1)
+
+          # Do not overwrite an existing service queue when a ViewModel is recreated.
+          text = re.sub(r'\n                // Find last played song \(highest lastPlayedTimestamp > 0\)\n                val lastPlayedSong = initialSongs\.filter \{ it\.lastPlayedTimestamp > 0 \}\n                    \.maxByOrNull \{ it\.lastPlayedTimestamp \} \?: initialSongs\.first\(\)\n                \n                // Pre-load metadata into audioEngine without playing\n                audioEngine\.setSongWithoutPlaying\(lastPlayedSong\)\n', '\n', text, count=1)
+          text = text.replace('                _currentPlaylist.value = initialSongs\n                \n', '', 1)
+
+          # Playback commands go to the service-owned controller.
+          text = text.replace('        _currentPlaylist.value = playlist\n', '', 1)
+          text = text.replace('            audioEngine.play(updated)\n', '            val startIndex = playlist.indexOfFirst { it.id == updated.id }.coerceAtLeast(0)\n            val queue = playlist.map { if (it.id == updated.id) updated else it }\n            audioEngine.setQueue(queue, startIndex, true)\n', 1)
+          text = text.replace('val playlist = _currentPlaylist.value.ifEmpty {', 'val playlist = currentPlaylist.value.ifEmpty {', 1)
+
+          text = re.sub(r'    fun playNext\(song: SongEntity\) \{.*?\n    \}\n\n    fun addToQueue\(song: SongEntity\) \{.*?\n    \}\n\n    fun togglePlayPause\(\) \{.*?\n    \}\n', '''    fun playNext(song: SongEntity) {
+        audioEngine.playNext(song)
+    }
+
+    fun addToQueue(song: SongEntity) {
+        audioEngine.addToQueue(song)
+    }
+
+    fun togglePlayPause() {
+        cancelDelay()
+        if (audioEngine.isPlaying.value) {
+            audioEngine.pause()
+        } else if (audioEngine.currentSong.value == null && currentPlaylist.value.isNotEmpty()) {
+            audioEngine.setQueue(currentPlaylist.value, 0, true)
+        } else {
+            audioEngine.resume()
+        }
+    }
+''', text, count=1, flags=re.S)
+
+          # Shuffle selection reads authoritative mode; actual shuffle is service-owned.
+          text = text.replace('when (_shuffleMode.value) {', 'when (shuffleMode.value) {')
+
+          text = re.sub(r'    fun skipNext\(\) \{.*?\n    \}\n\n    fun skipPrevious\(\) \{.*?\n    \}\n\n    fun toggleShuffle\(\) \{.*?\n    \}\n\n    // Picking a mode also turns shuffle on, since choosing an algorithm implies wanting it active\.\n    fun setShuffleMode\(mode: ShuffleMode\) \{.*?\n    \}\n\n    fun toggleRepeat\(\) \{.*?\n    \}\n', '''    fun skipNext() {
+        cancelDelay()
+        audioEngine.next()
+    }
+
+    fun skipPrevious() {
+        cancelDelay()
+        audioEngine.previous()
+    }
+
+    fun toggleShuffle() {
+        audioEngine.setShuffle(!isShuffle.value, shuffleMode.value)
+    }
+
+    // Picking a mode also turns shuffle on, since choosing an algorithm implies wanting it active.
+    fun setShuffleMode(mode: ShuffleMode) {
+        audioEngine.setShuffle(true, mode)
+    }
+
+    fun toggleRepeat() {
+        audioEngine.setRepeat(!isRepeat.value)
+    }
+''', text, count=1, flags=re.S)
+
+          # Delay is persisted in the ViewModel but executed by the service.
+          text = text.replace('        _nextSongDelaySeconds.value = seconds\n', '        _nextSongDelaySeconds.value = seconds\n        audioEngine.setAutoNextDelay(seconds)\n', 1)
+          text = re.sub(r'\n    fun cancelDelay\(\) \{.*?\n    \}\n\n    fun triggerAutoNextWithDelay\(\) \{.*?\n    \}\n', '''
+    fun cancelDelay() {
+        audioEngine.cancelPendingNext()
+    }
+
+    fun triggerAutoNextWithDelay() {
+        audioEngine.triggerAutoNextWithDelay()
+    }
+''', text, count=1, flags=re.S)
+
+          if text == original:
+              raise SystemExit('No changes were made to MusicPlayerViewModel.kt')
+
+          # Hard safety checks before committing.
+          if 'activeInstance' in text:
+              raise SystemExit('activeInstance remains in MusicPlayerViewModel.kt')
+          if 'enum class ShuffleMode' in text:
+              raise SystemExit('Duplicate ShuffleMode remains in MusicPlayerViewModel.kt')
+          if '_currentPlaylist' in text or '_isShuffle' in text or '_isRepeat' in text or '_shuffleMode' in text:
+              raise SystemExit('Duplicate authoritative playback state remains in MusicPlayerViewModel.kt')
+          if 'audioEngine.onPlaybackCompleted' in text:
+              raise SystemExit('ViewModel playback completion callback remains')
+
+          path.write_text(text)
+          PY
+
+          # Add the service-owned countdown exposure to the facade if not already present.
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/example/playback/OniAudioEngine.kt')
+          s = p.read_text()
+          marker = '    val bufferedPosition: StateFlow<Long> = client.bufferedPosition\n'
+          if 'val autoNextCountdown: StateFlow<Int?>' not in s:
+              if marker not in s:
+                  raise SystemExit('OniAudioEngine countdown insertion marker not found')
+              s = s.replace(marker, marker + '    val autoNextCountdown: StateFlow<Int?> = client.autoNextCountdown\n', 1)
+          p.write_text(s)
+          PY
+
+          # The temporary workflow removes itself before committing.
+          rm -f .github/workflows/complete-playback-refactor.yml
+
+          git config user.name "oniPlayer Refactor Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/example/ui/viewmodel/MusicPlayerViewModel.kt app/src/main/java/com/example/playback/OniAudioEngine.kt .github/workflows/complete-playback-refactor.yml
+          git commit -m "refactor(playback): remove ViewModel playback ownership"
+          git push origin HEAD:refactor/playback-architecture-media3
