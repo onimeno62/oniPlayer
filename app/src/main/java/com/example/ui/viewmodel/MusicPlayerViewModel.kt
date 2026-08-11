@@ -1521,17 +1521,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         audioEngine.triggerAutoNextWithDelay()
     }
 
-        delayJob = viewModelScope.launch {
-            for (remaining in delaySecs downTo 1) {
-                _playbackDelayCountdown.value = remaining
-                kotlinx.coroutines.delay(1000)
-            }
-            _playbackDelayCountdown.value = null
-            delayJob = null
-            skipNext()
-        }
-    }
-
     fun isWifiConnected(): Boolean {
         return try {
             val connectivityManager = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
