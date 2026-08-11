@@ -35,8 +35,7 @@ class OniAudioEngine private constructor(context: Context) {
     val isShuffle: StateFlow<Boolean> = client.isShuffle
     val shuffleMode: StateFlow<ShuffleMode> = client.shuffleMode
     val repeatMode: StateFlow<RepeatMode> = client.repeatMode
-    val isRepeat: StateFlow<Boolean> = client.repeatMode.map { it == RepeatMode.ONE }
-        .stateInCompat(client)
+    val isRepeat: StateFlow<Boolean> = client.isRepeat
 
     fun setSongWithoutPlaying(song: SongEntity) = client.setQueue(listOf(song), 0, false)
     fun play(song: SongEntity) = client.play(song)
@@ -78,10 +77,3 @@ class OniAudioEngine private constructor(context: Context) {
 
     fun release() = client.release()
 }
-
-private fun <T> StateFlow<T>.stateInCompat(client: PlaybackControllerClient): StateFlow<T> =
-    client.repeatMode.map { it == RepeatMode.ONE }.stateIn(
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate + kotlinx.coroutines.SupervisorJob()),
-        kotlinx.coroutines.flow.SharingStarted.Eagerly,
-        false
-    )
