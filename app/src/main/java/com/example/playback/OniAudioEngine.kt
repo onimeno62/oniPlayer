@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Compatibility facade retained for the current ViewModel/UI surface.
  * It contains no player and no MediaPlayer. Actual playback is owned by MusicPlaybackService.
- * The facade can be removed once MusicPlayerViewModel is migrated to PlaybackControllerClient directly.
+ * The facade exposes service-owned state and commands without owning playback state itself.
  */
 class OniAudioEngine private constructor(context: Context) {
     companion object {
@@ -23,24 +23,39 @@ class OniAudioEngine private constructor(context: Context) {
     private var bassBoost = 0f
     private var virtualizer = 0f
 
+    val state: StateFlow<PlaybackState> = client.state
     val isPlaying: StateFlow<Boolean> = client.isPlaying
     val beatEnergy: StateFlow<Float> = client.beatEnergy
     val isPreparing: StateFlow<Boolean> = client.isPreparing
     val currentSong: StateFlow<SongEntity?> = client.currentSong
     val position: StateFlow<Long> = client.position
     val duration: StateFlow<Long> = client.duration
-
-    /** Legacy callback retained only for source compatibility; completion is service-owned. */
-    var onPlaybackCompleted: (() -> Unit)? = null
+    val bufferedPosition: StateFlow<Long> = client.bufferedPosition
+    val queue: StateFlow<List<SongEntity>> = client.queue
+    val isShuffle: StateFlow<Boolean> = client.isShuffle
+    val shuffleMode: StateFlow<ShuffleMode> = client.shuffleMode
+    val repeatMode: StateFlow<RepeatMode> = client.repeatMode
+    val isRepeat: StateFlow<Boolean> = client.repeatMode.map { it == RepeatMode.ONE }
+        .stateInCompat(client)
 
     fun setSongWithoutPlaying(song: SongEntity) = client.setQueue(listOf(song), 0, false)
     fun play(song: SongEntity) = client.play(song)
+    fun setQueue(songs: List<SongEntity>, startIndex: Int, playImmediately: Boolean) = client.setQueue(songs, startIndex, playImmediately)
+    fun addToQueue(song: SongEntity) = client.addToQueue(song)
+    fun playNext(song: SongEntity) = client.playNext(song)
+    fun next() = client.next()
+    fun previous() = client.previous()
+    fun setShuffle(enabled: Boolean, mode: ShuffleMode) = client.setShuffle(enabled, mode)
+    fun setRepeat(one: Boolean) = client.setRepeat(one)
     fun updateCurrentSongMetadata(song: SongEntity) = client.updateCurrentSongMetadata(song)
     fun pause() = client.pause()
     fun resume() = client.resume()
     fun stop() = client.stop()
     fun clearCurrentSource() = client.clearCurrentSource()
     fun seekTo(positionMs: Long) = client.seekTo(positionMs)
+    fun setAutoNextDelay(seconds: Int) = client.setAutoNextDelay(seconds)
+    fun cancelPendingNext() = client.cancelPendingNext()
+    fun triggerAutoNextWithDelay() = client.triggerAutoNextWithDelay()
     fun setBandGain(bandIndex: Int, gainDb: Float) {
         if (bandIndex in bandGains.indices) bandGains[bandIndex] = gainDb
         client.setBandGain(bandIndex, gainDb)
@@ -63,3 +78,10 @@ class OniAudioEngine private constructor(context: Context) {
 
     fun release() = client.release()
 }
+
+private fun <T> StateFlow<T>.stateInCompat(client: PlaybackControllerClient): StateFlow<T> =
+    client.repeatMode.map { it == RepeatMode.ONE }.stateIn(
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate + kotlinx.coroutines.SupervisorJob()),
+        kotlinx.coroutines.flow.SharingStarted.Eagerly,
+        false
+    )
