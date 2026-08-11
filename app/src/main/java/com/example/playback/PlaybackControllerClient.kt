@@ -50,6 +50,7 @@ class PlaybackControllerClient(context: Context) {
     val isShuffle = state.map { it.shuffleEnabled }.stateIn(scope, SharingStarted.Eagerly, false)
     val shuffleMode = state.map { it.shuffleMode }.stateIn(scope, SharingStarted.Eagerly, ShuffleMode.RANDOM)
     val repeatMode = state.map { it.repeatMode }.stateIn(scope, SharingStarted.Eagerly, RepeatMode.ALL)
+    val isRepeat = repeatMode.map { it == RepeatMode.ONE }.stateIn(scope, SharingStarted.Eagerly, false)
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = refreshState()
