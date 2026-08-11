@@ -31,6 +31,7 @@ class OniAudioEngine private constructor(context: Context) {
     val position: StateFlow<Long> = client.position
     val duration: StateFlow<Long> = client.duration
     val bufferedPosition: StateFlow<Long> = client.bufferedPosition
+    val autoNextCountdown: StateFlow<Int?> = client.autoNextCountdown
     val queue: StateFlow<List<SongEntity>> = client.queue
     val isShuffle: StateFlow<Boolean> = client.isShuffle
     val shuffleMode: StateFlow<ShuffleMode> = client.shuffleMode

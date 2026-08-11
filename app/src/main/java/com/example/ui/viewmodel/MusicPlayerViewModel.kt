@@ -25,6 +25,7 @@ import com.example.data.entity.ArtistSummaryEntity
 import com.example.data.api.GeminiMusicService
 import com.example.data.repository.MusicRepository
 import com.example.playback.OniAudioEngine
+import com.example.playback.ShuffleMode
 import com.example.ui.theme.OniTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -47,12 +48,6 @@ private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_
 private val PLAYBACK_DELAY_KEY = intPreferencesKey("playback_delay_seconds")
 private val CROSSFADE_ENABLED_KEY = booleanPreferencesKey("crossfade_enabled")
 private val CROSSFADE_DURATION_KEY = intPreferencesKey("crossfade_duration_seconds")
-
-enum class ShuffleMode {
-    RANDOM,          // pure random pick
-    DISCOVER,        // weighted toward songs with low play counts
-    FAVORITES_BOOST   // weighted toward favorited songs
-}
 
 class MusicPlayerViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MusicPlayerViewModel"
@@ -119,10 +114,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _nextSongDelaySeconds = MutableStateFlow(0)
     val nextSongDelaySeconds: StateFlow<Int> = _nextSongDelaySeconds.asStateFlow()
 
-    private val _playbackDelayCountdown = MutableStateFlow<Int?>(null)
-    val playbackDelayCountdown: StateFlow<Int?> = _playbackDelayCountdown.asStateFlow()
-
-    private var delayJob: Job? = null
+    val playbackDelayCountdown: StateFlow<Int?> = audioEngine.autoNextCountdown
 
     private val _crossfadeEnabled = MutableStateFlow(false)
     val crossfadeEnabled: StateFlow<Boolean> = _crossfadeEnabled.asStateFlow()
@@ -246,27 +238,18 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _isOptimizingTags = MutableStateFlow(false)
     val isOptimizingTags: StateFlow<Boolean> = _isOptimizingTags.asStateFlow()
 
-    // Active playlist being played
-    private val _currentPlaylist = MutableStateFlow<List<SongEntity>>(emptyList())
-    val currentPlaylist: StateFlow<List<SongEntity>> = _currentPlaylist.asStateFlow()
+    // Playback queue is owned by the service/controller.
+    val currentPlaylist: StateFlow<List<SongEntity>> = audioEngine.queue
 
     // Emits an IntentSender whenever the OS needs one-time user consent to delete a
     // MediaStore-owned file we don't have direct write access to (rename cleanup).
     private val _pendingDeleteRequest = MutableSharedFlow<android.content.IntentSender>(extraBufferCapacity = 1)
     val pendingDeleteRequest: SharedFlow<android.content.IntentSender> = _pendingDeleteRequest.asSharedFlow()
 
-    // Shuffle and Repeat modes
-    private val _isShuffle = MutableStateFlow(false)
-    val isShuffle: StateFlow<Boolean> = _isShuffle.asStateFlow()
-
-    private val _isRepeat = MutableStateFlow(false)
-    val isRepeat: StateFlow<Boolean> = _isRepeat.asStateFlow()
-
-    // Which algorithm _isShuffle uses when it's on. Independent of the on/off toggle so the
-    // existing Player screen shuffle button keeps working unchanged — it only flips _isShuffle,
-    // while this remembers which algorithm to use whenever shuffle is active.
-    private val _shuffleMode = MutableStateFlow(ShuffleMode.RANDOM)
-    val shuffleMode: StateFlow<ShuffleMode> = _shuffleMode.asStateFlow()
+    // Shuffle/repeat state is owned by the service/controller.
+    val isShuffle: StateFlow<Boolean> = audioEngine.isShuffle
+    val isRepeat: StateFlow<Boolean> = audioEngine.isRepeat
+    val shuffleMode: StateFlow<ShuffleMode> = audioEngine.shuffleMode
 
     // Search query for library
     private val _searchQuery = MutableStateFlow("")
@@ -314,7 +297,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val eqVirtualizer: StateFlow<Float> = _eqVirtualizer.asStateFlow()
 
     init {
-        activeInstance = this
         scanAndLoad()
         
         // Load saved theme option from DataStore
@@ -462,10 +444,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
         
-        // Listen to completion of song to auto-skip
-        audioEngine.onPlaybackCompleted = {
-            triggerAutoNextWithDelay()
-        }
     }
 
     private fun scanAndLoad() {
@@ -477,14 +455,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             // Set initial playlist as all songs if none loaded
             val initialSongs = repository.allSongs.first()
             if (initialSongs.isNotEmpty()) {
-                _currentPlaylist.value = initialSongs
-                
-                // Find last played song (highest lastPlayedTimestamp > 0)
-                val lastPlayedSong = initialSongs.filter { it.lastPlayedTimestamp > 0 }
-                    .maxByOrNull { it.lastPlayedTimestamp } ?: initialSongs.first()
-                
-                // Pre-load metadata into audioEngine without playing
-                audioEngine.setSongWithoutPlaying(lastPlayedSong)
 
                 // Trigger background artist info and artwork loading
                 viewModelScope.launch(Dispatchers.IO) {
@@ -653,7 +623,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun playSong(song: SongEntity, playlist: List<SongEntity>) {
         cancelDelay()
-        _currentPlaylist.value = playlist
         _currentTab.value = 1 // Switch to Player tab immediately
 
         // Capture current library context when a song starts playing
@@ -674,7 +643,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             repository.updateSong(updated)
             
             // 3. Play the song immediately so playback starts instantly
-            audioEngine.play(updated)
+            val startIndex = playlist.indexOfFirst { it.id == updated.id }.coerceAtLeast(0)
+            val queue = playlist.map { if (it.id == updated.id) updated else it }
+            audioEngine.setQueue(queue, startIndex, true)
             
             // 4. Handle lyrics loading sequentially
             if (updated.lyrics.isNullOrBlank()) {
@@ -710,7 +681,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             val song = database.songDao().getSongById(songId)
             if (song != null) {
-                val playlist = _currentPlaylist.value.ifEmpty {
+                val playlist = currentPlaylist.value.ifEmpty {
                     database.songDao().getAllSongs().firstOrNull() ?: emptyList()
                 }
                 playSong(song, playlist)
@@ -719,42 +690,21 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun playNext(song: SongEntity) {
-        val currentList = _currentPlaylist.value.toMutableList()
-        val currentSong = audioEngine.currentSong.value
-        if (currentSong == null) {
-            playSong(song, listOf(song))
-            return
-        }
-        val currentIndex = currentList.indexOfFirst { it.id == currentSong.id }
-        // Remove duplicate if already present in the future part of playlist to make queue clean
-        currentList.remove(song)
-        val insertIndex = if (currentIndex == -1) 0 else currentIndex + 1
-        currentList.add(insertIndex, song)
-        _currentPlaylist.value = currentList
+        audioEngine.playNext(song)
     }
 
     fun addToQueue(song: SongEntity) {
-        val currentList = _currentPlaylist.value.toMutableList()
-        if (!currentList.any { it.id == song.id }) {
-            currentList.add(song)
-            _currentPlaylist.value = currentList
-        }
+        audioEngine.addToQueue(song)
     }
 
     fun togglePlayPause() {
         cancelDelay()
         if (audioEngine.isPlaying.value) {
             audioEngine.pause()
+        } else if (audioEngine.currentSong.value == null && currentPlaylist.value.isNotEmpty()) {
+            audioEngine.setQueue(currentPlaylist.value, 0, true)
         } else {
-            if (audioEngine.currentSong.value == null && _currentPlaylist.value.isNotEmpty()) {
-                val firstRaw = _currentPlaylist.value.first()
-                viewModelScope.launch {
-                    val dbSong = database.songDao().getSongById(firstRaw.id) ?: firstRaw
-                    audioEngine.play(dbSong)
-                }
-            } else {
-                audioEngine.resume()
-            }
+            audioEngine.resume()
         }
     }
 
@@ -771,7 +721,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private fun pickShuffleIndex(playlist: List<SongEntity>, excludeIndex: Int): Int {
         if (playlist.size <= 1) return 0
 
-        val weights: List<Double> = when (_shuffleMode.value) {
+        val weights: List<Double> = when (shuffleMode.value) {
             ShuffleMode.DISCOVER -> playlist.map { 1.0 / (1.0 + it.playCount) }
             ShuffleMode.FAVORITES_BOOST -> playlist.map { if (it.isFavorite) 4.0 else 1.0 }
             ShuffleMode.RANDOM -> return playlist.indices.filter { it != excludeIndex }.random()
@@ -791,68 +741,25 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun skipNext() {
         cancelDelay()
-        val playlist = _currentPlaylist.value
-        val current = audioEngine.currentSong.value ?: return
-        if (playlist.isEmpty()) return
-
-        val currentIndex = playlist.indexOfFirst { it.id == current.id }
-        if (currentIndex == -1) return
-
-        if (_isRepeat.value) {
-            viewModelScope.launch {
-                val dbSong = database.songDao().getSongById(current.id) ?: current
-                audioEngine.play(dbSong)
-            }
-            return
-        }
-
-        val nextIndex = if (_isShuffle.value) {
-            pickShuffleIndex(playlist, currentIndex)
-        } else {
-            (currentIndex + 1) % playlist.size
-        }
-
-        viewModelScope.launch {
-            val nextRaw = playlist[nextIndex]
-            val dbSong = database.songDao().getSongById(nextRaw.id) ?: nextRaw
-            audioEngine.play(dbSong)
-        }
+        audioEngine.next()
     }
 
     fun skipPrevious() {
         cancelDelay()
-        val playlist = _currentPlaylist.value
-        val current = audioEngine.currentSong.value ?: return
-        if (playlist.isEmpty()) return
-
-        val currentIndex = playlist.indexOfFirst { it.id == current.id }
-        if (currentIndex == -1) return
-
-        val prevIndex = if (_isShuffle.value) {
-            pickShuffleIndex(playlist, currentIndex)
-        } else {
-            if (currentIndex - 1 < 0) playlist.size - 1 else currentIndex - 1
-        }
-
-        viewModelScope.launch {
-            val prevRaw = playlist[prevIndex]
-            val dbSong = database.songDao().getSongById(prevRaw.id) ?: prevRaw
-            audioEngine.play(dbSong)
-        }
+        audioEngine.previous()
     }
 
     fun toggleShuffle() {
-        _isShuffle.value = !_isShuffle.value
+        audioEngine.setShuffle(!isShuffle.value, shuffleMode.value)
     }
 
     // Picking a mode also turns shuffle on, since choosing an algorithm implies wanting it active.
     fun setShuffleMode(mode: ShuffleMode) {
-        _shuffleMode.value = mode
-        _isShuffle.value = true
+        audioEngine.setShuffle(true, mode)
     }
 
     fun toggleRepeat() {
-        _isRepeat.value = !_isRepeat.value
+        audioEngine.setRepeat(!isRepeat.value)
     }
 
     fun toggleFavorite(songId: String) {
@@ -1568,6 +1475,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun setNextSongDelaySeconds(seconds: Int) {
         _nextSongDelaySeconds.value = seconds
+        audioEngine.setAutoNextDelay(seconds)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 getApplication<Application>().dataStore.edit { preferences ->
@@ -1606,18 +1514,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun cancelDelay() {
-        delayJob?.cancel()
-        delayJob = null
-        _playbackDelayCountdown.value = null
+        audioEngine.cancelPendingNext()
     }
 
     fun triggerAutoNextWithDelay() {
-        cancelDelay()
-        val delaySecs = _nextSongDelaySeconds.value
-        if (delaySecs <= 0) {
-            skipNext()
-            return
-        }
+        audioEngine.triggerAutoNextWithDelay()
+    }
 
         delayJob = viewModelScope.launch {
             for (remaining in delaySecs downTo 1) {
@@ -1733,15 +1635,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     override fun onCleared() {
         super.onCleared()
-        if (activeInstance == this) {
-            activeInstance = null
-        }
         karaokeMicEngine.stopMic()
-        // Note: We don't call audioEngine.release() here because the player is a shared singleton
-        // and background playback is managed by the MusicPlaybackService.
-    }
-
-    companion object {
-        var activeInstance: MusicPlayerViewModel? = null
+        // Playback is owned by MusicPlaybackService and survives ViewModel destruction.
     }
 }
