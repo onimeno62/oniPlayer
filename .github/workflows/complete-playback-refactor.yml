@@ -1,0 +1,26 @@
+name: Complete playback refactor
+
+on:
+  push:
+    branches:
+      - refactor/playback-architecture-media3
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply playback ownership cleanup
+        run: |
+          python3 .github/playback_refactor.py
+          git config user.name "oniPlayer Refactor Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/complete-playback-refactor.yml .github/playback_refactor.py
+          git add app/src/main/java/com/example/ui/viewmodel/MusicPlayerViewModel.kt app/src/main/java/com/example/playback/OniAudioEngine.kt
+          git commit -m "refactor(playback): remove ViewModel playback ownership"
+          git push origin HEAD:refactor/playback-architecture-media3
