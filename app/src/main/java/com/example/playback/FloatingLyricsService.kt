@@ -62,7 +62,6 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.data.entity.SongEntity
 import com.example.ui.lyrics.LyricsHelper
 import com.example.ui.lyrics.LrcLine
-import com.example.ui.viewmodel.MusicPlayerViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -275,25 +274,30 @@ class FloatingLyricsService : Service(), LifecycleOwner, SavedStateRegistryOwner
             
             setContent {
                 MaterialTheme {
+                    val engine = OniAudioEngine.getInstance(this@FloatingLyricsService)
                     FloatingLyricsOverlayContent(
                         songFlow = currentSong,
                         positionFlow = position,
                         isPlayingFlow = isPlaying,
                         onClose = {
-                            MusicPlayerViewModel.activeInstance?.setFloatingLyricsEnabled(false)
+                            engine.setFloatingLyricsEnabled(false)
                             stopSelf()
                         },
                         onPlayPauseToggle = {
-                            MusicPlayerViewModel.activeInstance?.togglePlayPause()
+                            if (engine.isPlaying.value) {
+                                engine.pause()
+                            } else {
+                                engine.resume()
+                            }
                         },
                         onSkipNext = {
-                            MusicPlayerViewModel.activeInstance?.skipNext()
+                            engine.skipNext()
                         },
                         onSkipPrevious = {
-                            MusicPlayerViewModel.activeInstance?.skipPrevious()
+                            engine.skipPrevious()
                         },
                         onSeekTo = { timestampMs ->
-                            MusicPlayerViewModel.activeInstance?.audioEngine?.seekTo(timestampMs)
+                            engine.seekTo(timestampMs)
                         },
                         onDrag = { dx, dy ->
                             lp.x += dx.toInt()
@@ -345,32 +349,22 @@ class FloatingLyricsService : Service(), LifecycleOwner, SavedStateRegistryOwner
 
     private fun observePlayback() {
         serviceScope.launch {
-            while (isActive) {
-                val viewModel = MusicPlayerViewModel.activeInstance
-                if (viewModel != null) {
-                    val engine = viewModel.audioEngine
-                    combine(
-                        engine.currentSong,
-                        engine.position,
-                        engine.isPlaying,
-                        viewModel.floatingLyricsEnabled
-                    ) { s, pos, playing, enabled ->
-                        Quadruple(s, pos, playing, enabled)
-                    }.collectLatest { (s, pos, playing, enabled) ->
-                        if (!enabled) {
-                            stopSelf()
-                            return@collectLatest
-                        }
-                        currentSong.value = s
-                        position.value = pos
-                        isPlaying.value = playing
-                    }
-                } else {
-                    currentSong.value = null
-                    position.value = 0L
-                    isPlaying.value = false
-                    delay(1000)
+            val engine = OniAudioEngine.getInstance(this@FloatingLyricsService)
+            combine(
+                engine.currentSong,
+                engine.position,
+                engine.isPlaying,
+                engine.floatingLyricsEnabled
+            ) { s, pos, playing, enabled ->
+                Quadruple(s, pos, playing, enabled)
+            }.collectLatest { (s, pos, playing, enabled) ->
+                if (!enabled) {
+                    stopSelf()
+                    return@collectLatest
                 }
+                currentSong.value = s
+                position.value = pos
+                isPlaying.value = playing
             }
         }
     }

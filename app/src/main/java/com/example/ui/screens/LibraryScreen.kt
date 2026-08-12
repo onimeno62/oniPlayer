@@ -59,7 +59,7 @@ import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
 import com.example.ui.viewmodel.MusicPlayerViewModel
-import com.example.ui.viewmodel.ShuffleMode
+import com.example.playback.ShuffleMode
 import com.example.ui.library.LibraryDashboardScreen
 import com.example.ui.library.AlbumsScreen
 import com.example.ui.library.ArtistsScreen

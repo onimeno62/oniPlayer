@@ -25,6 +25,7 @@ import com.example.data.entity.ArtistSummaryEntity
 import com.example.data.api.GeminiMusicService
 import com.example.data.repository.MusicRepository
 import com.example.playback.OniAudioEngine
+import com.example.playback.ShuffleMode
 import com.example.ui.theme.OniTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -48,10 +49,13 @@ private val PLAYBACK_DELAY_KEY = intPreferencesKey("playback_delay_seconds")
 private val CROSSFADE_ENABLED_KEY = booleanPreferencesKey("crossfade_enabled")
 private val CROSSFADE_DURATION_KEY = intPreferencesKey("crossfade_duration_seconds")
 
-enum class ShuffleMode {
-    RANDOM,          // pure random pick
-    DISCOVER,        // weighted toward songs with low play counts
-    FAVORITES_BOOST   // weighted toward favorited songs
+class EngineStateFlowDelegate<T>(
+    private val flow: StateFlow<T>,
+    private val setter: (T) -> Unit
+) {
+    var value: T
+        get() = flow.value
+        set(v) { setter(v) }
 }
 
 class MusicPlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -239,16 +243,16 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _isAutoDownloadEnabled = MutableStateFlow(true)
     val isAutoDownloadEnabled: StateFlow<Boolean> = _isAutoDownloadEnabled.asStateFlow()
 
-    private val _floatingLyricsEnabled = MutableStateFlow(false)
-    val floatingLyricsEnabled: StateFlow<Boolean> = _floatingLyricsEnabled.asStateFlow()
+    private val _floatingLyricsEnabled = EngineStateFlowDelegate(audioEngine.floatingLyricsEnabled) { audioEngine.setFloatingLyricsEnabled(it) }
+    val floatingLyricsEnabled: StateFlow<Boolean> = audioEngine.floatingLyricsEnabled
 
     // Online Tag Edit state
     private val _isOptimizingTags = MutableStateFlow(false)
     val isOptimizingTags: StateFlow<Boolean> = _isOptimizingTags.asStateFlow()
 
     // Active playlist being played
-    private val _currentPlaylist = MutableStateFlow<List<SongEntity>>(emptyList())
-    val currentPlaylist: StateFlow<List<SongEntity>> = _currentPlaylist.asStateFlow()
+    private val _currentPlaylist = EngineStateFlowDelegate(audioEngine.currentPlaylist) { audioEngine.setPlaylist(it) }
+    val currentPlaylist: StateFlow<List<SongEntity>> = audioEngine.currentPlaylist
 
     // Emits an IntentSender whenever the OS needs one-time user consent to delete a
     // MediaStore-owned file we don't have direct write access to (rename cleanup).
@@ -256,17 +260,17 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val pendingDeleteRequest: SharedFlow<android.content.IntentSender> = _pendingDeleteRequest.asSharedFlow()
 
     // Shuffle and Repeat modes
-    private val _isShuffle = MutableStateFlow(false)
-    val isShuffle: StateFlow<Boolean> = _isShuffle.asStateFlow()
+    private val _isShuffle = EngineStateFlowDelegate(audioEngine.isShuffle) { audioEngine.setShuffle(it) }
+    val isShuffle: StateFlow<Boolean> = audioEngine.isShuffle
 
-    private val _isRepeat = MutableStateFlow(false)
-    val isRepeat: StateFlow<Boolean> = _isRepeat.asStateFlow()
+    private val _isRepeat = EngineStateFlowDelegate(audioEngine.isRepeat) { audioEngine.setRepeat(it) }
+    val isRepeat: StateFlow<Boolean> = audioEngine.isRepeat
 
     // Which algorithm _isShuffle uses when it's on. Independent of the on/off toggle so the
     // existing Player screen shuffle button keeps working unchanged — it only flips _isShuffle,
     // while this remembers which algorithm to use whenever shuffle is active.
-    private val _shuffleMode = MutableStateFlow(ShuffleMode.RANDOM)
-    val shuffleMode: StateFlow<ShuffleMode> = _shuffleMode.asStateFlow()
+    private val _shuffleMode = EngineStateFlowDelegate(audioEngine.shuffleMode) { audioEngine.setShuffleMode(it) }
+    val shuffleMode: StateFlow<ShuffleMode> = audioEngine.shuffleMode
 
     // Search query for library
     private val _searchQuery = MutableStateFlow("")
@@ -314,7 +318,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val eqVirtualizer: StateFlow<Float> = _eqVirtualizer.asStateFlow()
 
     init {
-        activeInstance = this
         scanAndLoad()
         
         // Load saved theme option from DataStore
@@ -462,10 +465,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
         
-        // Listen to completion of song to auto-skip
-        audioEngine.onPlaybackCompleted = {
-            triggerAutoNextWithDelay()
-        }
+
     }
 
     private fun scanAndLoad() {
@@ -1733,15 +1733,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     override fun onCleared() {
         super.onCleared()
-        if (activeInstance == this) {
-            activeInstance = null
-        }
         karaokeMicEngine.stopMic()
         // Note: We don't call audioEngine.release() here because the player is a shared singleton
         // and background playback is managed by the MusicPlaybackService.
-    }
-
-    companion object {
-        var activeInstance: MusicPlayerViewModel? = null
     }
 }
