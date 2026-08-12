@@ -504,31 +504,42 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     private fun publish(queueOverride: List<SongEntity>? = null) {
-        val id = player.currentMediaItem?.mediaId
-        _state.value = _state.value.copy(
-            currentSong = _state.value.currentSong,
-            isPlaying = player.isPlaying,
-            positionMs = player.currentPosition.coerceAtLeast(0),
-            durationMs = player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
-            bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
-            beatEnergy = beatEnergy,
-            isPreparing = preparing,
-            autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
-            shuffleEnabled = shuffleEnabled,
-            shuffleMode = shuffleMode,
-            repeatMode = repeatMode,
-            queue = queueOverride ?: currentQueue()
-        )
-        
-        // Broadcast custom state change to all connected controllers!
-        val bundle = Bundle().apply {
-            putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
-            putInt(SHUFFLE_MODE, shuffleMode.ordinal)
-            putInt(REPEAT_MODE, repeatMode.ordinal)
-        }
-        mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
+        val q = queueOverride ?: currentQueue()
+        scope.launch {
+            val currentId = player.currentMediaItem?.mediaId
+            val dbSong = currentId?.let { dao.getSongById(it) }
+            
+            _state.value = _state.value.copy(
+                currentSong = dbSong,
+                isPlaying = player.isPlaying,
+                positionMs = player.currentPosition.coerceAtLeast(0),
+                durationMs = player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
+                bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
+                beatEnergy = beatEnergy,
+                isPreparing = preparing,
+                autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
+                shuffleEnabled = shuffleEnabled,
+                shuffleMode = shuffleMode,
+                repeatMode = repeatMode,
+                queue = q
+            )
 
-        scope.launch { if (id != _state.value.currentSong?.id) _state.value = _state.value.copy(currentSong = id?.let { dao.getSongById(it) }) }
+            val bundle = Bundle().apply {
+                putString("current_song_id", currentId)
+                putBoolean("is_playing", player.isPlaying)
+                putLong("position_ms", player.currentPosition.coerceAtLeast(0))
+                putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0)
+                putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
+                putFloat("beat_energy", beatEnergy)
+                putBoolean("is_preparing", preparing)
+                putInt("auto_next_countdown", _state.value.autoNextCountdownSeconds ?: -1)
+                putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
+                putInt(SHUFFLE_MODE, shuffleMode.ordinal)
+                putInt(REPEAT_MODE, repeatMode.ordinal)
+                putStringArrayList("queue_ids", ArrayList(q.map { it.id }))
+            }
+            mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
+        }
     }
 
     private inner class SessionCallback : MediaSession.Callback {

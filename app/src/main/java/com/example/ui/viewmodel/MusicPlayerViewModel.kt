@@ -676,13 +676,16 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             repository.updateSong(updated)
             
             // 3. Play the song immediately so playback starts instantly
-            val currentQueueIds = audioEngine.currentPlaylist.value.map { it.id }
-            val requestedQueueIds = playlist.map { it.id }
-            if (currentQueueIds == requestedQueueIds && requestedQueueIds.contains(updated.id)) {
-                audioEngine.play(updated)
+            if (audioEngine.currentSong.value?.id == updated.id) {
+                audioEngine.resume()
             } else {
-                val idx = playlist.indexOfFirst { it.id == updated.id }.coerceAtLeast(0)
-                audioEngine.setPlaylist(playlist, idx, true)
+                val currentQueueIds = audioEngine.currentPlaylist.value.map { it.id }
+                if (currentQueueIds.contains(updated.id)) {
+                    audioEngine.play(updated)
+                } else {
+                    val idx = playlist.indexOfFirst { it.id == updated.id }.coerceAtLeast(0)
+                    audioEngine.setPlaylist(playlist, idx, true)
+                }
             }
             
             // 4. Handle lyrics loading sequentially

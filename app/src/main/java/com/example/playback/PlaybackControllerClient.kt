@@ -96,14 +96,48 @@ class PlaybackControllerClient(context: Context) {
             args: Bundle
         ): ListenableFuture<androidx.media3.session.SessionResult> {
             if (command.customAction == "STATE_CHANGED") {
-                val shuffle = args.getBoolean(PlaybackController.SHUFFLE_ENABLED, _state.value.shuffleEnabled)
-                val shuffleModeOrdinal = args.getInt(PlaybackController.SHUFFLE_MODE, _state.value.shuffleMode.ordinal)
-                val repeatModeOrdinal = args.getInt(PlaybackController.REPEAT_MODE, _state.value.repeatMode.ordinal)
-                _state.value = _state.value.copy(
-                    shuffleEnabled = shuffle,
-                    shuffleMode = ShuffleMode.entries.getOrElse(shuffleModeOrdinal) { _state.value.shuffleMode },
-                    repeatMode = RepeatMode.entries.getOrElse(repeatModeOrdinal) { _state.value.repeatMode }
-                )
+                scope.launch {
+                    val shuffle = args.getBoolean(PlaybackController.SHUFFLE_ENABLED, _state.value.shuffleEnabled)
+                    val shuffleModeOrdinal = args.getInt(PlaybackController.SHUFFLE_MODE, _state.value.shuffleMode.ordinal)
+                    val repeatModeOrdinal = args.getInt(PlaybackController.REPEAT_MODE, _state.value.repeatMode.ordinal)
+                    val isPlaying = args.getBoolean("is_playing", _state.value.isPlaying)
+                    val isPreparing = args.getBoolean("is_preparing", _state.value.isPreparing)
+                    val pos = args.getLong("position_ms", _state.value.positionMs)
+                    val duration = args.getLong("duration_ms", _state.value.durationMs)
+                    val bufferedPos = args.getLong("buffered_position_ms", _state.value.bufferedPositionMs)
+                    val beatEnergy = args.getFloat("beat_energy", _state.value.beatEnergy)
+                    val countdown = args.getInt("auto_next_countdown", -1).let { if (it == -1) null else it }
+                    val currentId = args.getString("current_song_id")
+                    val queueIds = args.getStringArrayList("queue_ids") ?: emptyList<String>()
+
+                    val currentSongEntity = currentId?.let { database.songDao().getSongById(it) }
+
+                    val queueSongs = if (queueIds == cachedQueueIds) {
+                        cachedQueueSongs.map { if (it.id == currentId && currentSongEntity != null) currentSongEntity else it }
+                    } else {
+                        val byId = database.songDao().getSongsByIds(queueIds).associateBy { it.id }
+                        val fetched = queueIds.mapNotNull { byId[it] ?: database.songDao().getSongById(it) }
+                        cachedQueueIds = queueIds
+                        cachedQueueSongs = fetched
+                        fetched
+                    }
+
+                    _state.value = _state.value.copy(
+                        currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId },
+                        isPlaying = isPlaying,
+                        positionMs = pos,
+                        durationMs = duration,
+                        bufferedPositionMs = bufferedPos,
+                        beatEnergy = beatEnergy,
+                        isPreparing = isPreparing,
+                        autoNextCountdownSeconds = countdown,
+                        shuffleEnabled = shuffle,
+                        shuffleMode = ShuffleMode.entries.getOrElse(shuffleModeOrdinal) { _state.value.shuffleMode },
+                        repeatMode = RepeatMode.entries.getOrElse(repeatModeOrdinal) { _state.value.repeatMode },
+                        queue = queueSongs
+                    )
+                    _position.value = pos
+                }
             }
             return com.google.common.util.concurrent.Futures.immediateFuture(
                 androidx.media3.session.SessionResult(androidx.media3.session.SessionResult.RESULT_SUCCESS)
@@ -169,10 +203,9 @@ class PlaybackControllerClient(context: Context) {
                 fetched
             }
 
-            val extras = c.currentMediaItem?.mediaMetadata?.extras
             val logicalRepeat = if (c.repeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
-            val logicalShuffle = extras?.getBoolean(PlaybackController.SHUFFLE_ENABLED) ?: _state.value.shuffleEnabled
-            val logicalShuffleMode = ShuffleMode.entries.getOrElse(extras?.getInt(PlaybackController.SHUFFLE_MODE, _state.value.shuffleMode.ordinal) ?: _state.value.shuffleMode.ordinal) { _state.value.shuffleMode }
+            val logicalShuffle = _state.value.shuffleEnabled
+            val logicalShuffleMode = _state.value.shuffleMode
 
             _state.value = _state.value.copy(
                 currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId },
