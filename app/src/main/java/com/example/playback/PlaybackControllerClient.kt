@@ -40,7 +40,10 @@ class PlaybackControllerClient(context: Context) {
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
     val currentSong = state.map { it.currentSong }.stateIn(scope, SharingStarted.Eagerly, null)
     val isPlaying = state.map { it.isPlaying }.stateIn(scope, SharingStarted.Eagerly, false)
-    val position = state.map { it.positionMs }.stateIn(scope, SharingStarted.Eagerly, 0L)
+    
+    private val _position = MutableStateFlow(0L)
+    val position: StateFlow<Long> = _position.asStateFlow()
+    
     val duration = state.map { it.durationMs }.stateIn(scope, SharingStarted.Eagerly, 0L)
     val bufferedPosition = state.map { it.bufferedPositionMs }.stateIn(scope, SharingStarted.Eagerly, 0L)
     val beatEnergy = state.map { it.beatEnergy }.stateIn(scope, SharingStarted.Eagerly, 0f)
@@ -51,41 +54,99 @@ class PlaybackControllerClient(context: Context) {
     val shuffleMode = state.map { it.shuffleMode }.stateIn(scope, SharingStarted.Eagerly, ShuffleMode.RANDOM)
     val repeatMode = state.map { it.repeatMode }.stateIn(scope, SharingStarted.Eagerly, RepeatMode.ALL)
 
-    private val listener = object : Player.Listener {
-        override fun onEvents(player: Player, events: Player.Events) = refreshState()
+    private val playerListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            refreshPosition()
+            refreshState()
+        }
+    }
+
+    private val controllerListener = object : MediaController.Listener {
+        override fun onCustomCommand(
+            controller: MediaController,
+            command: SessionCommand,
+            args: Bundle
+        ): ListenableFuture<androidx.media3.session.SessionResult> {
+            if (command.customAction == "STATE_CHANGED") {
+                val shuffle = args.getBoolean(PlaybackController.SHUFFLE_ENABLED, _state.value.shuffleEnabled)
+                val shuffleModeOrdinal = args.getInt(PlaybackController.SHUFFLE_MODE, _state.value.shuffleMode.ordinal)
+                val repeatModeOrdinal = args.getInt(PlaybackController.REPEAT_MODE, _state.value.repeatMode.ordinal)
+                _state.value = _state.value.copy(
+                    shuffleEnabled = shuffle,
+                    shuffleMode = ShuffleMode.entries.getOrElse(shuffleModeOrdinal) { _state.value.shuffleMode },
+                    repeatMode = RepeatMode.entries.getOrElse(repeatModeOrdinal) { _state.value.repeatMode }
+                )
+            }
+            return com.google.common.util.concurrent.Futures.immediateFuture(
+                androidx.media3.session.SessionResult(androidx.media3.session.SessionResult.RESULT_SUCCESS)
+            )
+        }
     }
 
     init {
         val token = SessionToken(appContext, ComponentName(appContext, MusicPlaybackService::class.java))
-        future = MediaController.Builder(appContext, token).buildAsync().also { f ->
-            f.addListener({
-                runCatching {
-                    controller = f.get().also { it.addListener(listener) }
-                    ready.complete(controller!!)
-                    refreshState()
+        future = MediaController.Builder(appContext, token)
+            .setListener(controllerListener)
+            .buildAsync().also { f ->
+                f.addListener({
+                    runCatching {
+                        controller = f.get().also { it.addListener(playerListener) }
+                        ready.complete(controller!!)
+                        refreshState()
+                    }
+                }, ContextCompat.getMainExecutor(appContext))
+            }
+        scope.launch {
+            while (isActive) {
+                val c = controller
+                if (c != null && c.isPlaying) {
+                    _position.value = c.currentPosition.coerceAtLeast(0)
                 }
-            }, ContextCompat.getMainExecutor(appContext))
+                delay(200)
+            }
         }
-        scope.launch { while (isActive) { refreshPosition(); delay(500) } }
     }
 
     private fun refreshPosition() {
         val c = controller ?: return
-        _state.value = _state.value.copy(isPlaying = c.isPlaying, positionMs = c.currentPosition.coerceAtLeast(0), durationMs = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0, bufferedPositionMs = c.bufferedPosition.coerceAtLeast(0))
+        val pos = c.currentPosition.coerceAtLeast(0)
+        _position.value = pos
+        _state.value = _state.value.copy(
+            isPlaying = c.isPlaying,
+            positionMs = pos,
+            durationMs = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
+            bufferedPositionMs = c.bufferedPosition.coerceAtLeast(0)
+        )
     }
+
+    private var cachedQueueIds = emptyList<String>()
+    private var cachedQueueSongs = emptyList<SongEntity>()
 
     private fun refreshState() {
         val c = controller ?: return
         scope.launch {
             val ids = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaId }
-            val byId = database.songDao().getSongsByIds(ids).associateBy { it.id }
             val currentId = c.currentMediaItem?.mediaId
+            
+            val queueSongs = if (ids == cachedQueueIds) {
+                cachedQueueSongs
+            } else {
+                val byId = database.songDao().getSongsByIds(ids).associateBy { it.id }
+                val fetched = ids.mapNotNull { byId[it] ?: database.songDao().getSongById(it) }
+                cachedQueueIds = ids
+                cachedQueueSongs = fetched
+                fetched
+            }
+
             val extras = c.currentMediaItem?.mediaMetadata?.extras
             val logicalRepeat = if ((extras?.getInt(PlaybackController.REPEAT_MODE, RepeatMode.ALL.ordinal) ?: RepeatMode.ALL.ordinal) == RepeatMode.ONE.ordinal) RepeatMode.ONE else RepeatMode.ALL
             val logicalShuffle = extras?.getBoolean(PlaybackController.SHUFFLE_ENABLED) ?: _state.value.shuffleEnabled
             val logicalShuffleMode = ShuffleMode.entries.getOrElse(extras?.getInt(PlaybackController.SHUFFLE_MODE, _state.value.shuffleMode.ordinal) ?: _state.value.shuffleMode.ordinal) { _state.value.shuffleMode }
+            
+            val currentSongEntity = queueSongs.find { it.id == currentId } ?: currentId?.let { database.songDao().getSongById(it) }
+
             _state.value = _state.value.copy(
-                currentSong = currentId?.let { byId[it] ?: database.songDao().getSongById(it) },
+                currentSong = currentSongEntity,
                 isPlaying = c.isPlaying,
                 positionMs = c.currentPosition.coerceAtLeast(0),
                 durationMs = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
@@ -93,7 +154,7 @@ class PlaybackControllerClient(context: Context) {
                 shuffleEnabled = logicalShuffle,
                 shuffleMode = logicalShuffleMode,
                 repeatMode = logicalRepeat,
-                queue = ids.mapNotNull { byId[it] }
+                queue = queueSongs
             )
         }
     }
@@ -131,5 +192,5 @@ class PlaybackControllerClient(context: Context) {
         scope.launch { runCatching { ready.await().sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args) } }
     }
     private fun withController(block: (MediaController) -> Unit) { scope.launch { runCatching { block(ready.await()) } } }
-    fun release() { controller?.removeListener(listener); controller?.release(); future?.cancel(true); controller = null; future = null; scope.cancel() }
+    fun release() { controller?.removeListener(playerListener); controller?.release(); future?.cancel(true); controller = null; future = null; scope.cancel() }
 }

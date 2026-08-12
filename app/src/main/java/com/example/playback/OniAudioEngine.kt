@@ -121,6 +121,14 @@ class OniAudioEngine private constructor(private val context: Context) {
         client.setQueue(list, idx, client.isPlaying.value)
     }
 
+    fun addToQueue(song: SongEntity) {
+        client.addToQueue(song)
+    }
+
+    fun playNext(song: SongEntity) {
+        client.playNext(song)
+    }
+
     fun toggleShuffle() {
         client.setShuffle(!client.isShuffle.value, client.shuffleMode.value)
     }

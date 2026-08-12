@@ -477,14 +477,16 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             // Set initial playlist as all songs if none loaded
             val initialSongs = repository.allSongs.first()
             if (initialSongs.isNotEmpty()) {
-                _currentPlaylist.value = initialSongs
-                
-                // Find last played song (highest lastPlayedTimestamp > 0)
-                val lastPlayedSong = initialSongs.filter { it.lastPlayedTimestamp > 0 }
-                    .maxByOrNull { it.lastPlayedTimestamp } ?: initialSongs.first()
-                
-                // Pre-load metadata into audioEngine without playing
-                audioEngine.setSongWithoutPlaying(lastPlayedSong)
+                if (audioEngine.currentPlaylist.value.isEmpty()) {
+                    _currentPlaylist.value = initialSongs
+                    
+                    // Find last played song (highest lastPlayedTimestamp > 0)
+                    val lastPlayedSong = initialSongs.filter { it.lastPlayedTimestamp > 0 }
+                        .maxByOrNull { it.lastPlayedTimestamp } ?: initialSongs.first()
+                    
+                    // Pre-load metadata into audioEngine without playing
+                    audioEngine.setSongWithoutPlaying(lastPlayedSong)
+                }
 
                 // Trigger background artist info and artwork loading
                 viewModelScope.launch(Dispatchers.IO) {
@@ -719,26 +721,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun playNext(song: SongEntity) {
-        val currentList = _currentPlaylist.value.toMutableList()
-        val currentSong = audioEngine.currentSong.value
-        if (currentSong == null) {
-            playSong(song, listOf(song))
-            return
-        }
-        val currentIndex = currentList.indexOfFirst { it.id == currentSong.id }
-        // Remove duplicate if already present in the future part of playlist to make queue clean
-        currentList.remove(song)
-        val insertIndex = if (currentIndex == -1) 0 else currentIndex + 1
-        currentList.add(insertIndex, song)
-        _currentPlaylist.value = currentList
+        audioEngine.playNext(song)
     }
 
     fun addToQueue(song: SongEntity) {
-        val currentList = _currentPlaylist.value.toMutableList()
-        if (!currentList.any { it.id == song.id }) {
-            currentList.add(song)
-            _currentPlaylist.value = currentList
-        }
+        audioEngine.addToQueue(song)
     }
 
     fun togglePlayPause() {
