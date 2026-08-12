@@ -1,0 +1,189 @@
+package com.example.ui.library.hero
+
+import android.provider.Settings
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.entity.SongEntity
+import com.example.ui.theme.LocalAccentColor
+
+@Composable
+fun rememberReduceMotion(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        try {
+            val scale = Settings.Global.getFloat(
+                context.contentResolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            )
+            scale == 0f
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
+
+@Composable
+fun ContinueListeningHeroV2(
+    song: SongEntity,
+    isPlaying: Boolean,
+    viewModel: com.example.ui.viewmodel.MusicPlayerViewModel,
+    onPlayPauseClick: () -> Unit,
+    onOpenNowPlaying: () -> Unit,
+    modifier: Modifier = Modifier,
+    isPreparing: Boolean = false
+) {
+    val reduceMotion = rememberReduceMotion()
+    
+    val heroColors = rememberHeroColors(
+        artworkUri = song.albumArtUri,
+        fallbackAccent = LocalAccentColor.current
+    )
+    val accentColor = heroColors.dominant
+
+    val position by viewModel.audioEngine.position.collectAsStateWithLifecycle()
+    val duration by viewModel.audioEngine.duration.collectAsStateWithLifecycle()
+
+    // 1. Beat Pulse handling and smoothing
+    val rawBeatEnergy by viewModel.audioEngine.beatEnergy.collectAsStateWithLifecycle()
+    // Guard: only pulse when genuinely active and not in reduced motion
+    val targetBeatEnergy = if (isPlaying && !isPreparing && !reduceMotion) rawBeatEnergy else 0f
+    val animatedBeatPulse = remember { Animatable(0f) }
+
+    LaunchedEffect(targetBeatEnergy) {
+        animatedBeatPulse.animateTo(
+            targetValue = targetBeatEnergy,
+            animationSpec = tween(durationMillis = 130, easing = LinearEasing)
+        )
+    }
+
+    // 2. Parallax and tilt calculations
+    val tilt by rememberDeviceTilt(reduceMotion)
+    val density = LocalDensity.current
+
+    val artworkParallaxX = tilt.x * with(density) { 2.dp.toPx() }
+    val artworkParallaxY = tilt.y * with(density) { 2.dp.toPx() }
+
+    val backgroundParallaxX = tilt.x * with(density) { 6.dp.toPx() }
+    val backgroundParallaxY = tilt.y * with(density) { 6.dp.toPx() }
+
+    val glowParallaxX = tilt.x * with(density) { 8.dp.toPx() }
+    val glowParallaxY = tilt.y * with(density) { 8.dp.toPx() }
+
+    val auraBleed = 10.dp
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(180.dp + auraBleed * 2)
+            .clipToBounds()
+    ) {
+        // Traveling Glow Perimeter Aura (Placed behind Card, sizing takes bleed into account)
+        OniAura(
+            color = accentColor,
+            isPlaying = isPlaying && !isPreparing,
+            reduceMotion = reduceMotion,
+            cornerRadius = 24.dp,
+            bleed = auraBleed,
+            beatPulse = animatedBeatPulse.value,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationX = glowParallaxX
+                    translationY = glowParallaxY
+                }
+        )
+
+        // The Glass Hero Card itself, padded to leave room for the outer aura bleed
+        Card(
+            modifier = Modifier
+                .padding(auraBleed)
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .clickable(onClick = onOpenNowPlaying),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Background layers (includes blurred art, drifting wash, flow line, shimmer sweep)
+                HeroBackground(
+                    artworkUri = song.albumArtUri,
+                    colors = heroColors,
+                    reduceMotion = reduceMotion,
+                    isLoading = isPreparing,
+                    modifier = Modifier.graphicsLayer {
+                        translationX = backgroundParallaxX
+                        translationY = backgroundParallaxY
+                    }
+                )
+
+                // Content Layer
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Main Info Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ArtworkPanel(
+                            artworkUri = song.albumArtUri,
+                            isPlaying = isPlaying && !isPreparing,
+                            reduceMotion = reduceMotion,
+                            modifier = Modifier.graphicsLayer {
+                                translationX = artworkParallaxX
+                                translationY = artworkParallaxY
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        MetadataPanel(
+                            song = song,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        HeroPlayButton(
+                            isPlaying = isPlaying,
+                            tintColor = accentColor,
+                            reduceMotion = reduceMotion,
+                            onClick = onPlayPauseClick,
+                            isLoading = isPreparing
+                        )
+                    }
+
+                    // Progress Indicator
+                    HeroProgressBar(
+                        position = position,
+                        duration = duration,
+                        tintColor = accentColor,
+                        onOpenNowPlaying = onOpenNowPlaying
+                    )
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,136 @@
+package com.example.ui.library.components
+
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.example.data.entity.SongEntity
+import com.example.ui.screens.dashboardRadiusLarge
+import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.getSongPalette
+
+@Composable
+fun OniAuraArtwork(
+    artworkUri: String?,
+    modifier: Modifier = Modifier,
+    songForPalette: SongEntity? = null,
+    enableAnimation: Boolean = true,
+    auraBleed: Dp = 10.dp,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val glowColor = if (songForPalette != null) {
+        getSongPalette(songForPalette).third
+    } else {
+        LocalAccentColor.current
+    }
+
+    val (scale, alpha) = if (enableAnimation) {
+        val infiniteTransition = rememberInfiniteTransition(label = "oni_aura_transition")
+        val animatedScale by infiniteTransition.animateFloat(
+            initialValue = 0.96f,
+            targetValue = 1.04f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 3200, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "oni_aura_scale"
+        )
+        val animatedAlpha by infiniteTransition.animateFloat(
+            initialValue = 0.20f,
+            targetValue = 0.35f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 3200, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "oni_aura_alpha"
+        )
+        Pair(animatedScale, animatedAlpha)
+    } else {
+        Pair(1.0f, 0.28f)
+    }
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        // Restrained radial aura glow behind artwork
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .scale(scale)
+                .background(
+                    brush = Brush.radialGradient(
+                        colorStops = arrayOf(
+                            0.0f to glowColor.copy(alpha = alpha),
+                            0.75f to glowColor.copy(alpha = alpha),
+                            1.0f to Color.Transparent
+                        )
+                    ),
+                    shape = RoundedCornerShape(dashboardRadiusLarge())
+                )
+        )
+        Box(
+            modifier = Modifier.padding(auraBleed)
+        ) {
+            content()
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Full Bleed Usage")
+@Composable
+private fun OniAuraArtworkFullBleedPreview() {
+    OniAuraArtwork(
+        artworkUri = null,
+        modifier = Modifier.size(160.dp),
+        enableAnimation = true
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.DarkGray),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Full Bleed Hero",
+                color = Color.White
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Inset Usage")
+@Composable
+private fun OniAuraArtworkPreview() {
+    OniAuraArtwork(
+        artworkUri = null,
+        modifier = Modifier.size(160.dp),
+        enableAnimation = true
+    ) {
+        Box(
+            modifier = Modifier
+                .size(140.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.DarkGray),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Sample Art",
+                color = Color.White
+            )
+        }
+    }
+}

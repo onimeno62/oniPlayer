@@ -121,10 +121,6 @@ class OniAudioEngine private constructor(private val context: Context) {
         client.setQueue(list, idx, client.isPlaying.value)
     }
 
-    fun setPlaylist(list: List<SongEntity>, startIndex: Int, playImmediately: Boolean) {
-        client.setQueue(list, startIndex, playImmediately)
-    }
-
     fun addToQueue(song: SongEntity) {
         client.addToQueue(song)
     }

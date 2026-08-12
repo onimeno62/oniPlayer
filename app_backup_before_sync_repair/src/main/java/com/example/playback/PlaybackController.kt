@@ -167,15 +167,6 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     suspend fun playSong(id: String) {
-        val currentItem = player.currentMediaItem
-        if (currentItem != null && currentItem.mediaId == id) {
-            // Already the current song, make sure it is playing and do not restart!
-            if (!player.isPlaying) {
-                player.play()
-            }
-            return
-        }
-
         val index = indexOf(id)
         if (index >= 0) {
             player.seekTo(index, 0L)
@@ -183,19 +174,13 @@ class PlaybackController(private val service: MediaSessionService) {
             scope.launch { recordPlay(id) }
             return
         }
-
-        // Selected song is not in the queue: add it, make it current, and play while preserving existing queue
         val song = dao.getSongById(id) ?: return
-        val insertIndex = (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
-        player.addMediaItem(insertIndex, mediaItem(song))
-        baseQueue = baseQueue + song
-        player.seekTo(insertIndex, 0L)
-        if (player.playbackState == Player.STATE_IDLE) {
-            player.prepare()
-        }
+        baseQueue = listOf(song)
+        preparing = true
+        player.setMediaItem(mediaItem(song), true)
+        player.prepare()
         player.play()
         scope.launch { recordPlay(id) }
-        publish()
     }
 
     fun pause() = player.pause()
@@ -213,14 +198,10 @@ class PlaybackController(private val service: MediaSessionService) {
         if (baseQueue.isNotEmpty()) {
             val sourceIndex = baseQueue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
             val target = if (enabled) shuffled(baseQueue, sourceIndex) else baseQueue
-            
-            // Reorder the player's playlist seamlessly using moveMediaItem to avoid any audio jitter/stutter
-            for (i in target.indices) {
-                val songId = target[i].id
-                val currentIndex = indexOf(songId)
-                if (currentIndex >= 0 && currentIndex != i) {
-                    player.moveMediaItem(currentIndex, i)
-                }
+            val targetIndex = target.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+            player.setMediaItems(target.map(::mediaItem), targetIndex, player.currentPosition)
+            if (player.playbackState == Player.STATE_IDLE) {
+                player.prepare()
             }
         }
         publish(currentQueue())
@@ -258,11 +239,6 @@ class PlaybackController(private val service: MediaSessionService) {
         val index = indexOf(id)
         if (index >= 0) player.replaceMediaItem(index, mediaItem(song))
         baseQueue = baseQueue.map { if (it.id == id) song else it }
-        
-        // Update the state's currentSong immediately to propagate changes (such as newly downloaded lyrics)
-        if (player.currentMediaItem?.mediaId == id) {
-            _state.value = _state.value.copy(currentSong = song)
-        }
         publish(currentQueue())
     }
 

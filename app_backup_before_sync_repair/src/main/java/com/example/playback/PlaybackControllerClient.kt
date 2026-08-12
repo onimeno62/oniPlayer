@@ -56,36 +56,8 @@ class PlaybackControllerClient(context: Context) {
 
     private val playerListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
-            val c = controller ?: return
-            
-            // 1. High frequency: position, buffered position, duration, isPlaying, buffering state
-            val pos = c.currentPosition.coerceAtLeast(0)
-            _position.value = pos
-            val isPlaying = c.isPlaying
-            val isPreparing = c.playbackState == Player.STATE_BUFFERING
-            val duration = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0
-            val bufferedPos = c.bufferedPosition.coerceAtLeast(0)
-            
-            // Check if structural/low frequency state changed
-            val structuralChanged = events.containsAny(
-                Player.EVENT_TIMELINE_CHANGED,
-                Player.EVENT_MEDIA_ITEM_TRANSITION,
-                Player.EVENT_PLAYLIST_METADATA_CHANGED,
-                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
-                Player.EVENT_REPEAT_MODE_CHANGED
-            )
-            
-            if (structuralChanged || _state.value.currentSong == null || _state.value.queue.isEmpty()) {
-                refreshState()
-            } else {
-                _state.value = _state.value.copy(
-                    isPlaying = isPlaying,
-                    positionMs = pos,
-                    durationMs = duration,
-                    bufferedPositionMs = bufferedPos,
-                    isPreparing = isPreparing
-                )
-            }
+            refreshPosition()
+            refreshState()
         }
     }
 
@@ -156,11 +128,8 @@ class PlaybackControllerClient(context: Context) {
             val ids = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaId }
             val currentId = c.currentMediaItem?.mediaId
             
-            // Always fetch the current playing song freshly from the database to guarantee updated lyrics/metadata
-            val currentSongEntity = currentId?.let { database.songDao().getSongById(it) }
-
             val queueSongs = if (ids == cachedQueueIds) {
-                cachedQueueSongs.map { if (it.id == currentId && currentSongEntity != null) currentSongEntity else it }
+                cachedQueueSongs
             } else {
                 val byId = database.songDao().getSongsByIds(ids).associateBy { it.id }
                 val fetched = ids.mapNotNull { byId[it] ?: database.songDao().getSongById(it) }
@@ -170,12 +139,14 @@ class PlaybackControllerClient(context: Context) {
             }
 
             val extras = c.currentMediaItem?.mediaMetadata?.extras
-            val logicalRepeat = if (c.repeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
+            val logicalRepeat = if ((extras?.getInt(PlaybackController.REPEAT_MODE, RepeatMode.ALL.ordinal) ?: RepeatMode.ALL.ordinal) == RepeatMode.ONE.ordinal) RepeatMode.ONE else RepeatMode.ALL
             val logicalShuffle = extras?.getBoolean(PlaybackController.SHUFFLE_ENABLED) ?: _state.value.shuffleEnabled
             val logicalShuffleMode = ShuffleMode.entries.getOrElse(extras?.getInt(PlaybackController.SHUFFLE_MODE, _state.value.shuffleMode.ordinal) ?: _state.value.shuffleMode.ordinal) { _state.value.shuffleMode }
+            
+            val currentSongEntity = queueSongs.find { it.id == currentId } ?: currentId?.let { database.songDao().getSongById(it) }
 
             _state.value = _state.value.copy(
-                currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId },
+                currentSong = currentSongEntity,
                 isPlaying = c.isPlaying,
                 positionMs = c.currentPosition.coerceAtLeast(0),
                 durationMs = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
@@ -193,8 +164,8 @@ class PlaybackControllerClient(context: Context) {
     fun resume() = withController { it.play() }
     fun togglePlayPause() = withController { if (it.isPlaying) it.pause() else it.play() }
     fun seekTo(ms: Long) = withController { it.seekTo(ms.coerceAtLeast(0)) }
-    fun next() = withController { it.seekToNextMediaItem() }
-    fun previous() = withController { it.seekToPreviousMediaItem() }
+    fun next() = command(PlaybackController.NEXT)
+    fun previous() = command(PlaybackController.PREVIOUS)
     fun stop() = withController { it.stop() }
     fun clearCurrentSource() = stop()
 
