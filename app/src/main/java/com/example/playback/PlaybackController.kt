@@ -162,7 +162,7 @@ class PlaybackController(private val service: MediaSessionService) {
         if (shuffleEnabled) {
             player.setShuffleOrder(buildShuffleOrder(songs, songs[sourceIndex].id))
         } else {
-            player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder())
+            player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(songs.size))
         }
         player.setShuffleModeEnabled(shuffleEnabled)
         applyRepeatMode()
@@ -211,8 +211,16 @@ class PlaybackController(private val service: MediaSessionService) {
         shuffleMode = mode
         if (player.mediaItemCount > 0) {
             val currentId = player.currentMediaItem?.mediaId
-            val order = suppliedOrder ?: if (enabled) buildShuffleOrder(baseQueue, currentId) else null
-            player.setShuffleOrder(order ?: ShuffleOrder.UnshuffledShuffleOrder())
+            val shuffleOrder = if (enabled) {
+                if (suppliedOrder != null) {
+                    ShuffleOrder.DefaultShuffleOrder(suppliedOrder, System.nanoTime())
+                } else {
+                    buildShuffleOrder(baseQueue, currentId)
+                }
+            } else {
+                ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount)
+            }
+            player.setShuffleOrder(shuffleOrder)
             player.setShuffleModeEnabled(enabled)
         }
         publish(currentQueue())
@@ -368,11 +376,11 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     private fun buildShuffleOrder(queue: List<SongEntity>, currentId: String?): ShuffleOrder {
-        if (queue.isEmpty()) return ShuffleOrder.UnshuffledShuffleOrder()
+        if (queue.isEmpty()) return ShuffleOrder.UnshuffledShuffleOrder(0)
         val currentIndex = queue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
         val target = shuffled(queue, currentIndex)
         val indices = target.mapNotNull { song -> queue.indexOfFirst { it.id == song.id }.takeIf { it >= 0 } }.toIntArray()
-        return ShuffleOrder.DefaultShuffleOrder(indices, System.nanoTime().toInt())
+        return ShuffleOrder.DefaultShuffleOrder(indices, System.nanoTime())
     }
 
     private fun indexOf(id: String?) = if (id == null) -1 else (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == id } ?: -1
@@ -418,7 +426,7 @@ class PlaybackController(private val service: MediaSessionService) {
             val currentIndex = songs.indexOfFirst { it.id == currentSongId }.coerceAtLeast(0)
             preparing = true
             player.setMediaItems(songs.map(::mediaItem), currentIndex, pos)
-            if (shuffleEnabled) player.setShuffleOrder(buildShuffleOrder(songs, currentSongId)) else player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder())
+            if (shuffleEnabled) player.setShuffleOrder(buildShuffleOrder(songs, currentSongId)) else player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(songs.size))
             player.setShuffleModeEnabled(shuffleEnabled)
             applyRepeatMode(); player.prepare(); player.pause(); publish(songs)
         }

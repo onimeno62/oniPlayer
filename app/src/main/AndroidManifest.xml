@@ -12,6 +12,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <queries>
+        <!-- Declare query visibility for Android Auto connection provider to satisfy Android 11+ package visibility rules -->
+        <provider android:authorities="androidx.car.app.connection" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

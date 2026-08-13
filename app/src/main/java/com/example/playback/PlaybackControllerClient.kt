@@ -65,7 +65,7 @@ class PlaybackControllerClient(context: Context) {
             _position.value = pos
             val isPlaying = c.isPlaying
             val isPreparing = c.playbackState == Player.STATE_BUFFERING
-            val duration = c.duration.takeIf { it != androidx.media3.common.TIME_UNSET && it >= 0 } ?: 0
+            val duration = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0
             val bufferedPos = c.bufferedPosition.coerceAtLeast(0)
             val structuralChanged = events.containsAny(Player.EVENT_TIMELINE_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_PLAYLIST_METADATA_CHANGED, Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED, Player.EVENT_REPEAT_MODE_CHANGED)
             if (structuralChanged || _state.value.currentSong == null || _state.value.queue.isEmpty()) refreshState()
@@ -105,7 +105,7 @@ class PlaybackControllerClient(context: Context) {
                             val currentController = this@PlaybackControllerClient.controller
                             val finalIsPlaying = currentController?.isPlaying ?: isPlaying
                             val finalPos = currentController?.currentPosition?.coerceAtLeast(0) ?: pos
-                            val finalDuration = currentController?.duration?.takeIf { it != androidx.media3.common.TIME_UNSET && it >= 0 } ?: duration
+                            val finalDuration = currentController?.duration?.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: duration
                             val finalBufferedPos = currentController?.bufferedPosition?.coerceAtLeast(0) ?: bufferedPos
                             val finalIsPreparing = if (currentController != null) currentController.playbackState == Player.STATE_BUFFERING else isPreparing
                             _state.value = _state.value.copy(currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId }, isPlaying = finalIsPlaying, positionMs = finalPos, durationMs = finalDuration, bufferedPositionMs = finalBufferedPos, beatEnergy = beatEnergy, isPreparing = finalIsPreparing, autoNextCountdownSeconds = countdown, shuffleEnabled = shuffle, shuffleMode = ShuffleMode.entries.getOrElse(shuffleModeOrdinal) { _state.value.shuffleMode }, repeatMode = RepeatMode.entries.getOrElse(repeatModeOrdinal) { _state.value.repeatMode }, queue = queueSongs)
@@ -143,7 +143,7 @@ class PlaybackControllerClient(context: Context) {
                 }
                 val logicalRepeat = if (c.repeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
                 val posVal = c.currentPosition.coerceAtLeast(0)
-                _state.value = _state.value.copy(currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId }, isPlaying = c.isPlaying, positionMs = posVal, durationMs = c.duration.takeIf { it != androidx.media3.common.TIME_UNSET && it >= 0 } ?: 0, bufferedPositionMs = c.bufferedPosition.coerceAtLeast(0), shuffleEnabled = c.shuffleModeEnabled, repeatMode = logicalRepeat, queue = queueSongs)
+                _state.value = _state.value.copy(currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId }, isPlaying = c.isPlaying, positionMs = posVal, durationMs = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0, bufferedPositionMs = c.bufferedPosition.coerceAtLeast(0), shuffleEnabled = c.shuffleModeEnabled, repeatMode = logicalRepeat, queue = queueSongs)
                 _position.value = posVal
             }
         }
