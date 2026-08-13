@@ -1,0 +1,1 @@
+fix: check RECORD_AUDIO permission before creating Visualizer to avoid system logs pollution

@@ -32,6 +32,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.math.roundToInt
 
 /** Service-owned playback engine. The Activity and ViewModels never own ExoPlayer. */
@@ -503,42 +505,58 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     }
 
+    private val publishMutex = Mutex()
+    private var nextRevision = 1L
+    private var lastPublishedRevision = 0L
+
     private fun publish(queueOverride: List<SongEntity>? = null) {
         val q = queueOverride ?: currentQueue()
+        val revision = nextRevision++
         scope.launch {
-            val currentId = player.currentMediaItem?.mediaId
-            val dbSong = currentId?.let { dao.getSongById(it) }
-            
-            _state.value = _state.value.copy(
-                currentSong = dbSong,
-                isPlaying = player.isPlaying,
-                positionMs = player.currentPosition.coerceAtLeast(0),
-                durationMs = player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
-                bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
-                beatEnergy = beatEnergy,
-                isPreparing = preparing,
-                autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
-                shuffleEnabled = shuffleEnabled,
-                shuffleMode = shuffleMode,
-                repeatMode = repeatMode,
-                queue = q
-            )
+            publishMutex.withLock {
+                if (revision < lastPublishedRevision) {
+                    return@withLock
+                }
+                val currentId = player.currentMediaItem?.mediaId
+                val dbSong = currentId?.let { dao.getSongById(it) }
+                
+                if (revision < lastPublishedRevision) {
+                    return@withLock
+                }
+                lastPublishedRevision = revision
+                
+                _state.value = _state.value.copy(
+                    currentSong = dbSong,
+                    isPlaying = player.isPlaying,
+                    positionMs = player.currentPosition.coerceAtLeast(0),
+                    durationMs = player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
+                    bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
+                    beatEnergy = beatEnergy,
+                    isPreparing = preparing,
+                    autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
+                    shuffleEnabled = shuffleEnabled,
+                    shuffleMode = shuffleMode,
+                    repeatMode = repeatMode,
+                    queue = q
+                )
 
-            val bundle = Bundle().apply {
-                putString("current_song_id", currentId)
-                putBoolean("is_playing", player.isPlaying)
-                putLong("position_ms", player.currentPosition.coerceAtLeast(0))
-                putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0)
-                putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
-                putFloat("beat_energy", beatEnergy)
-                putBoolean("is_preparing", preparing)
-                putInt("auto_next_countdown", _state.value.autoNextCountdownSeconds ?: -1)
-                putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
-                putInt(SHUFFLE_MODE, shuffleMode.ordinal)
-                putInt(REPEAT_MODE, repeatMode.ordinal)
-                putStringArrayList("queue_ids", ArrayList(q.map { it.id }))
+                val bundle = Bundle().apply {
+                    putLong("state_revision", revision)
+                    putString("current_song_id", currentId)
+                    putBoolean("is_playing", player.isPlaying)
+                    putLong("position_ms", player.currentPosition.coerceAtLeast(0))
+                    putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0)
+                    putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
+                    putFloat("beat_energy", beatEnergy)
+                    putBoolean("is_preparing", preparing)
+                    putInt("auto_next_countdown", _state.value.autoNextCountdownSeconds ?: -1)
+                    putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
+                    putInt(SHUFFLE_MODE, shuffleMode.ordinal)
+                    putInt(REPEAT_MODE, repeatMode.ordinal)
+                    putStringArrayList("queue_ids", ArrayList(q.map { it.id }))
+                }
+                mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
             }
-            mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
         }
     }
 

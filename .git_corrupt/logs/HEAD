@@ -1,0 +1,9 @@
+0000000000000000000000000000000000000000 8bb63a38f585f7cb442741b279fce86f0a11e139 root <root@localhost.(none)> 1786524095 +0000	reset: moving to origin/main
+8bb63a38f585f7cb442741b279fce86f0a11e139 0000000000000000000000000000000000000000 root <root@localhost.(none)> 1786524147 +0000	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 8bb63a38f585f7cb442741b279fce86f0a11e139 root <root@localhost.(none)> 1786524147 +0000	Branch: renamed refs/heads/master to refs/heads/main
+8bb63a38f585f7cb442741b279fce86f0a11e139 8bb63a38f585f7cb442741b279fce86f0a11e139 root <root@localhost.(none)> 1786524178 +0000	checkout: moving from main to pre-playback-verification
+8bb63a38f585f7cb442741b279fce86f0a11e139 8bb63a38f585f7cb442741b279fce86f0a11e139 AI Coding Agent <o.Inugami.a@gmail.com> 1786524243 +0000	reset: moving to HEAD
+8bb63a38f585f7cb442741b279fce86f0a11e139 cc46c3d1e259773c08c35ad5938641cfbadc5134 AI Coding Agent <o.Inugami.a@gmail.com> 1786524243 +0000	commit: pre-playback-verification
+cc46c3d1e259773c08c35ad5938641cfbadc5134 8bb63a38f585f7cb442741b279fce86f0a11e139 AI Coding Agent <o.Inugami.a@gmail.com> 1786524243 +0000	checkout: moving from pre-playback-verification to main
+8bb63a38f585f7cb442741b279fce86f0a11e139 a921d92605cb5f34a1418c724620aa4589578ae5 AI Coding Agent <o.Inugami.a@gmail.com> 1786524488 +0000	commit: test: verify Media3 playback architecture
+a921d92605cb5f34a1418c724620aa4589578ae5 c0fbeb3d841aa3f96973b88efad4cb2e98acde25 AI Coding Agent <o.Inugami.a@gmail.com> 1786525827 +0000	commit: fix: check RECORD_AUDIO permission before creating Visualizer to avoid system logs pollution
