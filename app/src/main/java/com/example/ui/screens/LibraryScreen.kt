@@ -982,6 +982,19 @@ fun SongsListView(
             viewModel.songsGridIndex = gridState.firstVisibleItemIndex
             viewModel.songsGridOffset = gridState.firstVisibleItemScrollOffset
         }
+        LaunchedEffect(currentSong) {
+            if (currentSong != null && !gridState.isScrollInProgress) {
+                val index = songs.indexOfFirst { it.id == currentSong?.id }
+                if (index >= 0) {
+                    val firstVisible = gridState.firstVisibleItemIndex
+                    val lastVisible = firstVisible + 12
+                    if (index < firstVisible || index > lastVisible) {
+                        val targetIndex = (index - index % 2 - 2).coerceAtLeast(0)
+                        gridState.scrollToItem(targetIndex)
+                    }
+                }
+            }
+        }
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             state = gridState,
@@ -1057,6 +1070,19 @@ fun SongsListView(
         LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
             viewModel.libraryScrollIndex = listState.firstVisibleItemIndex
             viewModel.libraryScrollOffset = listState.firstVisibleItemScrollOffset
+        }
+
+        LaunchedEffect(currentSong) {
+            if (currentSong != null && !listState.isScrollInProgress) {
+                val index = songs.indexOfFirst { it.id == currentSong?.id }
+                if (index >= 0) {
+                    val firstVisible = listState.firstVisibleItemIndex
+                    val lastVisible = firstVisible + 8
+                    if (index < firstVisible || index > lastVisible) {
+                        listState.scrollToItem((index - 2).coerceAtLeast(0))
+                    }
+                }
+            }
         }
 
         LazyColumn(

@@ -406,10 +406,12 @@ class PlaybackController(private val service: MediaSessionService) {
 
     private fun savePlaybackState() {
         val currentId = player.currentMediaItem?.mediaId ?: ""
+        val currentPosition = player.currentPosition
+        val isPlaying = player.isPlaying
         val prefs = context.getSharedPreferences("playback_persistence", Context.MODE_PRIVATE)
         val queueIdsJson = org.json.JSONArray((0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }).toString()
         scope.launch(Dispatchers.IO) {
-            prefs.edit().putString("current_song_id", currentId).putLong("position", player.currentPosition).putBoolean("is_playing", player.isPlaying)
+            prefs.edit().putString("current_song_id", currentId).putLong("position", currentPosition).putBoolean("is_playing", isPlaying)
                 .putBoolean("shuffle_enabled", shuffleEnabled).putInt("shuffle_mode", shuffleMode.ordinal).putInt("repeat_mode", repeatMode.ordinal)
                 .putString("queue_ids", queueIdsJson).apply()
         }

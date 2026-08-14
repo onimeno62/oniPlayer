@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
@@ -12,6 +13,7 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -167,7 +169,18 @@ fun AlbumDetailScreen(
         )
 
         // Song List
+        val albumListState = rememberLazyListState()
+        LaunchedEffect(currentSong) {
+            if (currentSong != null && !albumListState.isScrollInProgress) {
+                val index = sortedSongs.indexOfFirst { it.id == currentSong.id }
+                if (index >= 0) {
+                    albumListState.animateScrollToItem((index - 2).coerceAtLeast(0))
+                }
+            }
+        }
+
         LazyColumn(
+            state = albumListState,
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {

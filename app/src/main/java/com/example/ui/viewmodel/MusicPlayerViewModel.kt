@@ -655,7 +655,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun playSong(song: SongEntity, playlist: List<SongEntity>) {
         cancelDelay()
-        _currentPlaylist.value = playlist
         _currentTab.value = 1 // Switch to Player tab immediately
 
         // Capture current library context when a song starts playing
@@ -680,7 +679,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 audioEngine.resume()
             } else {
                 val currentQueueIds = audioEngine.currentPlaylist.value.map { it.id }
-                if (currentQueueIds.contains(updated.id)) {
+                val isSamePlaylist = currentQueueIds == playlist.map { it.id }
+                if (isSamePlaylist && currentQueueIds.contains(updated.id)) {
                     audioEngine.play(updated)
                 } else {
                     val idx = playlist.indexOfFirst { it.id == updated.id }.coerceAtLeast(0)

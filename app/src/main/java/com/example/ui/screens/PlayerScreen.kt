@@ -844,7 +844,19 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 Text("Queue is empty", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         } else {
+                            val queueListState = rememberLazyListState()
+
+                            LaunchedEffect(showQueueSheet, song) {
+                                if (showQueueSheet && song != null) {
+                                    val index = playlist.indexOfFirst { it.id == song.id }
+                                    if (index >= 0) {
+                                        queueListState.scrollToItem((index - 2).coerceAtLeast(0))
+                                    }
+                                }
+                            }
+
                             LazyColumn(
+                                state = queueListState,
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
