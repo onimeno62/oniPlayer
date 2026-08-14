@@ -22,6 +22,7 @@ import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -498,29 +499,35 @@ class PlaybackController(private val service: MediaSessionService) {
         }
 
         override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
+            val result = SettableFuture.create<SessionResult>()
             scope.launch {
-                commandMutex.withLock {
-                    when (command.customAction) {
-                        SET_QUEUE -> setQueue(args.getStringArrayList(SONG_IDS).orEmpty(), args.getInt(START_INDEX), args.getBoolean(PLAY, true))
-                        PLAY_SONG -> playSong(args.getString(SONG_ID) ?: return@withLock)
-                        SET_SHUFFLE -> setShuffle(args.getBoolean(ENABLED), ShuffleMode.entries.getOrElse(args.getInt(MODE)) { shuffleMode }, args.getIntArray(SHUFFLE_ORDER))
-                        ADD_TO_QUEUE -> addToQueue(args.getString(SONG_ID) ?: return@withLock)
-                        PLAY_NEXT -> playNext(args.getString(SONG_ID) ?: return@withLock)
-                        UPDATE_SONG -> updateSong(args.getString(SONG_ID) ?: return@withLock)
-                        TOGGLE_FAVORITE -> toggleFavorite()
-                        EQ_BAND -> setBand(args.getInt(BAND), args.getFloat(VALUE))
-                        BASS -> setBass(args.getFloat(VALUE))
-                        VIRTUALIZER -> setVirtualizer(args.getFloat(VALUE))
-                        SET_DELAY -> setDelay(args.getInt(DELAY_SECONDS))
-                        CANCEL_DELAY -> cancelDelay()
-                        TRIGGER_DELAY -> triggerDelay()
-                        NEXT -> next()
-                        PREVIOUS -> previous()
-                        PRESET -> args.getBundle(PRESET_DATA)?.let { p -> applyPreset(EqualizerPresetEntity(p.getString("name", "Custom"), p.getBoolean("isCustom"), p.getFloat("band60Hz"), p.getFloat("band230Hz"), p.getFloat("band910Hz"), p.getFloat("band4kHz"), p.getFloat("band14kHz"), p.getFloat("bassBoost"), p.getFloat("virtualizer"))) }
+                try {
+                    commandMutex.withLock {
+                        when (command.customAction) {
+                            SET_QUEUE -> setQueue(args.getStringArrayList(SONG_IDS).orEmpty(), args.getInt(START_INDEX), args.getBoolean(PLAY, true))
+                            PLAY_SONG -> playSong(args.getString(SONG_ID) ?: return@withLock)
+                            SET_SHUFFLE -> setShuffle(args.getBoolean(ENABLED), ShuffleMode.entries.getOrElse(args.getInt(MODE)) { shuffleMode }, args.getIntArray(SHUFFLE_ORDER))
+                            ADD_TO_QUEUE -> addToQueue(args.getString(SONG_ID) ?: return@withLock)
+                            PLAY_NEXT -> playNext(args.getString(SONG_ID) ?: return@withLock)
+                            UPDATE_SONG -> updateSong(args.getString(SONG_ID) ?: return@withLock)
+                            TOGGLE_FAVORITE -> toggleFavorite()
+                            EQ_BAND -> setBand(args.getInt(BAND), args.getFloat(VALUE))
+                            BASS -> setBass(args.getFloat(VALUE))
+                            VIRTUALIZER -> setVirtualizer(args.getFloat(VALUE))
+                            SET_DELAY -> setDelay(args.getInt(DELAY_SECONDS))
+                            CANCEL_DELAY -> cancelDelay()
+                            TRIGGER_DELAY -> triggerDelay()
+                            NEXT -> next()
+                            PREVIOUS -> previous()
+                            PRESET -> args.getBundle(PRESET_DATA)?.let { p -> applyPreset(EqualizerPresetEntity(p.getString("name", "Custom"), p.getBoolean("isCustom"), p.getFloat("band60Hz"), p.getFloat("band230Hz"), p.getFloat("band910Hz"), p.getFloat("band4kHz"), p.getFloat("band14kHz"), p.getFloat("bassBoost"), p.getFloat("virtualizer"))) }
+                        }
                     }
+                    result.set(SessionResult(SessionResult.RESULT_SUCCESS))
+                } catch (t: Throwable) {
+                    result.setException(t)
                 }
             }
-            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            return result
         }
     }
 
