@@ -165,7 +165,7 @@ class PlaybackController(private val service: MediaSessionService) {
         preparing = true
         player.setMediaItems(songs.map(::mediaItem), effectiveIndex, 0L)
         if (shuffleEnabled) {
-            player.setShuffleOrder(buildShuffleOrder(songs, songs[sourceIndex].id))
+            player.setShuffleOrder(buildShuffleOrder(songs, songs[effectiveIndex].id))
         } else {
             player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(songs.size))
         }
@@ -174,7 +174,7 @@ class PlaybackController(private val service: MediaSessionService) {
         player.prepare()
         if (playImmediately) {
             player.play()
-            scope.launch { recordPlay(songs[sourceIndex].id) }
+            scope.launch { recordPlay(songs[effectiveIndex].id) }
         } else player.pause()
         publish(songs)
     }
