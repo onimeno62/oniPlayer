@@ -848,7 +848,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                itemsIndexed(playlist) { index, item ->
+                                itemsIndexed(playlist, key = { _, item -> item.id }) { index, item ->
                                     val isCurrent = song?.id == item.id
                                     val rowBg = if (isCurrent) accentColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
                                     val rowBorder = if (isCurrent) BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)) else null
@@ -917,6 +917,18 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
+                                                if (isCurrent) {
+                                                    val currentSeconds = (position / 1000L).coerceAtLeast(0L)
+                                                    val totalSeconds = (duration / 1000L).coerceAtLeast(0L)
+                                                    val currentText = String.format(java.util.Locale.US, "%d:%02d", currentSeconds / 60, currentSeconds % 60)
+                                                    val totalText = String.format(java.util.Locale.US, "%d:%02d", totalSeconds / 60, totalSeconds % 60)
+                                                    Text(
+                                                        text = "$currentText / $totalText",
+                                                        fontSize = 10.sp,
+                                                        color = accentColor.copy(alpha = 0.75f),
+                                                        maxLines = 1
+                                                    )
+                                                }
                                             }
                                         }
                                     }

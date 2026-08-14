@@ -21,6 +21,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -131,20 +133,62 @@ class PlaybackControllerClient(context: Context) {
 
     private fun refreshState() {
         val c = controller ?: return
+        val ids = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaId }
+        val currentId = c.currentMediaItem?.mediaId
+        val logicalRepeat = if (c.repeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
+        val posVal = c.currentPosition.coerceAtLeast(0)
+        val durationVal = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0
+        val bufferedVal = c.bufferedPosition.coerceAtLeast(0)
+
+        // Publish immediately when the queue is already cached. Do not put a Room read
+        // in front of a playback transition reaching Compose.
+        if (ids == cachedQueueIds && cachedQueueSongs.isNotEmpty()) {
+            val current = cachedQueueSongs.find { it.id == currentId }
+            _state.value = _state.value.copy(
+                currentSong = current ?: _state.value.currentSong,
+                isPlaying = c.isPlaying,
+                positionMs = posVal,
+                durationMs = durationVal,
+                bufferedPositionMs = bufferedVal,
+                shuffleEnabled = c.shuffleModeEnabled,
+                repeatMode = logicalRepeat,
+                queue = cachedQueueSongs
+            )
+            _position.value = posVal
+        }
+
         scope.launch {
             stateMutex.withLock {
-                val ids = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaId }
-                val currentId = c.currentMediaItem?.mediaId
                 val (currentSongEntity, queueSongs) = withContext(Dispatchers.IO) {
-                    val dao = database.songDao(); val current = currentId?.let { dao.getSongById(it) }
-                    val songs = if (ids == cachedQueueIds) cachedQueueSongs.map { if (it.id == currentId && current != null) current else it }
-                    else { val byId = dao.getSongsByIds(ids).associateBy { it.id }; val fetched = ids.mapNotNull { byId[it] }; cachedQueueIds = ids; cachedQueueSongs = fetched; fetched }
+                    val dao = database.songDao()
+                    val current = currentId?.let { dao.getSongById(it) }
+                    val songs = if (ids == cachedQueueIds && cachedQueueSongs.isNotEmpty()) {
+                        cachedQueueSongs.map { if (it.id == currentId && current != null) current else it }
+                    } else {
+                        val byId = dao.getSongsByIds(ids).associateBy { it.id }
+                        val fetched = ids.mapNotNull { byId[it] }
+                        cachedQueueIds = ids
+                        cachedQueueSongs = fetched
+                        fetched
+                    }
                     current to songs
                 }
-                val logicalRepeat = if (c.repeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
-                val posVal = c.currentPosition.coerceAtLeast(0)
-                _state.value = _state.value.copy(currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId }, isPlaying = c.isPlaying, positionMs = posVal, durationMs = c.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0, bufferedPositionMs = c.bufferedPosition.coerceAtLeast(0), shuffleEnabled = c.shuffleModeEnabled, repeatMode = logicalRepeat, queue = queueSongs)
-                _position.value = posVal
+                val latest = controller ?: return@withLock
+                val latestId = latest.currentMediaItem?.mediaId
+                if (latestId != currentId) return@withLock
+                val latestPosition = latest.currentPosition.coerceAtLeast(0)
+                val latestDuration = latest.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0
+                _state.value = _state.value.copy(
+                    currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId },
+                    isPlaying = latest.isPlaying,
+                    positionMs = latestPosition,
+                    durationMs = latestDuration,
+                    bufferedPositionMs = latest.bufferedPosition.coerceAtLeast(0),
+                    shuffleEnabled = latest.shuffleModeEnabled,
+                    repeatMode = if (latest.repeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL,
+                    queue = queueSongs
+                )
+                _position.value = latestPosition
             }
         }
     }
@@ -198,7 +242,22 @@ class PlaybackControllerClient(context: Context) {
     fun triggerAutoNextWithDelay() = command(PlaybackController.TRIGGER_DELAY)
     fun applyPreset(p: EqualizerPresetEntity) = command(PlaybackController.PRESET, Bundle().apply { putBundle(PlaybackController.PRESET_DATA, Bundle().apply { putString("name", p.name); putBoolean("isCustom", p.isCustom); putFloat("band60Hz", p.band60Hz); putFloat("band230Hz", p.band230Hz); putFloat("band910Hz", p.band910Hz); putFloat("band4kHz", p.band4kHz); putFloat("band14kHz", p.band14kHz); putFloat("bassBoost", p.bassBoost); putFloat("virtualizer", p.virtualizer) }) })
 
-    private fun command(action: String, args: Bundle = Bundle()) { scope.launch { commandMutex.withLock { runCatching { ready.await().sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args) } } } }
+    private fun command(action: String, args: Bundle = Bundle()) {
+        scope.launch {
+            commandMutex.withLock {
+                runCatching {
+                    val c = ready.await()
+                    val future = c.sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args)
+                    suspendCancellableCoroutine<Unit> { continuation ->
+                        future.addListener({
+                            if (continuation.isActive) continuation.resume(Unit)
+                        }, ContextCompat.getMainExecutor(appContext))
+                        continuation.invokeOnCancellation { future.cancel(true) }
+                    }
+                }
+            }
+        }
+    }
     private fun withController(block: (MediaController) -> Unit) { scope.launch { commandMutex.withLock { runCatching { block(ready.await()) } } } }
     fun release() { controller?.removeListener(playerListener); controller?.release(); future?.cancel(true); controller = null; future = null; scope.cancel() }
 }

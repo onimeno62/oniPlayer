@@ -157,8 +157,12 @@ class PlaybackController(private val service: MediaSessionService) {
         if (songs.isEmpty()) return
         baseQueue = songs
         val sourceIndex = startIndex.coerceIn(0, songs.lastIndex)
+        val existingCurrentId = player.currentMediaItem?.mediaId
+        val effectiveIndex = if (playImmediately && existingCurrentId != null) {
+            songs.indexOfFirst { it.id == existingCurrentId }.takeIf { it >= 0 } ?: sourceIndex
+        } else sourceIndex
         preparing = true
-        player.setMediaItems(songs.map(::mediaItem), sourceIndex, 0L)
+        player.setMediaItems(songs.map(::mediaItem), effectiveIndex, 0L)
         if (shuffleEnabled) {
             player.setShuffleOrder(buildShuffleOrder(songs, songs[sourceIndex].id))
         } else {
@@ -384,7 +388,10 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     private fun indexOf(id: String?) = if (id == null) -1 else (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == id } ?: -1
-    private fun currentQueue(): List<SongEntity> = (0 until player.mediaItemCount).mapNotNull { i -> _state.value.queue.find { it.id == player.getMediaItemAt(i).mediaId } }
+    private fun currentQueue(): List<SongEntity> {
+        val byId = _state.value.queue.associateBy { it.id }
+        return (0 until player.mediaItemCount).mapNotNull { i -> byId[player.getMediaItemAt(i).mediaId] }
+    }
     private fun applyRepeatMode() { player.repeatMode = if (repeatMode == RepeatMode.ONE) Player.REPEAT_MODE_ONE else if (delaySeconds > 0) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ALL }
 
     private fun updateCurrentMetadata() {
