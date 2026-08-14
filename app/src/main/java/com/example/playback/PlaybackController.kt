@@ -20,7 +20,6 @@ import androidx.media3.session.SessionResult
 import com.example.data.database.OniDatabase
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
-import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -121,7 +120,8 @@ class PlaybackController(private val service: MediaSessionService) {
                 savePlaybackState()
             }
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-                publish(); savePlaybackState()
+                publish()
+                savePlaybackState()
             }
             override fun onAudioSessionIdChanged(id: Int) { configureEffects(id) }
             override fun onRepeatModeChanged(playerRepeatMode: Int) {
@@ -158,14 +158,10 @@ class PlaybackController(private val service: MediaSessionService) {
         if (songs.isEmpty()) return
         baseQueue = songs
         val sourceIndex = startIndex.coerceIn(0, songs.lastIndex)
-        val existingCurrentId = player.currentMediaItem?.mediaId
-        val effectiveIndex = if (playImmediately && existingCurrentId != null) {
-            songs.indexOfFirst { it.id == existingCurrentId }.takeIf { it >= 0 } ?: sourceIndex
-        } else sourceIndex
         preparing = true
-        player.setMediaItems(songs.map(::mediaItem), effectiveIndex, 0L)
+        player.setMediaItems(songs.map(::mediaItem), sourceIndex, 0L)
         if (shuffleEnabled) {
-            player.setShuffleOrder(buildShuffleOrder(songs, songs[effectiveIndex].id))
+            player.setShuffleOrder(buildShuffleOrder(songs, songs[sourceIndex].id))
         } else {
             player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(songs.size))
         }
@@ -174,7 +170,7 @@ class PlaybackController(private val service: MediaSessionService) {
         player.prepare()
         if (playImmediately) {
             player.play()
-            scope.launch { recordPlay(songs[effectiveIndex].id) }
+            scope.launch { recordPlay(songs[sourceIndex].id) }
         } else player.pause()
         publish(songs)
     }
@@ -272,7 +268,9 @@ class PlaybackController(private val service: MediaSessionService) {
 
     fun setRepeat(one: Boolean) {
         repeatMode = if (one) RepeatMode.ONE else RepeatMode.ALL
-        applyRepeatMode(); updateCurrentMetadata(); publish()
+        applyRepeatMode()
+        publish()
+        savePlaybackState()
     }
 
     fun setDelay(seconds: Int) {
@@ -363,7 +361,7 @@ class PlaybackController(private val service: MediaSessionService) {
     private suspend fun recordPlay(id: String) {
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
         withContext(Dispatchers.IO) { dao.updateSong(song.copy(playCount = song.playCount + 1, lastPlayedTimestamp = System.currentTimeMillis())) }
-        updateSong(id)
+        // Keep the transition path hot. Do not replace/reprepare the current MediaItem after a track changes.
     }
 
     private fun shuffled(queue: List<SongEntity>, currentIndex: Int): List<SongEntity> {
@@ -410,9 +408,11 @@ class PlaybackController(private val service: MediaSessionService) {
         val currentId = player.currentMediaItem?.mediaId ?: ""
         val prefs = context.getSharedPreferences("playback_persistence", Context.MODE_PRIVATE)
         val queueIdsJson = org.json.JSONArray((0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }).toString()
-        prefs.edit().putString("current_song_id", currentId).putLong("position", player.currentPosition).putBoolean("is_playing", player.isPlaying)
-            .putBoolean("shuffle_enabled", shuffleEnabled).putInt("shuffle_mode", shuffleMode.ordinal).putInt("repeat_mode", repeatMode.ordinal)
-            .putString("queue_ids", queueIdsJson).apply()
+        scope.launch(Dispatchers.IO) {
+            prefs.edit().putString("current_song_id", currentId).putLong("position", player.currentPosition).putBoolean("is_playing", player.isPlaying)
+                .putBoolean("shuffle_enabled", shuffleEnabled).putInt("shuffle_mode", shuffleMode.ordinal).putInt("repeat_mode", repeatMode.ordinal)
+                .putString("queue_ids", queueIdsJson).apply()
+        }
     }
 
     private fun restorePlaybackState() {
@@ -440,51 +440,46 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     }
 
-    private val publishMutex = Mutex()
     private var nextRevision = 1L
     private var lastPublishedRevision = 0L
 
     private fun publish(queueOverride: List<SongEntity>? = null) {
         val q = queueOverride ?: currentQueue()
         val revision = nextRevision++
-        scope.launch {
-            publishMutex.withLock {
-                if (revision < lastPublishedRevision) return@withLock
-                val currentId = player.currentMediaItem?.mediaId
-                val currentSong = q.find { it.id == currentId } ?: _state.value.currentSong
-                lastPublishedRevision = revision
-                _state.value = _state.value.copy(
-                    currentSong = currentSong,
-                    isPlaying = player.isPlaying,
-                    positionMs = player.currentPosition.coerceAtLeast(0),
-                    durationMs = player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
-                    bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
-                    beatEnergy = beatEnergy,
-                    isPreparing = preparing,
-                    autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
-                    shuffleEnabled = shuffleEnabled,
-                    shuffleMode = shuffleMode,
-                    repeatMode = repeatMode,
-                    queue = q
-                )
-                val bundle = Bundle().apply {
-                    putLong("state_revision", revision)
-                    putString("current_song_id", currentId)
-                    putBoolean("is_playing", player.isPlaying)
-                    putLong("position_ms", player.currentPosition.coerceAtLeast(0))
-                    putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0)
-                    putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
-                    putFloat("beat_energy", beatEnergy)
-                    putBoolean("is_preparing", preparing)
-                    putInt("auto_next_countdown", _state.value.autoNextCountdownSeconds ?: -1)
-                    putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
-                    putInt(SHUFFLE_MODE, shuffleMode.ordinal)
-                    putInt(REPEAT_MODE, repeatMode.ordinal)
-                    putStringArrayList("queue_ids", ArrayList(q.map { it.id }))
-                }
-                mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
-            }
+        if (revision < lastPublishedRevision) return
+        val currentId = player.currentMediaItem?.mediaId
+        val currentSong = q.find { it.id == currentId } ?: _state.value.currentSong
+        lastPublishedRevision = revision
+        _state.value = _state.value.copy(
+            currentSong = currentSong,
+            isPlaying = player.isPlaying,
+            positionMs = player.currentPosition.coerceAtLeast(0),
+            durationMs = player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
+            bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
+            beatEnergy = beatEnergy,
+            isPreparing = preparing,
+            autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
+            shuffleEnabled = shuffleEnabled,
+            shuffleMode = shuffleMode,
+            repeatMode = repeatMode,
+            queue = q
+        )
+        val bundle = Bundle().apply {
+            putLong("state_revision", revision)
+            putString("current_song_id", currentId)
+            putBoolean("is_playing", player.isPlaying)
+            putLong("position_ms", player.currentPosition.coerceAtLeast(0))
+            putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.TIME_UNSET && it >= 0 } ?: 0)
+            putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
+            putFloat("beat_energy", beatEnergy)
+            putBoolean("is_preparing", preparing)
+            putInt("auto_next_countdown", _state.value.autoNextCountdownSeconds ?: -1)
+            putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
+            putInt(SHUFFLE_MODE, shuffleMode.ordinal)
+            putInt(REPEAT_MODE, repeatMode.ordinal)
+            putStringArrayList("queue_ids", ArrayList(q.map { it.id }))
         }
+        mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
     }
 
     private inner class SessionCallback : MediaSession.Callback {
