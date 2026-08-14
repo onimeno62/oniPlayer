@@ -469,7 +469,7 @@ class PlaybackController(private val service: MediaSessionService) {
             putString("current_song_id", currentId)
             putBoolean("is_playing", player.isPlaying)
             putLong("position_ms", player.currentPosition.coerceAtLeast(0))
-            putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.TIME_UNSET && it >= 0 } ?: 0)
+            putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0)
             putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
             putFloat("beat_energy", beatEnergy)
             putBoolean("is_preparing", preparing)
