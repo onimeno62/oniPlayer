@@ -1,0 +1,51 @@
+name: Temporary Playback Command Repair
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[command-repair]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make service command futures represent real completion
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/example/playback/PlaybackController.kt')
+          text = p.read_text()
+
+          text = text.replace(
+              'import com.google.common.util.concurrent.ListenableFuture\n',
+              'import com.google.common.util.concurrent.ListenableFuture\nimport com.google.common.util.concurrent.SettableFuture\n'
+          )
+
+          old = '''        override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {\n            scope.launch {\n                commandMutex.withLock {\n                    when (command.customAction) {\n                        SET_QUEUE -> setQueue(args.getStringArrayList(SONG_IDS).orEmpty(), args.getInt(START_INDEX), args.getBoolean(PLAY, true))\n                        PLAY_SONG -> playSong(args.getString(SONG_ID) ?: return@withLock)\n                        SET_SHUFFLE -> setShuffle(args.getBoolean(ENABLED), ShuffleMode.entries.getOrElse(args.getInt(MODE)) { shuffleMode }, args.getIntArray(SHUFFLE_ORDER))\n                        ADD_TO_QUEUE -> addToQueue(args.getString(SONG_ID) ?: return@withLock)\n                        PLAY_NEXT -> playNext(args.getString(SONG_ID) ?: return@withLock)\n                        UPDATE_SONG -> updateSong(args.getString(SONG_ID) ?: return@withLock)\n                        TOGGLE_FAVORITE -> toggleFavorite()\n                        EQ_BAND -> setBand(args.getInt(BAND), args.getFloat(VALUE))\n                        BASS -> setBass(args.getFloat(VALUE))\n                        VIRTUALIZER -> setVirtualizer(args.getFloat(VALUE))\n                        SET_DELAY -> setDelay(args.getInt(DELAY_SECONDS))\n                        CANCEL_DELAY -> cancelDelay()\n                        TRIGGER_DELAY -> triggerDelay()\n                        NEXT -> next()\n                        PREVIOUS -> previous()\n                        PRESET -> args.getBundle(PRESET_DATA)?.let { p -> applyPreset(EqualizerPresetEntity(p.getString("name", "Custom"), p.getBoolean("isCustom"), p.getFloat("band60Hz"), p.getFloat("band230Hz"), p.getFloat("band910Hz"), p.getFloat("band4kHz"), p.getFloat("band14kHz"), p.getFloat("bassBoost"), p.getFloat("virtualizer"))) }\n                    }\n                }\n            }\n            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))\n        }'''
+
+          new = '''        override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {\n            val result = SettableFuture.create<SessionResult>()\n            scope.launch {\n                try {\n                    commandMutex.withLock {\n                        when (command.customAction) {\n                            SET_QUEUE -> setQueue(args.getStringArrayList(SONG_IDS).orEmpty(), args.getInt(START_INDEX), args.getBoolean(PLAY, true))\n                            PLAY_SONG -> playSong(args.getString(SONG_ID) ?: return@withLock)\n                            SET_SHUFFLE -> setShuffle(args.getBoolean(ENABLED), ShuffleMode.entries.getOrElse(args.getInt(MODE)) { shuffleMode }, args.getIntArray(SHUFFLE_ORDER))\n                            ADD_TO_QUEUE -> addToQueue(args.getString(SONG_ID) ?: return@withLock)\n                            PLAY_NEXT -> playNext(args.getString(SONG_ID) ?: return@withLock)\n                            UPDATE_SONG -> updateSong(args.getString(SONG_ID) ?: return@withLock)\n                            TOGGLE_FAVORITE -> toggleFavorite()\n                            EQ_BAND -> setBand(args.getInt(BAND), args.getFloat(VALUE))\n                            BASS -> setBass(args.getFloat(VALUE))\n                            VIRTUALIZER -> setVirtualizer(args.getFloat(VALUE))\n                            SET_DELAY -> setDelay(args.getInt(DELAY_SECONDS))\n                            CANCEL_DELAY -> cancelDelay()\n                            TRIGGER_DELAY -> triggerDelay()\n                            NEXT -> next()\n                            PREVIOUS -> previous()\n                            PRESET -> args.getBundle(PRESET_DATA)?.let { p -> applyPreset(EqualizerPresetEntity(p.getString("name", "Custom"), p.getBoolean("isCustom"), p.getFloat("band60Hz"), p.getFloat("band230Hz"), p.getFloat("band910Hz"), p.getFloat("band4kHz"), p.getFloat("band14kHz"), p.getFloat("bassBoost"), p.getFloat("virtualizer"))) }\n                        }\n                    }\n                    result.set(SessionResult(SessionResult.RESULT_SUCCESS))\n                } catch (t: Throwable) {\n                    result.setException(t)\n                }\n            }\n            return result\n        }'''
+
+          if old not in text:
+              raise SystemExit('Expected onCustomCommand block not found')
+          text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+
+          grep -n "SettableFuture\|val result = SettableFuture" app/src/main/java/com/example/playback/PlaybackController.kt
+
+      - name: Commit repair and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/example/playback/PlaybackController.kt
+          git commit -m "fix: make playback command completion ordering deterministic [command-repair]"
+          git rm .github/workflows/_playback_command_completion.yml
+          git commit -m "chore: remove temporary command repair workflow [command-repair]"
+          git push origin main
