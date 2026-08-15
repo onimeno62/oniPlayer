@@ -2,10 +2,24 @@ package com.example.playback
 
 import android.content.Context
 import com.example.data.entity.SongEntity
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
-class OniAudioEngine private constructor(private val context: Context) {
+/**
+ * UI-process playback facade.
+ *
+ * PlaybackController owns ExoPlayer and MediaSession in the playback service.
+ * This class deliberately does not maintain a second playback state. All
+ * observable playback state is derived from PlaybackControllerClient.state.
+ */
+class OniAudioEngine private constructor(context: Context) {
     companion object {
         @Volatile
         private var instance: OniAudioEngine? = null
@@ -20,24 +34,57 @@ class OniAudioEngine private constructor(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private val client = PlaybackControllerClient(context)
 
-    val isPlaying: StateFlow<Boolean> = client.isPlaying
-    val beatEnergy: StateFlow<Float> = client.beatEnergy
-    val isPreparing: StateFlow<Boolean> = client.isPreparing
-    val currentSong: StateFlow<SongEntity?> = client.currentSong
-    val position: StateFlow<Long> = client.position
-    val duration: StateFlow<Long> = client.duration
-    val currentPlaylist: StateFlow<List<SongEntity>> = client.queue
-    val isShuffle: StateFlow<Boolean> = client.isShuffle
-    val shuffleMode: StateFlow<ShuffleMode> = client.shuffleMode
+    /** Single playback state exposed to the UI process. */
+    val state: StateFlow<PlaybackState> = client.state
 
-    val isRepeat: StateFlow<Boolean> = client.repeatMode
-        .map { it == RepeatMode.ONE }
+    val isPlaying: StateFlow<Boolean> = state
+        .map { it.isPlaying }
         .stateIn(scope, SharingStarted.Eagerly, false)
 
-    private val _floatingLyricsEnabled = MutableStateFlow(false)
+    val beatEnergy: StateFlow<Float> = state
+        .map { it.beatEnergy }
+        .stateIn(scope, SharingStarted.Eagerly, 0f)
+
+    val isPreparing: StateFlow<Boolean> = state
+        .map { it.isPreparing }
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
+    val currentSong: StateFlow<SongEntity?> = state
+        .map { it.currentSong }
+        .stateIn(scope, SharingStarted.Eagerly, null)
+
+    val position: StateFlow<Long> = state
+        .map { it.positionMs }
+        .stateIn(scope, SharingStarted.Eagerly, 0L)
+
+    val duration: StateFlow<Long> = state
+        .map { it.durationMs }
+        .stateIn(scope, SharingStarted.Eagerly, 0L)
+
+    val currentPlaylist: StateFlow<List<SongEntity>> = state
+        .map { it.queue }
+        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    val isShuffle: StateFlow<Boolean> = state
+        .map { it.shuffleEnabled }
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
+    val shuffleMode: StateFlow<ShuffleMode> = state
+        .map { it.shuffleMode }
+        .stateIn(scope, SharingStarted.Eagerly, ShuffleMode.RANDOM)
+
+    val repeatMode: StateFlow<RepeatMode> = state
+        .map { it.repeatMode }
+        .stateIn(scope, SharingStarted.Eagerly, RepeatMode.ALL)
+
+    val isRepeat: StateFlow<Boolean> = state
+        .map { it.repeatMode == RepeatMode.ONE }
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
+    private val _floatingLyricsEnabled = kotlinx.coroutines.flow.MutableStateFlow(false)
     val floatingLyricsEnabled: StateFlow<Boolean> = _floatingLyricsEnabled.asStateFlow()
 
-    // Local caches for audio effects
+    // Local UI-process cache for the currently selected audio-effect values.
     private val currentBandGains = FloatArray(5)
     private var currentBassBoostLevel = 0f
     private var currentVirtualizerLevel = 0f
@@ -87,7 +134,7 @@ class OniAudioEngine private constructor(private val context: Context) {
         }
     }
 
-    fun getBandGains(): FloatArray = currentBandGains
+    fun getBandGains(): FloatArray = currentBandGains.copyOf()
 
     fun setBassBoost(levelPercent: Float) {
         currentBassBoostLevel = levelPercent.coerceIn(0f, 100f)
@@ -116,9 +163,9 @@ class OniAudioEngine private constructor(private val context: Context) {
     }
 
     fun setPlaylist(list: List<SongEntity>) {
-        val current = client.currentSong.value
+        val current = state.value.currentSong
         val idx = list.indexOfFirst { it.id == current?.id }.coerceAtLeast(0)
-        client.setQueue(list, idx, client.isPlaying.value)
+        client.setQueue(list, idx, state.value.isPlaying)
     }
 
     fun setPlaylist(list: List<SongEntity>, startIndex: Int, playImmediately: Boolean) {
@@ -134,15 +181,15 @@ class OniAudioEngine private constructor(private val context: Context) {
     }
 
     fun toggleShuffle() {
-        client.setShuffle(!client.isShuffle.value, client.shuffleMode.value)
+        client.setShuffle(!state.value.shuffleEnabled, state.value.shuffleMode)
     }
 
     fun setShuffle(value: Boolean) {
-        client.setShuffle(value, client.shuffleMode.value)
+        client.setShuffle(value, state.value.shuffleMode)
     }
 
     fun toggleRepeat() {
-        val nextOne = client.repeatMode.value != RepeatMode.ONE
+        val nextOne = state.value.repeatMode != RepeatMode.ONE
         client.setRepeat(nextOne)
     }
 
