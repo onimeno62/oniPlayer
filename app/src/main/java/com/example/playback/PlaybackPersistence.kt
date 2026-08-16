@@ -36,70 +36,79 @@ class PlaybackPersistence(context: Context) {
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val writeLock = Any()
 
     /**
      * Persists the given [PersistedPlaybackState].
+     * Serialized via [writeLock] to prevent races with concurrent saves or position updates.
      */
     fun save(state: PersistedPlaybackState) {
-        try {
-            val queueIdsJson = serializeQueueIds(state.queueIds)
-            prefs.edit()
-                .putString(KEY_CURRENT_SONG_ID, state.currentSongId ?: "")
-                .putLong(KEY_POSITION, state.positionMs.coerceAtLeast(0L))
-                .putBoolean(KEY_IS_PLAYING, state.isPlaying)
-                .putBoolean(KEY_SHUFFLE_ENABLED, state.shuffleEnabled)
-                .putInt(KEY_SHUFFLE_MODE, state.shuffleMode.ordinal)
-                .putInt(KEY_REPEAT_MODE, state.repeatMode.ordinal)
-                .putString(KEY_QUEUE_IDS, queueIdsJson)
-                .apply()
-        } catch (_: Exception) {
-            // Failures in persistence must never crash playback
+        synchronized(writeLock) {
+            try {
+                val queueIdsJson = serializeQueueIds(state.queueIds)
+                prefs.edit()
+                    .putString(KEY_CURRENT_SONG_ID, state.currentSongId ?: "")
+                    .putLong(KEY_POSITION, state.positionMs.coerceAtLeast(0L))
+                    .putBoolean(KEY_IS_PLAYING, state.isPlaying)
+                    .putBoolean(KEY_SHUFFLE_ENABLED, state.shuffleEnabled)
+                    .putInt(KEY_SHUFFLE_MODE, state.shuffleMode.ordinal)
+                    .putInt(KEY_REPEAT_MODE, state.repeatMode.ordinal)
+                    .putString(KEY_QUEUE_IDS, queueIdsJson)
+                    .commit()
+            } catch (_: Exception) {
+                // Failures in persistence must never crash playback
+            }
         }
     }
 
     /**
      * Updates only the playback position timestamp.
+     * Serialized via [writeLock] to ensure it does not race with full-state saves.
      */
     fun savePosition(positionMs: Long) {
-        try {
-            prefs.edit()
-                .putLong(KEY_POSITION, positionMs.coerceAtLeast(0L))
-                .apply()
-        } catch (_: Exception) {}
+        synchronized(writeLock) {
+            try {
+                prefs.edit()
+                    .putLong(KEY_POSITION, positionMs.coerceAtLeast(0L))
+                    .commit()
+            } catch (_: Exception) {}
+        }
     }
 
     /**
      * Loads the persisted playback state, or returns null if no valid state was saved.
      */
     fun load(): PersistedPlaybackState? {
-        return try {
-            val currentSongId = prefs.getString(KEY_CURRENT_SONG_ID, null)?.takeIf { it.isNotEmpty() }
-            val queueIdsStr = prefs.getString(KEY_QUEUE_IDS, null)
-            val queueIds = deserializeQueueIds(queueIdsStr)
+        return synchronized(writeLock) {
+            try {
+                val currentSongId = prefs.getString(KEY_CURRENT_SONG_ID, null)?.takeIf { it.isNotEmpty() }
+                val queueIdsStr = prefs.getString(KEY_QUEUE_IDS, null)
+                val queueIds = deserializeQueueIds(queueIdsStr)
 
-            if (currentSongId == null && queueIds.isEmpty()) {
-                return null
+                if (currentSongId == null && queueIds.isEmpty()) {
+                    return@synchronized null
+                }
+
+                val position = prefs.getLong(KEY_POSITION, 0L).coerceAtLeast(0L)
+                val isPlaying = prefs.getBoolean(KEY_IS_PLAYING, false)
+                val shuffleEnabled = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
+                val rawShuffleMode = prefs.getInt(KEY_SHUFFLE_MODE, ShuffleMode.RANDOM.ordinal)
+                val shuffleMode = ShuffleMode.entries.getOrElse(rawShuffleMode) { ShuffleMode.RANDOM }
+                val rawRepeatMode = prefs.getInt(KEY_REPEAT_MODE, RepeatMode.ALL.ordinal)
+                val repeatMode = RepeatMode.entries.getOrElse(rawRepeatMode) { RepeatMode.ALL }
+
+                PersistedPlaybackState(
+                    currentSongId = currentSongId,
+                    positionMs = position,
+                    isPlaying = isPlaying,
+                    shuffleEnabled = shuffleEnabled,
+                    shuffleMode = shuffleMode,
+                    repeatMode = repeatMode,
+                    queueIds = queueIds
+                )
+            } catch (_: Exception) {
+                null
             }
-
-            val position = prefs.getLong(KEY_POSITION, 0L).coerceAtLeast(0L)
-            val isPlaying = prefs.getBoolean(KEY_IS_PLAYING, false)
-            val shuffleEnabled = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
-            val rawShuffleMode = prefs.getInt(KEY_SHUFFLE_MODE, ShuffleMode.RANDOM.ordinal)
-            val shuffleMode = ShuffleMode.entries.getOrElse(rawShuffleMode) { ShuffleMode.RANDOM }
-            val rawRepeatMode = prefs.getInt(KEY_REPEAT_MODE, RepeatMode.ALL.ordinal)
-            val repeatMode = RepeatMode.entries.getOrElse(rawRepeatMode) { RepeatMode.ALL }
-
-            PersistedPlaybackState(
-                currentSongId = currentSongId,
-                positionMs = position,
-                isPlaying = isPlaying,
-                shuffleEnabled = shuffleEnabled,
-                shuffleMode = shuffleMode,
-                repeatMode = repeatMode,
-                queueIds = queueIds
-            )
-        } catch (_: Exception) {
-            null
         }
     }
 
@@ -107,9 +116,11 @@ class PlaybackPersistence(context: Context) {
      * Clears all persisted playback data.
      */
     fun clear() {
-        try {
-            prefs.edit().clear().apply()
-        } catch (_: Exception) {}
+        synchronized(writeLock) {
+            try {
+                prefs.edit().clear().commit()
+            } catch (_: Exception) {}
+        }
     }
 
     /**

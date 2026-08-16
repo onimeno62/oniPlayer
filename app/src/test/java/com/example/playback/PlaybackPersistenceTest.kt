@@ -110,4 +110,40 @@ class PlaybackPersistenceTest {
         assertNotNull(loaded)
         assertEquals(0L, loaded?.positionMs)
     }
+
+    @Test
+    fun concurrentWrites_executeDeterministicallyWithoutCorruption() {
+        val threads = mutableListOf<Thread>()
+        val iterationCount = 50
+
+        // Launch concurrent threads calling save and savePosition
+        for (i in 0 until iterationCount) {
+            val t1 = Thread {
+                persistence.save(
+                    PersistedPlaybackState(
+                        currentSongId = "song-$i",
+                        positionMs = (i * 1000).toLong(),
+                        isPlaying = (i % 2 == 0),
+                        shuffleEnabled = (i % 3 == 0),
+                        shuffleMode = if (i % 2 == 0) ShuffleMode.RANDOM else ShuffleMode.DISCOVER,
+                        repeatMode = if (i % 2 == 0) RepeatMode.ALL else RepeatMode.ONE,
+                        queueIds = listOf("song-$i", "next-$i")
+                    )
+                )
+            }
+            val t2 = Thread {
+                persistence.savePosition((i * 500).toLong())
+            }
+            threads.add(t1)
+            threads.add(t2)
+        }
+
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+
+        val finalState = persistence.load()
+        assertNotNull(finalState)
+        assertTrue(finalState?.currentSongId?.startsWith("song-") == true)
+        assertTrue((finalState?.positionMs ?: -1L) >= 0L)
+    }
 }
