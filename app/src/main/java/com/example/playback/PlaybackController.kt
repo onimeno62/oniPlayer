@@ -1,10 +1,6 @@
 package com.example.playback
 
 import android.content.Context
-import android.media.audiofx.BassBoost
-import android.media.audiofx.Equalizer
-import android.media.audiofx.Visualizer
-import android.media.audiofx.Virtualizer
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -36,7 +32,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlin.math.roundToInt
 
 /** Service-owned playback engine. The Activity and ViewModels never own ExoPlayer. */
 class PlaybackController(private val service: MediaSessionService) {
@@ -77,6 +72,7 @@ class PlaybackController(private val service: MediaSessionService) {
     private val context: Context = service.applicationContext
     private val dao = OniDatabase.getDatabase(context).songDao()
     private val persistence = PlaybackPersistence(context)
+    private val audioEffectsController = AudioEffectsController(context)
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private val commandMutex = Mutex()
 
@@ -91,17 +87,8 @@ class PlaybackController(private val service: MediaSessionService) {
     private var shuffleMode = ShuffleMode.RANDOM
     private var repeatMode = RepeatMode.ALL
     private var preparing = false
-    private var beatEnergy = 0f
     private var delaySeconds = 0
     private var delayJob: Job? = null
-
-    private var equalizer: Equalizer? = null
-    private var bassBoost: BassBoost? = null
-    private var virtualizer: Virtualizer? = null
-    private var visualizer: Visualizer? = null
-    private val bandGains = FloatArray(5)
-    private var bassLevel = 0f
-    private var virtualizerLevel = 0f
 
     init {
         player.addListener(object : Player.Listener {
@@ -124,7 +111,7 @@ class PlaybackController(private val service: MediaSessionService) {
                 publish()
                 savePlaybackState()
             }
-            override fun onAudioSessionIdChanged(id: Int) { configureEffects(id) }
+            override fun onAudioSessionIdChanged(id: Int) { audioEffectsController.attachToAudioSession(id) }
             override fun onRepeatModeChanged(playerRepeatMode: Int) {
                 repeatMode = if (playerRepeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
                 publish(); savePlaybackState()
@@ -302,64 +289,13 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     }
 
-    fun setBand(index: Int, gain: Float) { if (index in bandGains.indices) { bandGains[index] = gain; applyEq() } }
-    fun setBass(level: Float) { bassLevel = level.coerceIn(0f, 100f); applyBass() }
-    fun setVirtualizer(level: Float) { virtualizerLevel = level.coerceIn(0f, 100f); applyVirtualizer() }
-    fun applyPreset(p: EqualizerPresetEntity) {
-        bandGains[0] = p.band60Hz; bandGains[1] = p.band230Hz; bandGains[2] = p.band910Hz; bandGains[3] = p.band4kHz; bandGains[4] = p.band14kHz
-        bassLevel = p.bassBoost; virtualizerLevel = p.virtualizer
-        applyEq(); applyBass(); applyVirtualizer()
-    }
-
-    private fun configureEffects(sessionId: Int) {
-        if (sessionId == 0) return
-        releaseEffects()
-        try { equalizer = Equalizer(0, sessionId).apply { enabled = true } } catch (e: Exception) { Log.w("PlaybackController", "Equalizer unavailable: ${e.message}"); equalizer = null }
-        try { bassBoost = BassBoost(0, sessionId).apply { enabled = true } } catch (e: Exception) { Log.w("PlaybackController", "BassBoost unavailable: ${e.message}"); bassBoost = null }
-        try { virtualizer = Virtualizer(0, sessionId).apply { enabled = true } } catch (e: Exception) { Log.w("PlaybackController", "Virtualizer unavailable: ${e.message}"); virtualizer = null }
-        val hasRecordPermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (hasRecordPermission) {
-            try {
-                val range = Visualizer.getCaptureSizeRange()
-                if (range != null && range.size >= 2) {
-                    visualizer = Visualizer(sessionId).apply {
-                        captureSize = 1024.coerceIn(range[0], range[1])
-                        setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                            override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) = Unit
-                            override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
-                                if (fft == null || fft.isEmpty()) return
-                                val bins = (fft.size / 2 * 0.15f).toInt().coerceAtLeast(1)
-                                var sum = 0f; var count = 0
-                                for (i in 1..bins) { val r = i * 2; val im = r + 1; if (im < fft.size) { val a = fft[r].toFloat(); val b = fft[im].toFloat(); sum += kotlin.math.sqrt(a * a + b * b); count++ } }
-                                val n = ((if (count == 0) 0f else sum / count) / 40f).coerceIn(0f, 1f)
-                                beatEnergy = if (n > beatEnergy) n else beatEnergy * .85f + n * .15f
-                            }
-                        }, 20_000, false, true)
-                        enabled = true
-                    }
-                }
-            } catch (e: Exception) { Log.w("PlaybackController", "Visualizer unavailable: ${e.message}"); visualizer = null }
-        }
-        applyEq(); applyBass(); applyVirtualizer()
-    }
-
-    private fun releaseEffects() {
-        equalizer?.release(); equalizer = null
-        bassBoost?.release(); bassBoost = null
-        virtualizer?.release(); virtualizer = null
-        try { visualizer?.enabled = false; visualizer?.release() } catch (_: Exception) {}
-        visualizer = null
-    }
-
-    private fun applyEq() {
-        val eq = equalizer ?: return
-        try {
-            val range = eq.bandLevelRange
-            for (i in 0 until minOf(5, eq.numberOfBands.toInt())) eq.setBandLevel(i.toShort(), (bandGains[i] * 100).roundToInt().coerceIn(range[0].toInt(), range[1].toInt()).toShort())
-        } catch (_: Exception) {}
-    }
-    private fun applyBass() { try { bassBoost?.takeIf { it.strengthSupported }?.setStrength((bassLevel * 10).roundToInt().coerceIn(0, 1000).toShort()) } catch (_: Exception) {} }
-    private fun applyVirtualizer() { try { virtualizer?.takeIf { it.strengthSupported }?.setStrength((virtualizerLevel * 10).roundToInt().coerceIn(0, 1000).toShort()) } catch (_: Exception) {} }
+    fun setBand(index: Int, gain: Float) = audioEffectsController.setBand(index, gain)
+    fun setBass(level: Float) = audioEffectsController.setBass(level)
+    fun setVirtualizer(level: Float) = audioEffectsController.setVirtualizer(level)
+    fun applyPreset(p: EqualizerPresetEntity) = audioEffectsController.applyPreset(p)
+    fun getBandGains(): FloatArray = audioEffectsController.getBandGains()
+    fun getBass(): Float = audioEffectsController.getBass()
+    fun getVirtualizer(): Float = audioEffectsController.getVirtualizer()
 
     private suspend fun recordPlay(id: String) {
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
@@ -470,6 +406,7 @@ class PlaybackController(private val service: MediaSessionService) {
         if (revision < lastPublishedRevision) return
         val currentId = player.currentMediaItem?.mediaId
         val currentSong = q.find { it.id == currentId } ?: _state.value.currentSong
+        val currentBeatEnergy = audioEffectsController.beatEnergy.value
         lastPublishedRevision = revision
         _state.value = _state.value.copy(
             currentSong = currentSong,
@@ -477,7 +414,7 @@ class PlaybackController(private val service: MediaSessionService) {
             positionMs = player.currentPosition.coerceAtLeast(0),
             durationMs = player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0,
             bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
-            beatEnergy = beatEnergy,
+            beatEnergy = currentBeatEnergy,
             isPreparing = preparing,
             autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
             shuffleEnabled = shuffleEnabled,
@@ -492,7 +429,7 @@ class PlaybackController(private val service: MediaSessionService) {
             putLong("position_ms", player.currentPosition.coerceAtLeast(0))
             putLong("duration_ms", player.duration.takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 } ?: 0)
             putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
-            putFloat("beat_energy", beatEnergy)
+            putFloat("beat_energy", currentBeatEnergy)
             putBoolean("is_preparing", preparing)
             putInt("auto_next_countdown", _state.value.autoNextCountdownSeconds ?: -1)
             putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
@@ -547,5 +484,5 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     }
 
-    fun release() { cancelDelay(); releaseEffects(); mediaSession.release(); player.release(); scope.cancel() }
+    fun release() { cancelDelay(); audioEffectsController.release(); mediaSession.release(); player.release(); scope.cancel() }
 }
