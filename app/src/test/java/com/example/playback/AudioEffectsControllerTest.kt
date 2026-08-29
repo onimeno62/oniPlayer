@@ -134,4 +134,11 @@ class AudioEffectsControllerTest {
         controller.release()
         assertEquals(0f, controller.beatEnergy.value, 0.001f)
     }
+
+    @Test
+    fun release_succeedsEvenWhenUnattached() {
+        // Calling release when never attached or partially attached must be safe and idempotent
+        controller.release()
+        assertEquals(0f, controller.beatEnergy.value, 0.001f)
+    }
 }

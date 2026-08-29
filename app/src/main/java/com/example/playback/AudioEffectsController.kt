@@ -229,14 +229,19 @@ class AudioEffectsController(private val context: Context) {
         } catch (_: Exception) {}
         virtualizer = null
 
-        try {
-            visualizer?.apply {
-                enabled = false
-                setDataCaptureListener(null, 0, false, false)
-                release()
-            }
-        } catch (_: Exception) {}
+        val vis = visualizer
         visualizer = null
+        if (vis != null) {
+            try {
+                vis.setDataCaptureListener(null, 0, false, false)
+            } catch (_: Exception) {}
+            try {
+                vis.enabled = false
+            } catch (_: Exception) {}
+            try {
+                vis.release()
+            } catch (_: Exception) {}
+        }
     }
 
     /**
