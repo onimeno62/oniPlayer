@@ -27,44 +27,47 @@ class PlaybackDelayController(
     val countdown: StateFlow<Int?> = _countdown.asStateFlow()
 
     private var countdownJob: Job? = null
+    private var countdownGeneration: Long = 0L
     private var isReleased = false
 
     /**
      * Updates configured delay duration.
-     * Setting to 0 or negative clamps to 0 and cancels any active countdown.
+     * Setting a new value clamps negative values to 0 and cancels any currently active countdown.
+     * It does not automatically start a new countdown.
      */
     fun setDelay(seconds: Int) {
         if (isReleased) return
         _delaySeconds = seconds.coerceAtLeast(0)
-        if (_delaySeconds == 0) {
-            cancelDelay()
-        }
+        cancelDelay()
     }
 
     /**
      * Cancels any active countdown without invoking [onDelayFinished].
      */
     fun cancelDelay() {
+        countdownGeneration++
         countdownJob?.cancel()
         countdownJob = null
         _countdown.value = null
     }
 
     /**
-     * Starts the countdown if delay is configured.
+     * Starts the countdown using an immutable snapshot of the current delay duration.
      */
     fun startDelay() {
         if (isReleased) return
         cancelDelay()
-        if (_delaySeconds <= 0) return
+        val delayDuration = _delaySeconds
+        if (delayDuration <= 0) return
 
+        val generation = countdownGeneration
         countdownJob = scope.launch {
-            for (remaining in _delaySeconds downTo 1) {
-                if (!isActive) return@launch
+            for (remaining in delayDuration downTo 1) {
+                if (!isActive || generation != countdownGeneration || isReleased) return@launch
                 _countdown.value = remaining
                 delay(1000)
             }
-            if (!isActive || isReleased) return@launch
+            if (!isActive || generation != countdownGeneration || isReleased) return@launch
             _countdown.value = null
             countdownJob = null
             onDelayFinished()
@@ -72,7 +75,7 @@ class PlaybackDelayController(
     }
 
     /**
-     * Releases the controller, cancelling any running countdown and preventing future callbacks.
+     * Releases the controller, cancelling any running countdown and preventing future callbacks or operations.
      */
     fun release() {
         isReleased = true
