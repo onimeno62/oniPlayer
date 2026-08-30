@@ -80,32 +80,36 @@ class AudioEffectsController(private val context: Context) {
         ) == PackageManager.PERMISSION_GRANTED
 
         if (hasRecordPermission) {
+            var tempVisualizer: Visualizer? = null
             try {
                 val range = Visualizer.getCaptureSizeRange()
                 if (range != null && range.size >= 2) {
-                    visualizer = Visualizer(sessionId).apply {
-                        captureSize = 1024.coerceIn(range[0], range[1])
-                        setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                            override fun onWaveFormDataCapture(
-                                v: Visualizer?,
-                                waveform: ByteArray?,
-                                samplingRate: Int
-                            ) = Unit
+                    val vis = Visualizer(sessionId)
+                    tempVisualizer = vis
+                    vis.captureSize = 1024.coerceIn(range[0], range[1])
+                    vis.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                        override fun onWaveFormDataCapture(
+                            v: Visualizer?,
+                            waveform: ByteArray?,
+                            samplingRate: Int
+                        ) = Unit
 
-                            override fun onFftDataCapture(
-                                v: Visualizer?,
-                                fft: ByteArray?,
-                                samplingRate: Int
-                            ) {
-                                val nextEnergy = calculateNextBeatEnergy(_beatEnergy.value, fft)
-                                _beatEnergy.value = nextEnergy
-                            }
-                        }, 20_000, false, true)
-                        enabled = true
-                    }
+                        override fun onFftDataCapture(
+                            v: Visualizer?,
+                            fft: ByteArray?,
+                            samplingRate: Int
+                        ) {
+                            val nextEnergy = calculateNextBeatEnergy(_beatEnergy.value, fft)
+                            _beatEnergy.value = nextEnergy
+                        }
+                    }, 20_000, false, true)
+                    vis.enabled = true
+                    visualizer = vis
+                    tempVisualizer = null
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Visualizer unavailable: ${e.message}")
+                safelyReleaseVisualizer(tempVisualizer)
                 visualizer = null
             }
         }
@@ -231,17 +235,20 @@ class AudioEffectsController(private val context: Context) {
 
         val vis = visualizer
         visualizer = null
-        if (vis != null) {
-            try {
-                vis.setDataCaptureListener(null, 0, false, false)
-            } catch (_: Exception) {}
-            try {
-                vis.enabled = false
-            } catch (_: Exception) {}
-            try {
-                vis.release()
-            } catch (_: Exception) {}
-        }
+        safelyReleaseVisualizer(vis)
+    }
+
+    private fun safelyReleaseVisualizer(vis: Visualizer?) {
+        if (vis == null) return
+        try {
+            vis.setDataCaptureListener(null, 0, false, false)
+        } catch (_: Exception) {}
+        try {
+            vis.enabled = false
+        } catch (_: Exception) {}
+        try {
+            vis.release()
+        } catch (_: Exception) {}
     }
 
     /**
