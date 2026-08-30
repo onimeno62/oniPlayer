@@ -75,6 +75,13 @@ class PlaybackController(private val service: MediaSessionService) {
     private val audioEffectsController = AudioEffectsController(context)
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private val commandMutex = Mutex()
+    private val playbackDelayController = PlaybackDelayController(
+        scope = scope,
+        onDelayFinished = {
+            player.seekToNextMediaItem()
+            player.play()
+        }
+    )
 
     val player = ExoPlayer.Builder(context).setHandleAudioBecomingNoisy(true).build()
     val mediaSession = MediaSession.Builder(service, player).setCallback(SessionCallback()).build()
@@ -87,8 +94,6 @@ class PlaybackController(private val service: MediaSessionService) {
     private var shuffleMode = ShuffleMode.RANDOM
     private var repeatMode = RepeatMode.ALL
     private var preparing = false
-    private var delaySeconds = 0
-    private var delayJob: Job? = null
 
     init {
         player.addListener(object : Player.Listener {
@@ -96,7 +101,9 @@ class PlaybackController(private val service: MediaSessionService) {
             override fun onPlaybackStateChanged(state: Int) {
                 preparing = state == Player.STATE_BUFFERING
                 publish()
-                if (state == Player.STATE_ENDED && repeatMode == RepeatMode.ALL && delaySeconds > 0) startDelay()
+                if (state == Player.STATE_ENDED && repeatMode == RepeatMode.ALL && playbackDelayController.hasDelay) {
+                    playbackDelayController.startDelay()
+                }
                 savePlaybackState()
             }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
@@ -135,6 +142,11 @@ class PlaybackController(private val service: MediaSessionService) {
                     }
                 }
                 delay(5000)
+            }
+        }
+        scope.launch {
+            playbackDelayController.countdown.collect {
+                publish()
             }
         }
         restorePlaybackState()
@@ -264,29 +276,18 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     fun setDelay(seconds: Int) {
-        delaySeconds = seconds.coerceAtLeast(0)
-        if (delaySeconds == 0) cancelDelay()
-        applyRepeatMode(); publish()
+        playbackDelayController.setDelay(seconds)
+        applyRepeatMode()
+        publish()
     }
 
     fun cancelDelay() {
-        delayJob?.cancel(); delayJob = null
-        _state.value = _state.value.copy(autoNextCountdownSeconds = null); publish()
+        playbackDelayController.cancelDelay()
+        publish()
     }
 
-    fun triggerDelay() { if (delaySeconds > 0) startDelay() else next() }
-
-    private fun startDelay() {
-        delayJob?.cancel()
-        delayJob = scope.launch {
-            for (remaining in delaySeconds downTo 1) {
-                _state.value = _state.value.copy(autoNextCountdownSeconds = remaining)
-                delay(1000)
-            }
-            _state.value = _state.value.copy(autoNextCountdownSeconds = null)
-            delayJob = null
-            player.seekToNextMediaItem(); player.play()
-        }
+    fun triggerDelay() {
+        if (playbackDelayController.hasDelay) playbackDelayController.startDelay() else next()
     }
 
     fun setBand(index: Int, gain: Float) = audioEffectsController.setBand(index, gain)
@@ -330,7 +331,7 @@ class PlaybackController(private val service: MediaSessionService) {
         val byId = _state.value.queue.associateBy { it.id }
         return (0 until player.mediaItemCount).mapNotNull { i -> byId[player.getMediaItemAt(i).mediaId] }
     }
-    private fun applyRepeatMode() { player.repeatMode = if (repeatMode == RepeatMode.ONE) Player.REPEAT_MODE_ONE else if (delaySeconds > 0) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ALL }
+    private fun applyRepeatMode() { player.repeatMode = if (repeatMode == RepeatMode.ONE) Player.REPEAT_MODE_ONE else if (playbackDelayController.hasDelay) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ALL }
 
     private fun updateCurrentMetadata() {
         val i = player.currentMediaItemIndex
@@ -416,7 +417,7 @@ class PlaybackController(private val service: MediaSessionService) {
             bufferedPositionMs = player.bufferedPosition.coerceAtLeast(0),
             beatEnergy = currentBeatEnergy,
             isPreparing = preparing,
-            autoNextCountdownSeconds = _state.value.autoNextCountdownSeconds,
+            autoNextCountdownSeconds = playbackDelayController.countdown.value,
             shuffleEnabled = shuffleEnabled,
             shuffleMode = shuffleMode,
             repeatMode = repeatMode,
@@ -431,7 +432,7 @@ class PlaybackController(private val service: MediaSessionService) {
             putLong("buffered_position_ms", player.bufferedPosition.coerceAtLeast(0))
             putFloat("beat_energy", currentBeatEnergy)
             putBoolean("is_preparing", preparing)
-            putInt("auto_next_countdown", _state.value.autoNextCountdownSeconds ?: -1)
+            putInt("auto_next_countdown", playbackDelayController.countdown.value ?: -1)
             putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
             putInt(SHUFFLE_MODE, shuffleMode.ordinal)
             putInt(REPEAT_MODE, repeatMode.ordinal)
@@ -484,5 +485,5 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     }
 
-    fun release() { cancelDelay(); audioEffectsController.release(); mediaSession.release(); player.release(); scope.cancel() }
+    fun release() { playbackDelayController.release(); audioEffectsController.release(); mediaSession.release(); player.release(); scope.cancel() }
 }
