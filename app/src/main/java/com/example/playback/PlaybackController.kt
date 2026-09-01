@@ -304,25 +304,9 @@ class PlaybackController(private val service: MediaSessionService) {
         // Keep the transition path hot. Do not replace/reprepare the current MediaItem after a track changes.
     }
 
-    private fun shuffled(queue: List<SongEntity>, currentIndex: Int): List<SongEntity> {
-        if (queue.size <= 1) return queue
-        val current = queue.getOrNull(currentIndex) ?: queue.first()
-        val rest = queue.filterNot { it.id == current.id }.toMutableList()
-        val result = mutableListOf(current)
-        while (rest.isNotEmpty()) {
-            val weights = rest.map { when (shuffleMode) { ShuffleMode.RANDOM -> 1.0; ShuffleMode.DISCOVER -> 1.0 / (1.0 + it.playCount); ShuffleMode.FAVORITES_BOOST -> if (it.isFavorite) 4.0 else 1.0 } }
-            val total = weights.sum(); var roll = Math.random() * total
-            val i = weights.indexOfFirst { roll -= it; roll <= 0 }.let { if (it < 0) rest.lastIndex else it }
-            result += rest.removeAt(i)
-        }
-        return result
-    }
-
     private fun buildShuffleOrder(queue: List<SongEntity>, currentId: String?): ShuffleOrder {
         if (queue.isEmpty()) return ShuffleOrder.UnshuffledShuffleOrder(0)
-        val currentIndex = queue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
-        val target = shuffled(queue, currentIndex)
-        val indices = target.mapNotNull { song -> queue.indexOfFirst { it.id == song.id }.takeIf { it >= 0 } }.toIntArray()
+        val indices = ShuffleCalculator.calculateShuffleIndices(queue, currentId, shuffleMode)
         return ShuffleOrder.DefaultShuffleOrder(indices, System.nanoTime())
     }
 
