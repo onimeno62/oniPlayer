@@ -75,16 +75,21 @@ class PlaybackController(private val service: MediaSessionService) {
     private val audioEffectsController = AudioEffectsController(context)
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private val commandMutex = Mutex()
+    private var isReleased = false
     private val playbackDelayController = PlaybackDelayController(
         scope = scope,
         onDelayFinished = {
+            if (isReleased) return@PlaybackDelayController
             player.seekToNextMediaItem()
             player.play()
         }
     )
 
     val player = ExoPlayer.Builder(context).setHandleAudioBecomingNoisy(true).build()
-    val mediaSession = MediaSession.Builder(service, player).setCallback(SessionCallback()).build()
+    val mediaSession = MediaSession.Builder(service, player)
+        .setId("oni_session_${System.identityHashCode(this)}")
+        .setCallback(SessionCallback())
+        .build()
 
     private val _state = MutableStateFlow(PlaybackState(null, false, 0, 0, 0, 0f, false, null, false, ShuffleMode.RANDOM, RepeatMode.ALL, emptyList()))
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
@@ -95,50 +100,67 @@ class PlaybackController(private val service: MediaSessionService) {
     private var repeatMode = RepeatMode.ALL
     private var preparing = false
 
+    private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isReleased) return
+            publish()
+            savePlaybackState()
+        }
+        override fun onPlaybackStateChanged(state: Int) {
+            if (isReleased) return
+            preparing = state == Player.STATE_BUFFERING
+            publish()
+            if (state == Player.STATE_ENDED && repeatMode == RepeatMode.ALL && playbackDelayController.hasDelay) {
+                playbackDelayController.startDelay()
+            }
+            savePlaybackState()
+        }
+        override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+            if (isReleased) return
+            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) cancelDelay()
+            publish()
+            if (item != null && player.playWhenReady && reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+                scope.launch { recordPlay(item.mediaId) }
+            }
+            savePlaybackState()
+        }
+        override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+            if (isReleased) return
+            publish()
+            savePlaybackState()
+        }
+        override fun onAudioSessionIdChanged(id: Int) {
+            if (isReleased) return
+            audioEffectsController.attachToAudioSession(id)
+        }
+        override fun onRepeatModeChanged(playerRepeatMode: Int) {
+            if (isReleased) return
+            repeatMode = if (playerRepeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
+            publish()
+            savePlaybackState()
+        }
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            if (isReleased) return
+            this@PlaybackController.shuffleEnabled = shuffleModeEnabled
+            publish()
+            savePlaybackState()
+        }
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            if (isReleased) return
+            preparing = false
+            Log.e("PlaybackController", "ExoPlayer error: ${error.errorCodeName}", error)
+            publish()
+        }
+    }
+
     init {
-        player.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) { publish(); savePlaybackState() }
-            override fun onPlaybackStateChanged(state: Int) {
-                preparing = state == Player.STATE_BUFFERING
-                publish()
-                if (state == Player.STATE_ENDED && repeatMode == RepeatMode.ALL && playbackDelayController.hasDelay) {
-                    playbackDelayController.startDelay()
-                }
-                savePlaybackState()
-            }
-            override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
-                if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) cancelDelay()
-                publish()
-                if (item != null && player.playWhenReady && reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
-                    scope.launch { recordPlay(item.mediaId) }
-                }
-                savePlaybackState()
-            }
-            override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
-                publish()
-                savePlaybackState()
-            }
-            override fun onAudioSessionIdChanged(id: Int) { audioEffectsController.attachToAudioSession(id) }
-            override fun onRepeatModeChanged(playerRepeatMode: Int) {
-                repeatMode = if (playerRepeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
-                publish(); savePlaybackState()
-            }
-            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                this@PlaybackController.shuffleEnabled = shuffleModeEnabled
-                publish(); savePlaybackState()
-            }
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                preparing = false
-                Log.e("PlaybackController", "ExoPlayer error: ${error.errorCodeName}", error)
-                publish()
-            }
-        })
+        player.addListener(playerListener)
         scope.launch {
-            while (isActive) {
+            while (isActive && !isReleased) {
                 if (player.isPlaying) {
                     val pos = player.currentPosition
                     withContext(Dispatchers.IO) {
-                        persistence.savePosition(pos)
+                        if (!isReleased) persistence.savePosition(pos)
                     }
                 }
                 delay(5000)
@@ -146,18 +168,19 @@ class PlaybackController(private val service: MediaSessionService) {
         }
         scope.launch {
             playbackDelayController.countdown.collect {
-                publish()
+                if (!isReleased) publish()
             }
         }
         restorePlaybackState()
     }
 
     suspend fun setQueue(ids: List<String>, startIndex: Int, playImmediately: Boolean) {
+        if (isReleased) return
         val songs = withContext(Dispatchers.IO) {
             val byId = dao.getSongsByIds(ids).associateBy { it.id }
             ids.mapNotNull { byId[it] }
         }
-        if (songs.isEmpty()) return
+        if (songs.isEmpty() || isReleased) return
         baseQueue = songs
         val sourceIndex = startIndex.coerceIn(0, songs.lastIndex)
         preparing = true
@@ -178,6 +201,7 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     suspend fun playSong(id: String) {
+        if (isReleased) return
         val currentItem = player.currentMediaItem
         if (currentItem?.mediaId == id) {
             if (!player.isPlaying) player.play()
@@ -191,6 +215,7 @@ class PlaybackController(private val service: MediaSessionService) {
             return
         }
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
+        if (isReleased) return
         val insertIndex = (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
         player.addMediaItem(insertIndex, mediaItem(song))
         baseQueue = baseQueue + song
@@ -201,15 +226,16 @@ class PlaybackController(private val service: MediaSessionService) {
         publish()
     }
 
-    fun pause() = player.pause()
-    fun resume() = player.play()
-    fun toggle() = if (player.isPlaying) player.pause() else player.play()
-    fun seek(positionMs: Long) = player.seekTo(positionMs.coerceAtLeast(0))
-    fun next() { cancelDelay(); player.seekToNextMediaItem(); player.play() }
-    fun previous() { cancelDelay(); player.seekToPreviousMediaItem(); player.play() }
-    fun stop() = player.stop()
+    fun pause() { if (!isReleased) player.pause() }
+    fun resume() { if (!isReleased) player.play() }
+    fun toggle() { if (!isReleased) { if (player.isPlaying) player.pause() else player.play() } }
+    fun seek(positionMs: Long) { if (!isReleased) player.seekTo(positionMs.coerceAtLeast(0)) }
+    fun next() { if (!isReleased) { cancelDelay(); player.seekToNextMediaItem(); player.play() } }
+    fun previous() { if (!isReleased) { cancelDelay(); player.seekToPreviousMediaItem(); player.play() } }
+    fun stop() { if (!isReleased) player.stop() }
 
     suspend fun setShuffle(enabled: Boolean, mode: ShuffleMode, suppliedOrder: IntArray? = null) {
+        if (isReleased) return
         shuffleEnabled = enabled
         shuffleMode = mode
         if (player.mediaItemCount > 0) {
@@ -231,16 +257,19 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     suspend fun addToQueue(id: String) {
+        if (isReleased) return
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
-        if (indexOf(id) >= 0) return
+        if (isReleased || indexOf(id) >= 0) return
         player.addMediaItem(mediaItem(song))
         baseQueue = baseQueue + song
-        publish(currentQueue()); savePlaybackState()
+        publish(currentQueue())
+        savePlaybackState()
     }
 
     suspend fun playNext(id: String) {
-        if (id == player.currentMediaItem?.mediaId) return
+        if (isReleased || id == player.currentMediaItem?.mediaId) return
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
+        if (isReleased) return
         val old = indexOf(id)
         if (old >= 0 && old != player.currentMediaItemIndex) player.removeMediaItem(old)
         val insert = (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
@@ -249,11 +278,14 @@ class PlaybackController(private val service: MediaSessionService) {
         val currentId = player.currentMediaItem?.mediaId
         val baseIndex = baseQueue.indexOfFirst { it.id == currentId }
         baseQueue = if (baseIndex >= 0) baseQueue.toMutableList().apply { add(baseIndex + 1, song) } else baseQueue + song
-        publish(currentQueue()); savePlaybackState()
+        publish(currentQueue())
+        savePlaybackState()
     }
 
     suspend fun updateSong(id: String) {
+        if (isReleased) return
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
+        if (isReleased) return
         val index = indexOf(id)
         if (index >= 0) player.replaceMediaItem(index, mediaItem(song))
         baseQueue = baseQueue.map { if (it.id == id) song else it }
@@ -262,13 +294,16 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     suspend fun toggleFavorite() {
+        if (isReleased) return
         val id = player.currentMediaItem?.mediaId ?: return
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
+        if (isReleased) return
         withContext(Dispatchers.IO) { dao.updateSong(song.copy(isFavorite = !song.isFavorite)) }
         updateSong(id)
     }
 
     fun setRepeat(one: Boolean) {
+        if (isReleased) return
         repeatMode = if (one) RepeatMode.ONE else RepeatMode.ALL
         applyRepeatMode()
         publish()
@@ -276,30 +311,35 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     fun setDelay(seconds: Int) {
+        if (isReleased) return
         playbackDelayController.setDelay(seconds)
         applyRepeatMode()
         publish()
     }
 
     fun cancelDelay() {
+        if (isReleased) return
         playbackDelayController.cancelDelay()
         publish()
     }
 
     fun triggerDelay() {
+        if (isReleased) return
         if (playbackDelayController.hasDelay) playbackDelayController.startDelay() else next()
     }
 
-    fun setBand(index: Int, gain: Float) = audioEffectsController.setBand(index, gain)
-    fun setBass(level: Float) = audioEffectsController.setBass(level)
-    fun setVirtualizer(level: Float) = audioEffectsController.setVirtualizer(level)
-    fun applyPreset(p: EqualizerPresetEntity) = audioEffectsController.applyPreset(p)
-    fun getBandGains(): FloatArray = audioEffectsController.getBandGains()
-    fun getBass(): Float = audioEffectsController.getBass()
-    fun getVirtualizer(): Float = audioEffectsController.getVirtualizer()
+    fun setBand(index: Int, gain: Float) { if (!isReleased) audioEffectsController.setBand(index, gain) }
+    fun setBass(level: Float) { if (!isReleased) audioEffectsController.setBass(level) }
+    fun setVirtualizer(level: Float) { if (!isReleased) audioEffectsController.setVirtualizer(level) }
+    fun applyPreset(p: EqualizerPresetEntity) { if (!isReleased) audioEffectsController.applyPreset(p) }
+    fun getBandGains(): FloatArray = if (!isReleased) audioEffectsController.getBandGains() else FloatArray(AudioEffectsController.NUM_BANDS)
+    fun getBass(): Float = if (!isReleased) audioEffectsController.getBass() else 0f
+    fun getVirtualizer(): Float = if (!isReleased) audioEffectsController.getVirtualizer() else 0f
 
     private suspend fun recordPlay(id: String) {
+        if (isReleased) return
         val song = withContext(Dispatchers.IO) { dao.getSongById(id) } ?: return
+        if (isReleased) return
         withContext(Dispatchers.IO) { dao.updateSong(song.copy(playCount = song.playCount + 1, lastPlayedTimestamp = System.currentTimeMillis())) }
         // Keep the transition path hot. Do not replace/reprepare the current MediaItem after a track changes.
     }
@@ -329,6 +369,7 @@ class PlaybackController(private val service: MediaSessionService) {
     ).build()
 
     private fun savePlaybackState() {
+        if (isReleased) return
         val currentId = player.currentMediaItem?.mediaId
         val currentPosition = player.currentPosition
         val isPlaying = player.isPlaying
@@ -337,6 +378,7 @@ class PlaybackController(private val service: MediaSessionService) {
         val currentShuffleMode = shuffleMode
         val currentRepeatMode = repeatMode
         scope.launch(Dispatchers.IO) {
+            if (isReleased) return@launch
             persistence.save(
                 PersistedPlaybackState(
                     currentSongId = currentId,
@@ -354,14 +396,15 @@ class PlaybackController(private val service: MediaSessionService) {
     private fun restorePlaybackState() {
         scope.launch {
             val persisted = withContext(Dispatchers.IO) { persistence.load() } ?: return@launch
+            if (isReleased) return@launch
             val currentSongId = persisted.currentSongId ?: return@launch
-            if (currentSongId.isEmpty()) return@launch
+            if (currentSongId.isEmpty() || isReleased) return@launch
             val queueIds = persisted.queueIds.ifEmpty { listOf(currentSongId) }
             val songs = withContext(Dispatchers.IO) {
                 val byId = dao.getSongsByIds(queueIds).associateBy { it.id }
                 queueIds.mapNotNull { byId[it] }
             }
-            if (songs.isEmpty()) return@launch
+            if (songs.isEmpty() || isReleased) return@launch
             baseQueue = songs
             shuffleEnabled = persisted.shuffleEnabled
             shuffleMode = persisted.shuffleMode
@@ -403,6 +446,7 @@ class PlaybackController(private val service: MediaSessionService) {
     )
 
     private fun publish(queueOverride: List<SongEntity>? = null) {
+        if (isReleased) return
         val q = queueOverride ?: currentQueue()
         val revision = nextRevision++
         if (revision < lastPublishedRevision) return
@@ -466,7 +510,9 @@ class PlaybackController(private val service: MediaSessionService) {
             putInt(REPEAT_MODE, snapshot.repeatMode.ordinal)
             putStringArrayList("queue_ids", ArrayList(snapshot.queue.map { it.id }))
         }
-        mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
+        if (!isReleased) {
+            mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
+        }
     }
 
     private inner class SessionCallback : MediaSession.Callback {
@@ -482,9 +528,17 @@ class PlaybackController(private val service: MediaSessionService) {
 
         override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
             val result = SettableFuture.create<SessionResult>()
+            if (isReleased) {
+                result.set(SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED))
+                return result
+            }
             scope.launch {
                 try {
                     commandMutex.withLock {
+                        if (isReleased) {
+                            result.set(SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED))
+                            return@withLock
+                        }
                         when (command.customAction) {
                             SET_QUEUE -> setQueue(args.getStringArrayList(SONG_IDS).orEmpty(), args.getInt(START_INDEX), args.getBoolean(PLAY, true))
                             PLAY_SONG -> playSong(args.getString(SONG_ID) ?: return@withLock)
@@ -513,5 +567,14 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     }
 
-    fun release() { playbackDelayController.release(); audioEffectsController.release(); mediaSession.release(); player.release(); scope.cancel() }
+    fun release() {
+        if (isReleased) return
+        isReleased = true
+        player.removeListener(playerListener)
+        playbackDelayController.release()
+        audioEffectsController.release()
+        mediaSession.release()
+        player.release()
+        scope.cancel()
+    }
 }
