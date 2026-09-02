@@ -64,6 +64,18 @@ class PlaybackQueueConsistencyTest {
             albumArtUri = null,
             playCount = 2,
             isFavorite = false
+        ),
+        SongEntity(
+            id = "song_4",
+            title = "Track Four",
+            artist = "Artist D",
+            album = "Album 4",
+            genre = "Classical",
+            duration = 210000L,
+            filePath = "/storage/emulated/0/Music/track4.mp3",
+            albumArtUri = null,
+            playCount = 1,
+            isFavorite = false
         )
     )
 
@@ -242,5 +254,158 @@ class PlaybackQueueConsistencyTest {
         val state = controller.state.value
         assertEquals(0, state.queue.size)
         assertNull(state.currentSong)
+    }
+
+    private fun getShuffleTraversalIndices(player: androidx.media3.common.Player): List<Int> {
+        val timeline = player.currentTimeline
+        if (timeline.isEmpty) return emptyList()
+        val result = mutableListOf<Int>()
+        var windowIndex = timeline.getFirstWindowIndex(player.shuffleModeEnabled)
+        while (windowIndex != androidx.media3.common.C.INDEX_UNSET) {
+            result.add(windowIndex)
+            windowIndex = timeline.getNextWindowIndex(
+                windowIndex,
+                androidx.media3.common.Player.REPEAT_MODE_OFF,
+                player.shuffleModeEnabled
+            )
+        }
+        return result
+    }
+
+    @Test
+    fun scenario1_addToQueue_whileShuffleEnabled() = runBlocking {
+        controller.setQueue(listOf("song_1", "song_2", "song_3"), 0, false)
+        controller.setShuffle(true, ShuffleMode.RANDOM)
+
+        assertEquals("song_1", controller.state.value.currentSong?.id)
+        assertTrue(controller.state.value.shuffleEnabled)
+
+        controller.addToQueue("song_4")
+
+        val playerMediaIds = (0 until controller.player.mediaItemCount).map {
+            controller.player.getMediaItemAt(it).mediaId
+        }
+        assertEquals(listOf("song_1", "song_2", "song_3", "song_4"), playerMediaIds)
+        assertEquals(4, playerMediaIds.distinct().size)
+
+        val stateIds = controller.state.value.queue.map { it.id }
+        assertEquals(listOf("song_1", "song_2", "song_3", "song_4"), stateIds)
+        assertEquals(4, stateIds.distinct().size)
+
+        assertTrue(controller.state.value.shuffleEnabled)
+        assertTrue(controller.player.shuffleModeEnabled)
+
+        val traversalIndices = getShuffleTraversalIndices(controller.player)
+        assertEquals(4, traversalIndices.size)
+        assertEquals((0 until 4).toSet(), traversalIndices.toSet())
+        assertEquals(4, traversalIndices.distinct().size)
+
+        assertEquals("song_1", controller.state.value.currentSong?.id)
+        assertEquals("song_1", controller.player.currentMediaItem?.mediaId)
+    }
+
+    @Test
+    fun scenario2_playNext_whileShuffleEnabled() = runBlocking {
+        controller.setQueue(listOf("song_1", "song_2", "song_3", "song_4"), 1, false)
+        controller.setShuffle(true, ShuffleMode.RANDOM)
+
+        assertEquals("song_2", controller.state.value.currentSong?.id)
+        assertEquals("song_2", controller.player.currentMediaItem?.mediaId)
+        assertTrue(controller.state.value.shuffleEnabled)
+
+        controller.playNext("song_4")
+
+        val playerMediaIds = (0 until controller.player.mediaItemCount).map {
+            controller.player.getMediaItemAt(it).mediaId
+        }
+        assertEquals(1, playerMediaIds.count { it == "song_4" })
+
+        val expectedSet = setOf("song_1", "song_2", "song_3", "song_4")
+        assertEquals(expectedSet, playerMediaIds.toSet())
+        assertEquals(4, playerMediaIds.distinct().size)
+
+        assertEquals(listOf("song_1", "song_2", "song_4", "song_3"), playerMediaIds)
+        assertEquals(listOf("song_1", "song_2", "song_4", "song_3"), controller.state.value.queue.map { it.id })
+
+        val traversalIndices = getShuffleTraversalIndices(controller.player)
+        assertEquals(4, traversalIndices.size)
+        assertEquals((0 until 4).toSet(), traversalIndices.toSet())
+        assertEquals(4, traversalIndices.distinct().size)
+
+        assertEquals("song_2", controller.state.value.currentSong?.id)
+        assertEquals("song_2", controller.player.currentMediaItem?.mediaId)
+
+        val traversedMediaIds = traversalIndices.map { controller.player.getMediaItemAt(it).mediaId }
+        assertEquals(expectedSet, traversedMediaIds.toSet())
+        assertEquals(4, traversedMediaIds.distinct().size)
+    }
+
+    @Test
+    fun scenario3_playSong_outsideQueue_whileShuffleEnabled() = runBlocking {
+        controller.setQueue(listOf("song_1", "song_2", "song_3"), 0, false)
+        controller.setShuffle(true, ShuffleMode.RANDOM)
+
+        assertEquals("song_1", controller.state.value.currentSong?.id)
+        assertTrue(controller.state.value.shuffleEnabled)
+
+        controller.playSong("song_4")
+
+        val playerMediaIds = (0 until controller.player.mediaItemCount).map {
+            controller.player.getMediaItemAt(it).mediaId
+        }
+        assertEquals(1, playerMediaIds.count { it == "song_4" })
+        assertEquals(4, playerMediaIds.size)
+        assertEquals(4, playerMediaIds.distinct().size)
+
+        assertEquals("song_4", controller.state.value.currentSong?.id)
+        assertEquals("song_4", controller.player.currentMediaItem?.mediaId)
+
+        val expectedSet = setOf("song_1", "song_2", "song_3", "song_4")
+        assertEquals(expectedSet, playerMediaIds.toSet())
+
+        assertTrue(controller.state.value.shuffleEnabled)
+        assertTrue(controller.player.shuffleModeEnabled)
+
+        val traversalIndices = getShuffleTraversalIndices(controller.player)
+        assertEquals(4, traversalIndices.size)
+        assertEquals((0 until 4).toSet(), traversalIndices.toSet())
+        assertEquals(4, traversalIndices.distinct().size)
+
+        val stateIds = controller.state.value.queue.map { it.id }
+        assertEquals(expectedSet, stateIds.toSet())
+        assertEquals(4, stateIds.distinct().size)
+
+        val persisted = awaitPersistedQueue(playerMediaIds)
+        assertNotNull(persisted)
+        assertEquals(expectedSet, persisted?.queueIds?.toSet())
+        assertEquals("song_4", persisted?.currentSongId)
+    }
+
+    @Test
+    fun scenario4_shuffleToggle_afterQueueMutation() = runBlocking {
+        controller.setQueue(listOf("song_1", "song_2", "song_3"), 0, false)
+        org.junit.Assert.assertFalse(controller.state.value.shuffleEnabled)
+
+        controller.addToQueue("song_4")
+        assertEquals(listOf("song_1", "song_2", "song_3", "song_4"), controller.state.value.queue.map { it.id })
+
+        controller.setShuffle(true, ShuffleMode.RANDOM)
+        assertTrue(controller.state.value.shuffleEnabled)
+
+        controller.playNext("song_3")
+
+        controller.setShuffle(false, ShuffleMode.RANDOM)
+        org.junit.Assert.assertFalse(controller.state.value.shuffleEnabled)
+
+        val expectedOrder = listOf("song_1", "song_3", "song_2", "song_4")
+        val stateQueue = controller.state.value.queue.map { it.id }
+        val playerQueue = (0 until controller.player.mediaItemCount).map {
+            controller.player.getMediaItemAt(it).mediaId
+        }
+
+        assertEquals(expectedOrder, stateQueue)
+        assertEquals(expectedOrder, playerQueue)
+        assertEquals(4, stateQueue.distinct().size)
+        assertEquals(setOf("song_1", "song_2", "song_3", "song_4"), stateQueue.toSet())
     }
 }
