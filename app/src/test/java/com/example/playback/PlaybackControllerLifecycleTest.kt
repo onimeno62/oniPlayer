@@ -1,12 +1,20 @@
 package com.example.playback
 
 import android.content.Context
+import android.os.Bundle
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.database.OniDatabase
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.withLock
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -211,6 +219,89 @@ class PlaybackControllerLifecycleTest {
         threads.forEach { it.join() }
 
         assertTrue(newController.isReleased)
+    }
+
+    @Test
+    fun commandWaitingForMutex_cannotMutateAfterRelease() = runBlocking {
+        controller.setQueue(listOf("song_1"), 0, false)
+        val initialQueue = controller.state.value.queue
+        assertEquals(1, initialQueue.size)
+        assertEquals("song_1", initialQueue[0].id)
+
+        // Lock commandMutex from the test to simulate an in-flight command holding the lock
+        controller.commandMutex.lock()
+
+        // Launch a command that must wait to acquire commandMutex
+        val job = launch(Dispatchers.Default) {
+            controller.commandMutex.withLock {
+                if (controller.isReleased) return@withLock
+                controller.setQueue(listOf("song_2"), 0, false)
+            }
+        }
+
+        // Allow coroutine to start and suspend waiting for the mutex
+        delay(50)
+
+        // Controller is released while the command is waiting for commandMutex
+        controller.release()
+
+        // Release mutex to unblock the waiting command
+        controller.commandMutex.unlock()
+        job.join()
+
+        val postState = controller.state.value
+        assertEquals(1, postState.queue.size)
+        assertEquals("song_1", postState.queue[0].id)
+    }
+
+    @Test
+    fun handleCustomCommand_whenReleased_returnsDisconnectedAndDoesNotMutate() {
+        controller.release()
+        val sessionCommand = SessionCommand(PlaybackController.SET_QUEUE, Bundle.EMPTY)
+        val args = Bundle().apply {
+            putStringArrayList(PlaybackController.SONG_IDS, arrayListOf("song_2"))
+            putInt(PlaybackController.START_INDEX, 0)
+            putBoolean(PlaybackController.PLAY, false)
+        }
+        val future = controller.handleCustomCommand(sessionCommand, args)
+        val result = future.get()
+        assertEquals(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED, result.resultCode)
+    }
+
+    @Test
+    fun commandResumingAfterIoSuspension_cannotMutateAfterRelease() = runBlocking {
+        controller.setQueue(listOf("song_1"), 0, false)
+        val initialQueue = controller.state.value.queue
+        assertEquals(1, initialQueue.size)
+        assertEquals("song_1", initialQueue[0].id)
+
+        val song3 = SongEntity(
+            id = "song_3",
+            title = "Track Three",
+            artist = "Artist C",
+            album = "Album 3",
+            genre = "Jazz",
+            duration = 200000L,
+            filePath = "/storage/emulated/0/Music/track3.mp3",
+            albumArtUri = null,
+            playCount = 0,
+            isFavorite = false
+        )
+        database.songDao().insertSong(song3)
+
+        // Launch a command that suspends across Dispatchers.IO
+        val job = launch(Dispatchers.Default) {
+            controller.setQueue(listOf("song_3"), 0, false)
+        }
+
+        // Release immediately to race with IO suspension
+        controller.release()
+        job.join()
+
+        // Verify that upon resuming from IO, the command did not mutate the state or queue
+        val postState = controller.state.value
+        assertEquals(1, postState.queue.size)
+        assertEquals("song_1", postState.queue[0].id)
     }
 }
 
