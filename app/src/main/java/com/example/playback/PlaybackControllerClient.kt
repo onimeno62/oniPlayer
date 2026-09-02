@@ -166,7 +166,7 @@ class PlaybackControllerClient(context: Context) {
                             }
 
                             _state.value = _state.value.copy(
-                                currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId },
+                                currentSong = if (currentId != null) (currentSongEntity ?: queueSongs.find { it.id == currentId }) else null,
                                 isPlaying = finalIsPlaying,
                                 positionMs = finalPos,
                                 durationMs = finalDuration,
@@ -262,9 +262,9 @@ class PlaybackControllerClient(context: Context) {
         // Publish immediately when the queue is already cached. Do not put a Room read
         // in front of a playback transition reaching Compose.
         if (ids == cachedQueueIds && cachedQueueSongs.isNotEmpty()) {
-            val current = cachedQueueSongs.find { it.id == currentId }
+            val current = if (currentId != null) cachedQueueSongs.find { it.id == currentId } else null
             _state.value = _state.value.copy(
-                currentSong = current ?: _state.value.currentSong,
+                currentSong = if (currentId != null) (current ?: _state.value.currentSong?.takeIf { it.id == currentId }) else null,
                 isPlaying = c.isPlaying,
                 positionMs = posVal,
                 durationMs = durationVal,
@@ -304,7 +304,7 @@ class PlaybackControllerClient(context: Context) {
                     ?: 0
 
                 _state.value = _state.value.copy(
-                    currentSong = currentSongEntity ?: queueSongs.find { it.id == currentId },
+                    currentSong = if (currentId != null) (currentSongEntity ?: queueSongs.find { it.id == currentId }) else null,
                     isPlaying = latest.isPlaying,
                     positionMs = latestPosition,
                     durationMs = latestDuration,

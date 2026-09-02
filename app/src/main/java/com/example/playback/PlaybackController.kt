@@ -201,6 +201,7 @@ class PlaybackController(private val service: MediaSessionService) {
             scope.launch { recordPlay(songs[sourceIndex].id) }
         } else player.pause()
         publish(songs)
+        savePlaybackState()
     }
 
     suspend fun playSong(id: String) {
@@ -215,6 +216,7 @@ class PlaybackController(private val service: MediaSessionService) {
             player.seekTo(index, 0L)
             player.play()
             scope.launch { recordPlay(id) }
+            savePlaybackState()
             return
         }
         val song = withContext(Dispatchers.IO) {
@@ -222,14 +224,21 @@ class PlaybackController(private val service: MediaSessionService) {
             dao.getSongById(id)
         } ?: return
         if (isReleased) return
-        val insertIndex = (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
+        val insertIndex = if (player.mediaItemCount == 0) 0 else (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
+        val currentId = player.currentMediaItem?.mediaId ?: if (player.mediaItemCount > 0) _state.value.currentSong?.id else null
+        val baseIndex = baseQueue.indexOfFirst { it.id == currentId }
+        baseQueue = if (baseIndex >= 0) {
+            baseQueue.toMutableList().apply { add(baseIndex + 1, song) }
+        } else {
+            baseQueue + song
+        }
         player.addMediaItem(insertIndex, mediaItem(song))
-        baseQueue = baseQueue + song
         player.seekTo(insertIndex, 0L)
         if (player.playbackState == Player.STATE_IDLE) player.prepare()
         player.play()
         scope.launch { recordPlay(id) }
         publish()
+        savePlaybackState()
     }
 
     fun pause() { if (!isReleased) player.pause() }
@@ -246,8 +255,12 @@ class PlaybackController(private val service: MediaSessionService) {
         shuffleMode = mode
         if (player.mediaItemCount > 0) {
             val currentId = player.currentMediaItem?.mediaId
+            val isValidSuppliedOrder = suppliedOrder != null &&
+                suppliedOrder.size == player.mediaItemCount &&
+                suppliedOrder.toSet().size == player.mediaItemCount &&
+                suppliedOrder.all { it in 0 until player.mediaItemCount }
             val shuffleOrder = if (enabled) {
-                if (suppliedOrder != null) {
+                if (isValidSuppliedOrder) {
                     ShuffleOrder.DefaultShuffleOrder(suppliedOrder, System.nanoTime())
                 } else {
                     buildShuffleOrder(baseQueue, currentId)
@@ -269,27 +282,36 @@ class PlaybackController(private val service: MediaSessionService) {
             dao.getSongById(id)
         } ?: return
         if (isReleased || indexOf(id) >= 0) return
-        player.addMediaItem(mediaItem(song))
         baseQueue = baseQueue + song
+        player.addMediaItem(mediaItem(song))
         publish(currentQueue())
         savePlaybackState()
     }
 
     suspend fun playNext(id: String) {
-        if (isReleased || id == player.currentMediaItem?.mediaId) return
+        val currentId = player.currentMediaItem?.mediaId ?: if (player.mediaItemCount > 0) _state.value.currentSong?.id else null
+        if (isReleased || id == currentId) return
         val song = withContext(Dispatchers.IO) {
             if (isReleased) return@withContext null
             dao.getSongById(id)
         } ?: return
         if (isReleased) return
         val old = indexOf(id)
-        if (old >= 0 && old != player.currentMediaItemIndex) player.removeMediaItem(old)
-        val insert = (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
-        player.addMediaItem(insert, mediaItem(song))
-        baseQueue = baseQueue.filterNot { it.id == id }
-        val currentId = player.currentMediaItem?.mediaId
-        val baseIndex = baseQueue.indexOfFirst { it.id == currentId }
-        baseQueue = if (baseIndex >= 0) baseQueue.toMutableList().apply { add(baseIndex + 1, song) } else baseQueue + song
+        val currentIndex = if (player.mediaItemCount > 0) player.currentMediaItemIndex.coerceIn(0, player.mediaItemCount - 1) else 0
+        val filtered = baseQueue.filterNot { it.id == id }
+        val baseIndex = filtered.indexOfFirst { it.id == currentId }
+        baseQueue = if (baseIndex >= 0) filtered.toMutableList().apply { add(baseIndex + 1, song) } else filtered + song
+
+        val insertIndex = if (player.mediaItemCount == 0) {
+            0
+        } else if (old in 0 until currentIndex) {
+            player.removeMediaItem(old)
+            currentIndex.coerceAtMost(player.mediaItemCount)
+        } else {
+            if (old > currentIndex) player.removeMediaItem(old)
+            (currentIndex + 1).coerceAtMost(player.mediaItemCount)
+        }
+        player.addMediaItem(insertIndex, mediaItem(song))
         publish(currentQueue())
         savePlaybackState()
     }
@@ -382,8 +404,11 @@ class PlaybackController(private val service: MediaSessionService) {
 
     private fun indexOf(id: String?) = if (id == null) -1 else (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == id } ?: -1
     private fun currentQueue(): List<SongEntity> {
-        val byId = _state.value.queue.associateBy { it.id }
-        return (0 until player.mediaItemCount).mapNotNull { i -> byId[player.getMediaItemAt(i).mediaId] }
+        val byId = baseQueue.associateBy { it.id }
+        return (0 until player.mediaItemCount).mapNotNull { i ->
+            val mediaId = player.getMediaItemAt(i).mediaId
+            byId[mediaId] ?: _state.value.queue.find { it.id == mediaId }
+        }
     }
     private fun applyRepeatMode() { player.repeatMode = if (repeatMode == RepeatMode.ONE) Player.REPEAT_MODE_ONE else if (playbackDelayController.hasDelay) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ALL }
 
@@ -403,7 +428,11 @@ class PlaybackController(private val service: MediaSessionService) {
         val currentId = player.currentMediaItem?.mediaId
         val currentPosition = player.currentPosition
         val isPlaying = player.isPlaying
-        val queueIds = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        val queueIds = if (player.mediaItemCount > 0) {
+            (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        } else {
+            baseQueue.map { it.id }
+        }
         val currentShuffleEnabled = shuffleEnabled
         val currentShuffleMode = shuffleMode
         val currentRepeatMode = repeatMode
@@ -430,8 +459,9 @@ class PlaybackController(private val service: MediaSessionService) {
                 persistence.load()
             } ?: return@launch
             if (isReleased) return@launch
-            val currentSongId = persisted.currentSongId ?: return@launch
-            if (currentSongId.isEmpty() || isReleased) return@launch
+            val currentSongId = persisted.currentSongId?.takeIf { it.isNotEmpty() }
+                ?: persisted.queueIds.firstOrNull()
+                ?: return@launch
             val queueIds = persisted.queueIds.ifEmpty { listOf(currentSongId) }
             val songs = withContext(Dispatchers.IO) {
                 if (isReleased) return@withContext emptyList()
@@ -443,11 +473,14 @@ class PlaybackController(private val service: MediaSessionService) {
             shuffleEnabled = persisted.shuffleEnabled
             shuffleMode = persisted.shuffleMode
             repeatMode = persisted.repeatMode
-            val currentIndex = songs.indexOfFirst { it.id == currentSongId }.coerceAtLeast(0)
+            val matchedIndex = songs.indexOfFirst { it.id == currentSongId }
+            val currentIndex = if (matchedIndex >= 0) matchedIndex else 0
+            val restoredPositionMs = if (matchedIndex >= 0) persisted.positionMs else 0L
+            val actualCurrentId = songs[currentIndex].id
             preparing = true
-            player.setMediaItems(songs.map(::mediaItem), currentIndex, persisted.positionMs)
+            player.setMediaItems(songs.map(::mediaItem), currentIndex, restoredPositionMs)
             if (shuffleEnabled) {
-                player.setShuffleOrder(buildShuffleOrder(songs, currentSongId))
+                player.setShuffleOrder(buildShuffleOrder(songs, actualCurrentId))
             } else {
                 player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(songs.size))
             }
@@ -456,6 +489,9 @@ class PlaybackController(private val service: MediaSessionService) {
             player.prepare()
             player.pause()
             publish(songs)
+            if (songs.size != queueIds.size || matchedIndex < 0) {
+                savePlaybackState()
+            }
         }
     }
 
@@ -485,7 +521,13 @@ class PlaybackController(private val service: MediaSessionService) {
         val revision = nextRevision++
         if (revision < lastPublishedRevision) return
         val currentId = player.currentMediaItem?.mediaId
-        val currentSong = q.find { it.id == currentId } ?: _state.value.currentSong
+        val currentSong = if (currentId == null) {
+            null
+        } else {
+            q.find { it.id == currentId }
+                ?: baseQueue.find { it.id == currentId }
+                ?: _state.value.currentSong?.takeIf { it.id == currentId }
+        }
         val currentBeatEnergy = audioEffectsController.beatEnergy.value
         val isPlaying = player.isPlaying
         val positionMs = player.currentPosition.coerceAtLeast(0)
