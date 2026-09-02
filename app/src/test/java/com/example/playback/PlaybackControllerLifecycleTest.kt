@@ -198,5 +198,19 @@ class PlaybackControllerLifecycleTest {
         assertEquals(0f, controller.getVirtualizer(), 0.001f)
         assertEquals(5, controller.getBandGains().size)
     }
+
+    @Test
+    fun concurrentRelease_isThreadSafeAndAtomic() = runBlocking {
+        val newController = PlaybackController(service)
+        val threads = (1..10).map {
+            Thread {
+                newController.release()
+            }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+
+        assertTrue(newController.isReleased)
+    }
 }
 

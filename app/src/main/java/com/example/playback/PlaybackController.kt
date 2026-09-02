@@ -76,7 +76,8 @@ class PlaybackController(private val service: MediaSessionService) {
     private val audioEffectsController = AudioEffectsController(context)
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private val commandMutex = Mutex()
-    private var isReleased = false
+    private val _isReleased = AtomicBoolean(false)
+    val isReleased: Boolean get() = _isReleased.get()
     private val playbackDelayController = PlaybackDelayController(
         scope = scope,
         onDelayFinished = {
@@ -569,8 +570,7 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     fun release() {
-        if (isReleased) return
-        isReleased = true
+        if (!_isReleased.compareAndSet(false, true)) return
         player.removeListener(playerListener)
         playbackDelayController.release()
         audioEffectsController.release()
