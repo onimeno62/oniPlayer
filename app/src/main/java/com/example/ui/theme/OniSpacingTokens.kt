@@ -46,7 +46,9 @@ data class OniSpacingTokens(
     val listItem: Dp = 12.dp,
     val card: Dp = 16.dp,
     val content: Dp = 16.dp,
-    val control: Dp = 8.dp
+    val control: Dp = 8.dp,
+    val buttonHorizontal: Dp = 20.dp,
+    val buttonVertical: Dp = 12.dp
 ) {
     companion object {
         fun defaultSpacing(): OniSpacingTokens = OniSpacingTokens()

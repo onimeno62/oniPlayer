@@ -15,6 +15,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
  * - Ambient loops: multi-second (default 12000ms)
  */
 data class OniMotionTokens(
+    val quickDurationMs: Int = 150,
     val buttonPressDurationMs: Int = 120,
     val componentStateDurationMs: Int = 200,
     val screenTransitionDurationMs: Int = 300,

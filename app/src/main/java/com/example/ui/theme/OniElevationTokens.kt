@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
  */
 data class OniElevationTokens(
     val flat: Dp = 0.dp,
+    val subtle: Dp = 2.dp,
     val raised: Dp = 2.dp,
     val floating: Dp = 6.dp,
     val shadowAlpha: Float = 0.08f,

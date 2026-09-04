@@ -1,18 +1,12 @@
 package com.example.ui.library.components
 
-import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.example.ui.theme.LocalAccentColor
+import com.example.ui.components.state.OniErrorState
 
 @Composable
 fun LibraryErrorState(
@@ -23,53 +17,14 @@ fun LibraryErrorState(
     retryLabel: String? = "Retry",
     onRetryClick: (() -> Unit)? = null
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(LibrarySpacing.xxl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(64.dp)
-        )
-
-        Spacer(modifier = Modifier.height(LibrarySpacing.lg))
-
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(LibrarySpacing.sm))
-
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        if (retryLabel != null && onRetryClick != null) {
-            Spacer(modifier = Modifier.height(LibrarySpacing.xl))
-
-            Button(
-                onClick = onRetryClick,
-                modifier = Modifier.defaultMinSize(minHeight = 48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = LocalAccentColor.current
-                )
-            ) {
-                Text(text = retryLabel)
-            }
-        }
-    }
+    OniErrorState(
+        title = title,
+        message = message,
+        modifier = modifier,
+        icon = icon,
+        retryLabel = retryLabel,
+        onRetryClick = onRetryClick
+    )
 }
 
 @Preview(showBackground = true)

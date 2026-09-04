@@ -17,6 +17,8 @@ data class OniNavigationTokens(
     val elevation: Dp = 0.dp,
     val marginHorizontal: Dp = 24.dp,
     val marginBottom: Dp = 12.dp,
+    val horizontalMargin: Dp = marginHorizontal,
+    val bottomPadding: Dp = marginBottom,
     val indicatorShape: CornerBasedShape = RoundedCornerShape(14.dp),
     val selectedItemColor: Color,
     val unselectedItemColor: Color,

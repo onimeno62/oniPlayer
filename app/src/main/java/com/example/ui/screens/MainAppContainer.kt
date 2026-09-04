@@ -212,86 +212,13 @@ fun MiniPlayerBar(
     onPlayPauseToggle: () -> Unit,
     onBarClick: () -> Unit
 ) {
-    val accentColor = LocalAccentColor.current
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable { onBarClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Beautifully Rounded Tiny Album Art
-                AsyncImage(
-                    model = artworkUri,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(accentColor.copy(alpha = 0.08f)),
-                    contentScale = ContentScale.Crop,
-                    error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Metadata info
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = artist,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Quick Play/Pause button
-                IconButton(
-                    onClick = onPlayPauseToggle,
-                    modifier = Modifier
-                        .background(accentColor.copy(alpha = 0.12f), CircleShape)
-                        .size(38.dp)
-                        .testTag("mini_player_play_pause")
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            // Elegant, high-craft 2dp Mini Progress Bar at bottom of card
-            LinearProgressIndicator(
-                progress = { progressFraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp),
-                color = accentColor,
-                trackColor = Color.White.copy(alpha = 0.06f),
-            )
-        }
-    }
+    com.example.ui.components.playback.OniMiniPlayer(
+        title = title,
+        artist = artist,
+        artworkUri = artworkUri,
+        isPlaying = isPlaying,
+        progressFraction = progressFraction,
+        onPlayPauseClick = onPlayPauseToggle,
+        onPlayerClick = onBarClick
+    )
 }

@@ -1,29 +1,17 @@
 package com.example.ui.library.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.VolumeDown
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.data.entity.SongEntity
+import com.example.ui.components.music.OniTrackRow
 import com.example.ui.screens.PlayingEqualizerWave
-import com.example.ui.screens.dashboardRadiusMedium
-import com.example.ui.screens.dashboardRadiusSmall
-import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.OniSkin
 
 @Composable
 fun SongRow(
@@ -34,88 +22,36 @@ fun SongRow(
     onShowMenu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 64.dp)
-            .clip(RoundedCornerShape(dashboardRadiusMedium()))
-            .background(
-                if (isCurrent) LocalAccentColor.current.copy(alpha = 0.12f)
-                else Color.Transparent
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = LibrarySpacing.md, vertical = LibrarySpacing.sm),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = song.albumArtUri,
-            contentDescription = "Cover art for ${song.displayTitle}",
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentScale = ContentScale.Crop,
-            error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
-        )
-
-        Spacer(modifier = Modifier.width(LibrarySpacing.md))
-
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = song.displayTitle,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (isCurrent) LocalAccentColor.current else MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(LibrarySpacing.xs))
-
-            val artistName = song.displayArtist.ifBlank { "Unknown Artist" }
-            val albumName = song.displayAlbum.ifBlank { "Unknown Album" }
-            Text(
-                text = "$artistName • $albumName",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isCurrent) LocalAccentColor.current.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(LibrarySpacing.sm))
-
-        if (isCurrent) {
-            if (isPlaying) {
-                PlayingEqualizerWave(
-                    color = LocalAccentColor.current,
-                    modifier = Modifier.padding(end = LibrarySpacing.sm)
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.VolumeDown,
-                    contentDescription = "Currently playing",
-                    tint = LocalAccentColor.current,
-                    modifier = Modifier
-                        .padding(end = LibrarySpacing.sm)
-                        .size(20.dp)
-                )
+    OniTrackRow(
+        title = song.displayTitle,
+        artist = song.displayArtist.ifBlank { "Unknown Artist" },
+        album = song.displayAlbum.ifBlank { null },
+        artworkUri = song.albumArtUri,
+        isCurrent = isCurrent,
+        isPlaying = isPlaying,
+        onClick = onClick,
+        onMoreClick = onShowMenu,
+        playingIndicator = if (isCurrent) {
+            {
+                if (isPlaying) {
+                    PlayingEqualizerWave(
+                        color = OniSkin.colors.primary,
+                        modifier = Modifier.padding(end = OniSkin.spacing.sm)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.VolumeDown,
+                        contentDescription = "Currently playing",
+                        tint = OniSkin.colors.primary,
+                        modifier = Modifier
+                            .padding(end = OniSkin.spacing.sm)
+                            .size(20.dp)
+                    )
+                }
             }
-        }
-
-        IconButton(
-            onClick = onShowMenu,
-            modifier = Modifier.size(48.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "Track menu for ${song.displayTitle}",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+        } else null,
+        modifier = modifier
+    )
 }
 
 @Preview(showBackground = true)
