@@ -763,6 +763,7 @@ fun AccentColorPickerRow(
     testTag: String? = null
 ) {
     val colors = listOf(
+        "#3B73E3" to "Default Blue",
         "#7C4DFF" to "Purple",
         "#00E5FF" to "Cyan",
         "#00E676" to "Green",

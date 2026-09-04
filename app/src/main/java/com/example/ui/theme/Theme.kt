@@ -21,13 +21,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.dynamicDarkColorScheme
 import android.os.Build
+import androidx.compose.ui.unit.dp
 import com.example.data.entity.SongEntity
 import kotlin.math.absoluteValue
 
-// Composition locals for the gorgeous dynamic Aurora Glass palette
-val LocalAccentColor = compositionLocalOf { Color(0xFF7C4DFF) }
-val LocalSecondaryColor = compositionLocalOf { Color(0xFF00E5FF) }
-val LocalAccentGlowColor = compositionLocalOf { Color(0xFFFF007F) }
+// Composition locals for the dynamic accent and visual tokens
+val LocalAccentColor = compositionLocalOf { Color(0xFF3B73E3) }
+val LocalSecondaryColor = compositionLocalOf { Color(0xFF4D8DFF) }
+val LocalAccentGlowColor = compositionLocalOf { Color(0xFF3B73E3).copy(alpha = 0.5f) }
 
 // Composition locals for Visual Effects Settings
 val LocalGlassEffectEnabled = compositionLocalOf { true }
@@ -37,11 +38,11 @@ val LocalBackgroundTransparency = compositionLocalOf { 50f }
 
 fun getSongPalette(song: SongEntity?): Triple<Color, Color, Color> {
     if (song == null) {
-        // Fallback gorgeous premium colors
+        // Fallback default skin blue palette
         return Triple(
-            Color(0xFF7C4DFF), // Primary
-            Color(0xFF00E5FF), // Secondary
-            Color(0xFFFF007F)  // Accent/Glow
+            Color(0xFF3B73E3), // Primary
+            Color(0xFF4D8DFF), // Secondary
+            Color(0xFF3B73E3).copy(alpha = 0.5f)  // Accent/Glow
         )
     }
     val title = song.customTitle ?: song.title
@@ -59,9 +60,9 @@ fun getSongPalette(song: SongEntity?): Triple<Color, Color, Color> {
 
 @Composable
 fun OniPlayerTheme(
-    theme: OniTheme = OniTheme.COSMIC_OBSIDIAN,
+    theme: OniTheme = OniTheme.CLASSIC_DARK,
     currentSong: SongEntity? = null,
-    customAccentColor: String = "#7C4DFF",
+    customAccentColor: String = "#3B73E3",
     materialYouEnabled: Boolean = false,
     glassEffectEnabled: Boolean = true,
     blurStrength: Float = 20f,
@@ -81,14 +82,14 @@ fun OniPlayerTheme(
                 try {
                     Color(android.graphics.Color.parseColor(customAccentColor))
                 } catch (ex: Exception) {
-                    Color(0xFF7C4DFF)
+                    Color(0xFF3B73E3)
                 }
             }
         } else {
             try {
                 Color(android.graphics.Color.parseColor(customAccentColor))
             } catch (e: Exception) {
-                Color(0xFF7C4DFF)
+                Color(0xFF3B73E3)
             }
         }
     }
@@ -107,39 +108,40 @@ fun OniPlayerTheme(
     val secondary = if (themeColors.isDark) dynamicSecondary else themeColors.secondary
     val glow = if (themeColors.isDark) dynamicAccent else themeColors.accent.copy(alpha = 0.3f)
 
-    val colorScheme = remember(themeColors, accent, secondary, glow) {
-        if (themeColors.isDark) {
-            darkColorScheme(
-                primary = accent,
-                secondary = secondary,
-                tertiary = glow,
-                background = themeColors.background,
-                surface = themeColors.surface,
-                onPrimary = Color.White,
-                onSecondary = Color.Black,
-                onBackground = themeColors.textPrimary,
-                onSurface = themeColors.textPrimary,
-                surfaceVariant = themeColors.surface.copy(alpha = 0.6f),
-                onSurfaceVariant = themeColors.textSecondary
+    // Build the active OniSkinTokens
+    val activeSkin = remember(themeColors.isDark, accent, secondary, glow, cornerRadius) {
+        val baseSkin = DefaultSkin.createSkin(
+            isDark = themeColors.isDark,
+            accentColor = accent,
+            accentSecondary = secondary,
+            accentGlow = glow
+        )
+        if (cornerRadius != 16f) {
+            val ratio = cornerRadius / 16f
+            baseSkin.copy(
+                shapes = baseSkin.shapes.copy(
+                    xs = androidx.compose.foundation.shape.RoundedCornerShape((6f * ratio).dp),
+                    small = androidx.compose.foundation.shape.RoundedCornerShape((10f * ratio).dp),
+                    medium = androidx.compose.foundation.shape.RoundedCornerShape((14f * ratio).dp),
+                    large = androidx.compose.foundation.shape.RoundedCornerShape((18f * ratio).dp),
+                    xl = androidx.compose.foundation.shape.RoundedCornerShape((24f * ratio).dp),
+                    xxl = androidx.compose.foundation.shape.RoundedCornerShape((32f * ratio).dp),
+                    button = androidx.compose.foundation.shape.RoundedCornerShape((14f * ratio).dp),
+                    card = androidx.compose.foundation.shape.RoundedCornerShape((18f * ratio).dp),
+                    listItem = androidx.compose.foundation.shape.RoundedCornerShape((14f * ratio).dp),
+                    dialog = androidx.compose.foundation.shape.RoundedCornerShape((24f * ratio).dp),
+                    bottomSheet = androidx.compose.foundation.shape.RoundedCornerShape((24f * ratio).dp),
+                    artwork = androidx.compose.foundation.shape.RoundedCornerShape((18f * ratio).dp),
+                    chip = androidx.compose.foundation.shape.RoundedCornerShape((10f * ratio).dp)
+                )
             )
         } else {
-            lightColorScheme(
-                primary = accent,
-                secondary = secondary,
-                tertiary = glow,
-                background = themeColors.background,
-                surface = themeColors.surface,
-                onPrimary = Color.White,
-                onSecondary = Color.Black,
-                onBackground = themeColors.textPrimary,
-                onSurface = themeColors.textPrimary,
-                surfaceVariant = themeColors.surface.copy(alpha = 0.6f),
-                onSurfaceVariant = themeColors.textSecondary
-            )
+            baseSkin
         }
     }
 
     CompositionLocalProvider(
+        LocalOniSkin provides activeSkin,
         LocalAccentColor provides accent,
         LocalSecondaryColor provides secondary,
         LocalAccentGlowColor provides glow,
@@ -149,8 +151,9 @@ fun OniPlayerTheme(
         LocalBackgroundTransparency provides backgroundTransparency
     ) {
         MaterialTheme(
-            colorScheme = colorScheme,
-            typography = Typography
+            colorScheme = activeSkin.colors.toMaterialColorScheme(),
+            typography = activeSkin.typography.toMaterialTypography(),
+            shapes = activeSkin.shapes.toMaterialShapes()
         ) {
             Box(
                 modifier = Modifier

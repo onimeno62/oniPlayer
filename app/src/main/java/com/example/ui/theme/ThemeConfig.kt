@@ -67,33 +67,33 @@ object ThemeProvider {
                 isDark = true
             )
             OniTheme.CLASSIC_DARK -> ThemeColors(
-                background = Color(0xFF121212),
-                surface = Color(0xFF1E1E1E),
-                primary = Color(0xFF2196F3),
-                secondary = Color(0xFF03A9F4),
-                accent = Color(0xFF00BCD4),
-                textPrimary = Color(0xFFFFFFFF),
-                textSecondary = Color(0xFFB0BEC5),
+                background = DefaultSkin.DarkBackground,
+                surface = DefaultSkin.DarkSurface,
+                primary = DefaultSkin.DefaultPrimaryBlue,
+                secondary = DefaultSkin.DefaultBrightBlue,
+                accent = DefaultSkin.DefaultPrimaryBlue,
+                textPrimary = DefaultSkin.DarkPrimaryText,
+                textSecondary = DefaultSkin.DarkSecondaryText,
                 isDark = true
             )
             OniTheme.AERO_LIGHT -> ThemeColors(
-                background = Color(0xFFEFECE3), // Warm clay-beige cream background (#efece3)
-                surface = Color(0xFFF6F3EC),    // Soft ivory/cream surface (#F6F3EC)
-                primary = Color(0xFF184FA2),    // Rich deep brand blue
-                secondary = Color(0xFF5E7A9E),  // Muted Slate
-                accent = Color(0xFF184FA2),     // High-contrast deep blue accent
-                textPrimary = Color(0xFF184FA2),// Match the gorgeous primary deep blue
-                textSecondary = Color(0xFF5E7A9E), // Muted greyish slate-blue
+                background = DefaultSkin.LightBackground,
+                surface = DefaultSkin.LightSurface,
+                primary = DefaultSkin.DefaultPrimaryBlue,
+                secondary = DefaultSkin.DefaultBrightBlue,
+                accent = DefaultSkin.DefaultPrimaryBlue,
+                textPrimary = DefaultSkin.LightPrimaryText,
+                textSecondary = DefaultSkin.LightSecondaryText,
                 isDark = false
             )
             OniTheme.HIGH_DENSITY -> ThemeColors(
-                background = Color(0xFFEFECE3), // Warm clay-beige cream background (#efece3)
-                surface = Color(0xFFF6F3EC),    // Soft ivory/cream surface (#F6F3EC)
-                primary = Color(0xFF184FA2),    // Rich deep brand blue
-                secondary = Color(0xFF5E7A9E),  // Muted Slate
-                accent = Color(0xFF184FA2),     // High-contrast deep blue accent
-                textPrimary = Color(0xFF184FA2),// Match the gorgeous primary deep blue
-                textSecondary = Color(0xFF5E7A9E), // Muted greyish slate-blue
+                background = DefaultSkin.LightBackground,
+                surface = DefaultSkin.LightSurface,
+                primary = DefaultSkin.DefaultPrimaryBlue,
+                secondary = DefaultSkin.DefaultBrightBlue,
+                accent = DefaultSkin.DefaultPrimaryBlue,
+                textPrimary = DefaultSkin.LightPrimaryText,
+                textSecondary = DefaultSkin.LightSecondaryText,
                 isDark = false
             )
         }

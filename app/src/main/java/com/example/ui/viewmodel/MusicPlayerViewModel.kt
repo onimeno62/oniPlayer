@@ -100,8 +100,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _selectedThemeOption = MutableStateFlow("Dark")
     val selectedThemeOption: StateFlow<String> = _selectedThemeOption.asStateFlow()
 
-    // Custom Accent Color hex string (defaulting to Purple: #7C4DFF)
-    private val _customAccentColor = MutableStateFlow("#7C4DFF")
+    // Custom Accent Color hex string (defaulting to Default Skin Blue: #3B73E3)
+    private val _customAccentColor = MutableStateFlow("#3B73E3")
     val customAccentColor: StateFlow<String> = _customAccentColor.asStateFlow()
 
     // Material You toggle state (default false)
@@ -336,7 +336,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             try {
                 getApplication<Application>().dataStore.data
-                    .map { preferences -> preferences[ACCENT_COLOR_KEY] ?: "#7C4DFF" }
+                    .map { preferences -> preferences[ACCENT_COLOR_KEY] ?: "#3B73E3" }
                     .collect { savedAccent ->
                         _customAccentColor.value = savedAccent
                     }
