@@ -16,12 +16,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.OniSkin
 
 @Composable
 fun HeroProgressBar(
     position: Long,
     duration: Long,
-    tintColor: Color,
+    tintColor: Color = OniSkin.colors.primary,
     onOpenNowPlaying: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -31,9 +32,6 @@ fun HeroProgressBar(
         0f
     }
 
-    // Smoothly animate towards target progress to avoid stepped/jumping playhead movement.
-    // Since OniAudioEngine updates position periodically (every ~250-500ms), a 350ms linear tween
-    // guarantees absolute continuity without visual lag or overshooting.
     val smoothProgress = remember { Animatable(targetProgress) }
 
     LaunchedEffect(targetProgress) {
@@ -43,10 +41,8 @@ fun HeroProgressBar(
         )
     }
 
-    // Detect if the playhead is currently in active motion
     val isMoving = smoothProgress.isRunning && targetProgress > 0f && targetProgress < 1f
     
-    // Stretch playhead horizontally (1.20x) when moving, and spring-ease back to 1.0x when settled
     val stretchFactor by animateFloatAsState(
         targetValue = if (isMoving) 1.20f else 1.0f,
         animationSpec = spring(
@@ -56,6 +52,9 @@ fun HeroProgressBar(
         label = "PlayheadStretch"
     )
 
+    val labelColor = OniSkin.colors.textSecondary
+    val trackBgColor = OniSkin.colors.outline.copy(alpha = 0.25f)
+
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -63,18 +62,17 @@ fun HeroProgressBar(
     ) {
         Text(
             text = formatTime(position),
-            fontSize = 11.sp,
-            color = Color.White.copy(alpha = 0.7f)
+            style = OniSkin.typography.caption,
+            color = labelColor
         )
 
-        // Custom Canvas Progress Bar (Clicking anywhere on it opens Now Playing without seeking)
         Canvas(
             modifier = Modifier
                 .weight(1f)
                 .height(20.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null, // Suppress default click ripple
+                    indication = null,
                     onClick = onOpenNowPlaying
                 )
         ) {
@@ -83,16 +81,14 @@ fun HeroProgressBar(
             val trackHeight = 4.dp.toPx()
             val centerHeight = height / 2f
 
-            // 1. Draw rounded background track (low alpha)
             drawLine(
-                color = Color.White.copy(alpha = 0.2f),
+                color = trackBgColor,
                 start = Offset(0f, centerHeight),
                 end = Offset(width, centerHeight),
                 strokeWidth = trackHeight,
                 cap = StrokeCap.Round
             )
 
-            // 2. Draw rounded filled portion using extracted color
             val playheadX = smoothProgress.value * width
             drawLine(
                 color = tintColor,
@@ -102,18 +98,16 @@ fun HeroProgressBar(
                 cap = StrokeCap.Round
             )
 
-            // 3. Draw playhead particle with soft bloom (radial gradient glow)
             val coreRadius = 4.dp.toPx()
-            val bloomRadius = 14.dp.toPx()
+            val bloomRadius = 12.dp.toPx()
 
             withTransform({
                 translate(left = playheadX, top = centerHeight)
                 scale(scaleX = stretchFactor, scaleY = 1.0f, pivot = Offset.Zero)
             }) {
-                // Glow bloom (uses radial gradient, compatible and performant across all SDK versions)
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(tintColor.copy(alpha = 0.50f), Color.Transparent),
+                        colors = listOf(tintColor.copy(alpha = 0.40f), Color.Transparent),
                         center = Offset.Zero,
                         radius = bloomRadius
                     ),
@@ -121,14 +115,12 @@ fun HeroProgressBar(
                     radius = bloomRadius
                 )
 
-                // Colored core
                 drawCircle(
                     color = tintColor,
                     center = Offset.Zero,
                     radius = coreRadius
                 )
 
-                // High-fidelity tiny white core spark
                 drawCircle(
                     color = Color.White,
                     center = Offset.Zero,
@@ -139,8 +131,8 @@ fun HeroProgressBar(
 
         Text(
             text = formatTime(duration),
-            fontSize = 11.sp,
-            color = Color.White.copy(alpha = 0.7f)
+            style = OniSkin.typography.caption,
+            color = labelColor
         )
     }
 }

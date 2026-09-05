@@ -34,6 +34,9 @@ import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.screens.*
 import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.OniSkin
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.library.hero.ContinueListeningHeroV2
 
@@ -102,51 +105,57 @@ fun LibraryDashboardScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = LibrarySpacing.lg, vertical = LibrarySpacing.md),
+                    .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
                     Text(
                         text = greetingForTime(),
-                        fontSize = 11.sp,
+                        style = OniSkin.typography.caption,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = OniSkin.colors.primary,
                         letterSpacing = 1.sp
                     )
                     Text(
                         text = "Your Library",
-                        fontSize = 24.sp,
+                        style = OniSkin.typography.displayMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = OniSkin.colors.textPrimary
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(LibrarySpacing.sm)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                     IconButton(
                         onClick = showOptionsMenu,
                         modifier = Modifier
-                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), CircleShape)
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .background(OniSkin.colors.surfaceVariant, CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Tune,
                             contentDescription = "Library Options",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = OniSkin.colors.primary
                         )
                     }
 
                     IconButton(
                         onClick = onRescan,
                         modifier = Modifier
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .background(OniSkin.colors.primary.copy(alpha = 0.1f), CircleShape)
                     ) {
                         if (isScanning) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = OniSkin.colors.primary
+                            )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Scan Library",
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = OniSkin.colors.primary
                             )
                         }
                     }
@@ -162,29 +171,42 @@ fun LibraryDashboardScreen(
                 placeholder = {
                     Text(
                         "Search title, artist, album...",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        style = OniSkin.typography.bodyMedium,
+                        color = OniSkin.colors.textTertiary
                     )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = LibrarySpacing.lg, vertical = LibrarySpacing.xs)
+                    .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs)
                     .testTag("search_input"),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = OniSkin.colors.textSecondary
+                    )
+                },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearchQueryChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = "Clear",
+                                tint = OniSkin.colors.textSecondary
+                            )
                         }
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(24.dp),
+                shape = OniSkin.shapes.full,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    focusedBorderColor = OniSkin.colors.primary,
+                    unfocusedBorderColor = OniSkin.colors.outline,
+                    focusedTextColor = OniSkin.colors.textPrimary,
+                    unfocusedTextColor = OniSkin.colors.textPrimary
                 )
             )
-            Spacer(modifier = Modifier.height(LibrarySpacing.sm))
+            Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
         }
 
         if (searchQuery.isNotBlank()) {
@@ -586,24 +608,23 @@ private fun MadeForYouCard(
     title: String,
     countText: String,
     icon: ImageVector,
-    iconBgColor: Color = LocalAccentColor.current.copy(alpha = 0.12f),
-    iconColor: Color = LocalAccentColor.current,
+    iconBgColor: Color = OniSkin.colors.primary.copy(alpha = 0.12f),
+    iconColor: Color = OniSkin.colors.primary,
     onClick: () -> Unit
 ) {
-    Card(
+    OniSurface(
         modifier = Modifier
             .width(150.dp)
             .height(100.dp)
+            .defaultMinSize(minHeight = 48.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(dashboardRadiusMedium()),
-        colors = glassCardColors(),
-        border = glassCardBorder(),
-        elevation = glassCardElevation()
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.card
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(LibrarySpacing.md),
+                .padding(OniSkin.spacing.md),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
@@ -623,16 +644,17 @@ private fun MadeForYouCard(
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = OniSkin.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = OniSkin.colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = countText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = OniSkin.typography.caption,
+                    color = OniSkin.colors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

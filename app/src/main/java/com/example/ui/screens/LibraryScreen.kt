@@ -58,6 +58,10 @@ import coil.compose.AsyncImage
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
+import com.example.ui.components.music.OniArtwork
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import com.example.playback.ShuffleMode
 import com.example.ui.library.LibraryDashboardScreen
@@ -744,35 +748,33 @@ fun CategoryCard(
     onClick: () -> Unit
 ) {
     if (isGrid) {
-        Card(
+        OniSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(130.dp)
+                .defaultMinSize(minHeight = 48.dp)
                 .clickable { onClick() },
-            shape = RoundedCornerShape(dashboardRadiusLarge()),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
-            ),
-            border = borderStrokeDefault()
+            variant = OniSurfaceVariant.Soft,
+            shape = OniSkin.shapes.card
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(OniSkin.spacing.md),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.Start
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
-                        .background(category.iconBgColor),
+                        .background(OniSkin.colors.primary.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = category.icon,
                         contentDescription = null,
-                        tint = category.iconColor,
+                        tint = OniSkin.colors.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -780,67 +782,74 @@ fun CategoryCard(
                 Column {
                     Text(
                         text = category.title,
+                        style = OniSkin.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = OniSkin.colors.textPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = category.countText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        style = OniSkin.typography.bodySmall,
+                        color = OniSkin.colors.primary
                     )
                 }
             }
         }
     } else {
-        Row(
+        OniSurface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onClick() }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .defaultMinSize(minHeight = 48.dp)
+                .clickable { onClick() },
+            variant = OniSurfaceVariant.Soft,
+            shape = OniSkin.shapes.card
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                    .background(category.iconBgColor),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(OniSkin.colors.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = category.icon,
+                        contentDescription = null,
+                        tint = OniSkin.colors.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = category.title,
+                        style = OniSkin.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = category.countText,
+                        style = OniSkin.typography.bodySmall,
+                        color = OniSkin.colors.textSecondary
+                    )
+                }
+
                 Icon(
-                    imageVector = category.icon,
+                    Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = category.iconColor,
-                    modifier = Modifier.size(22.dp)
+                    tint = OniSkin.colors.textTertiary
                 )
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = category.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = category.countText,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
         }
     }
 }
@@ -2220,13 +2229,13 @@ fun LibraryStatsStrip(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = OniSkin.spacing.screenHorizontal),
+        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
     ) {
-        StatChip(icon = Icons.Default.MusicNote, value = songCount.toString(), label = "Songs", tint = Color(0xFF9C27B0))
-        StatChip(icon = Icons.Default.Person, value = artistCount.toString(), label = "Artists", tint = Color(0xFF009688))
-        StatChip(icon = Icons.Default.Album, value = albumCount.toString(), label = "Albums", tint = Color(0xFFE91E63))
-        StatChip(icon = Icons.Filled.Favorite, value = favoriteCount.toString(), label = "Favorites", tint = Color(0xFFF44336))
+        StatChip(icon = Icons.Default.MusicNote, value = songCount.toString(), label = "Songs", tint = OniSkin.colors.primary)
+        StatChip(icon = Icons.Default.Person, value = artistCount.toString(), label = "Artists", tint = OniSkin.colors.accentSecondary)
+        StatChip(icon = Icons.Default.Album, value = albumCount.toString(), label = "Albums", tint = OniSkin.colors.primary)
+        StatChip(icon = Icons.Filled.Favorite, value = favoriteCount.toString(), label = "Favorites", tint = OniSkin.colors.accentSecondary)
     }
 }
 
@@ -2237,37 +2246,38 @@ fun StatChip(
     label: String,
     tint: Color
 ) {
-    val chipShape = RoundedCornerShape(dashboardRadiusSmall())
-    Row(
-        modifier = Modifier
-            .clip(chipShape)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)), chipShape)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+    OniSurface(
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.card
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(tint.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
+                .padding(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Column {
-            Text(
-                text = value,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = label,
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+            }
+            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+            Column {
+                Text(
+                    text = value,
+                    style = OniSkin.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = OniSkin.colors.textPrimary
+                )
+                Text(
+                    text = label,
+                    style = OniSkin.typography.caption,
+                    color = OniSkin.colors.textSecondary
+                )
+            }
         }
     }
 }
@@ -2280,17 +2290,17 @@ fun HorizontalSongRow(
 ) {
     if (songs.isEmpty()) return
 
-    Column(modifier = Modifier.padding(top = 8.dp)) {
+    Column(modifier = Modifier.padding(top = OniSkin.spacing.xs)) {
         Text(
             text = title,
-            fontSize = 16.sp,
+            style = OniSkin.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            color = OniSkin.colors.textPrimary,
+            modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xs)
         )
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
         ) {
             items(songs.take(15)) { song ->
                 HorizontalSongCard(song = song, onClick = { onSongClick(song) })
@@ -2309,29 +2319,25 @@ fun HorizontalSongCard(
             .width(120.dp)
             .clickable(onClick = onClick)
     ) {
-        AsyncImage(
-            model = song.albumArtUri,
-            contentDescription = "Cover art",
-            modifier = Modifier
-                .size(120.dp)
-                .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentScale = ContentScale.Crop,
-            error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
+        OniArtwork(
+            artworkUri = song.albumArtUri,
+            size = 120.dp,
+            shape = OniSkin.artwork.shape,
+            contentDescription = "Cover art"
         )
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
         Text(
             text = song.customTitle ?: song.title,
-            fontSize = 13.sp,
+            style = OniSkin.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = OniSkin.colors.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             text = song.customArtist ?: song.artist,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = OniSkin.typography.bodySmall,
+            color = OniSkin.colors.textSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

@@ -1,27 +1,38 @@
 package com.example.ui.library.hero
 
 import android.provider.Settings
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
+import com.example.ui.components.music.OniArtwork
+import com.example.ui.components.playback.OniPlayPauseButton
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.OniSkin
 
 @Composable
 fun rememberReduceMotion(): Boolean {
@@ -40,6 +51,13 @@ fun rememberReduceMotion(): Boolean {
     }
 }
 
+/**
+ * Default Skin Continue Listening Hero.
+ *
+ * Communicates: "This is what you are currently listening to."
+ * Serves as the primary focal element in the Library without overwhelming the screen.
+ * Consumes [OniSkin] tokens and [OniArtwork], [OniPlayPauseButton], and [OniSurface].
+ */
 @Composable
 fun ContinueListeningHeroV2(
     song: SongEntity,
@@ -54,135 +72,194 @@ fun ContinueListeningHeroV2(
     
     val heroColors = rememberHeroColors(
         artworkUri = song.albumArtUri,
-        fallbackAccent = LocalAccentColor.current
+        fallbackAccent = OniSkin.colors.primary
     )
     val accentColor = heroColors.dominant
 
+    // Real audio engine state from ViewModel (single source of truth)
     val position by viewModel.audioEngine.position.collectAsStateWithLifecycle()
     val duration by viewModel.audioEngine.duration.collectAsStateWithLifecycle()
 
-    // 1. Beat Pulse handling and smoothing
-    val rawBeatEnergy by viewModel.audioEngine.beatEnergy.collectAsStateWithLifecycle()
-    // Guard: only pulse when genuinely active and not in reduced motion
-    val targetBeatEnergy = if (isPlaying && !isPreparing && !reduceMotion) rawBeatEnergy else 0f
-    val animatedBeatPulse = remember { Animatable(0f) }
-
-    LaunchedEffect(targetBeatEnergy) {
-        animatedBeatPulse.animateTo(
-            targetValue = targetBeatEnergy,
-            animationSpec = tween(durationMillis = 130, easing = LinearEasing)
+    // 1. Subtle, slow breathing glow loop synchronized with playback (3800ms cycle)
+    val glowAlpha by if (isPlaying && !isPreparing && !reduceMotion) {
+        val infiniteTransition = rememberInfiniteTransition(label = "hero_glow_breathing")
+        infiniteTransition.animateFloat(
+            initialValue = 0.12f,
+            targetValue = 0.22f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 3800, easing = EaseInOut),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "ambient_glow_alpha"
         )
+    } else {
+        remember { mutableFloatStateOf(0.06f) }
     }
 
-    // 2. Parallax and tilt calculations
-    val tilt by rememberDeviceTilt(reduceMotion)
-    val density = LocalDensity.current
+    // 2. Gentle breathing scale on artwork when active
+    val artworkScale by if (isPlaying && !isPreparing && !reduceMotion) {
+        val infiniteTransition = rememberInfiniteTransition(label = "hero_artwork_breathing")
+        infiniteTransition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.02f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 3800, easing = EaseInOut),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "artwork_scale"
+        )
+    } else {
+        remember { mutableFloatStateOf(1.0f) }
+    }
 
-    val artworkParallaxX = tilt.x * with(density) { 2.dp.toPx() }
-    val artworkParallaxY = tilt.y * with(density) { 2.dp.toPx() }
-
-    val backgroundParallaxX = tilt.x * with(density) { 6.dp.toPx() }
-    val backgroundParallaxY = tilt.y * with(density) { 6.dp.toPx() }
-
-    val glowParallaxX = tilt.x * with(density) { 8.dp.toPx() }
-    val glowParallaxY = tilt.y * with(density) { 8.dp.toPx() }
-
-    val auraBleed = 10.dp
+    val cardShape = OniSkin.shapes.card
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(180.dp + auraBleed * 2)
-            .clipToBounds()
+            .testTag("continue_listening_hero")
+            .semantics {
+                contentDescription = "Continue listening: ${song.displayTitle} by ${song.displayArtist}"
+            }
     ) {
-        // Traveling Glow Perimeter Aura (Placed behind Card, sizing takes bleed into account)
-        OniAura(
-            color = accentColor,
-            isPlaying = isPlaying && !isPreparing,
-            reduceMotion = reduceMotion,
-            cornerRadius = 24.dp,
-            bleed = auraBleed,
-            beatPulse = animatedBeatPulse.value,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    translationX = glowParallaxX
-                    translationY = glowParallaxY
-                }
-        )
+        // Subtle ambient edge glow behind the card (restrained, no heavy blur)
+        if (!reduceMotion && isPlaying) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(4.dp)
+                    .blur(16.dp)
+                    .clip(cardShape)
+                    .background(accentColor.copy(alpha = glowAlpha))
+            )
+        }
 
-        // The Glass Hero Card itself, padded to leave room for the outer aura bleed
-        Card(
+        // Elevated surface container
+        OniSurface(
             modifier = Modifier
-                .padding(auraBleed)
                 .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(24.dp))
                 .clickable(onClick = onOpenNowPlaying),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            variant = OniSurfaceVariant.Elevated,
+            shape = cardShape,
+            elevation = OniSkin.elevation.raised
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Background layers (includes blurred art, drifting wash, flow line, shimmer sweep)
-                HeroBackground(
-                    artworkUri = song.albumArtUri,
-                    colors = heroColors,
-                    reduceMotion = reduceMotion,
-                    isLoading = isPreparing,
-                    modifier = Modifier.graphicsLayer {
-                        translationX = backgroundParallaxX
-                        translationY = backgroundParallaxY
-                    }
-                )
-
-                // Content Layer
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = 0.08f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Header badge
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Main Info Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ArtworkPanel(
-                            artworkUri = song.albumArtUri,
-                            isPlaying = isPlaying && !isPreparing,
-                            reduceMotion = reduceMotion,
-                            modifier = Modifier.graphicsLayer {
-                                translationX = artworkParallaxX
-                                translationY = artworkParallaxY
+                    Text(
+                        text = if (isPlaying) "NOW PLAYING" else "CONTINUE LISTENING",
+                        style = OniSkin.typography.caption,
+                        color = accentColor,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+
+                    if (duration > 0) {
+                        val progressPercent = (position.toFloat() / duration.toFloat() * 100).toInt().coerceIn(0, 100)
+                        Text(
+                            text = "$progressPercent%",
+                            style = OniSkin.typography.caption,
+                            color = OniSkin.colors.textTertiary
+                        )
+                    }
+                }
+
+                // Main Info Row: Artwork + Metadata + Primary Play/Pause Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Dominant Artwork
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                scaleX = artworkScale
+                                scaleY = artworkScale
                             }
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        MetadataPanel(
-                            song = song,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        HeroPlayButton(
-                            isPlaying = isPlaying,
-                            tintColor = accentColor,
-                            reduceMotion = reduceMotion,
-                            onClick = onPlayPauseClick,
-                            isLoading = isPreparing
+                    ) {
+                        OniArtwork(
+                            artworkUri = song.albumArtUri,
+                            size = 80.dp,
+                            shape = OniSkin.artwork.shape,
+                            contentDescription = "Album art for ${song.displayTitle}",
+                            showGlow = isPlaying && !reduceMotion
                         )
                     }
 
-                    // Progress Indicator
-                    HeroProgressBar(
-                        position = position,
-                        duration = duration,
-                        tintColor = accentColor,
-                        onOpenNowPlaying = onOpenNowPlaying
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    // Track details
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = song.displayTitle,
+                            style = OniSkin.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = OniSkin.colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = song.displayArtist,
+                            style = OniSkin.typography.bodyMedium,
+                            color = OniSkin.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        if (!song.album.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = song.album,
+                                style = OniSkin.typography.bodySmall,
+                                color = OniSkin.colors.textTertiary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Primary Play/Pause Action
+                    OniPlayPauseButton(
+                        isPlaying = isPlaying,
+                        onClick = onPlayPauseClick,
+                        size = 52.dp,
+                        loading = isPreparing
                     )
                 }
+
+                // Smooth Progress Bar
+                HeroProgressBar(
+                    position = position,
+                    duration = duration,
+                    tintColor = accentColor,
+                    onOpenNowPlaying = onOpenNowPlaying,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

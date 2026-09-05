@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.OniSkin
 
 @Composable
 fun OniSectionHeader(
@@ -25,15 +25,15 @@ fun OniSectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = LibrarySpacing.lg, vertical = LibrarySpacing.sm),
+            .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = OniSkin.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = OniSkin.colors.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false)
@@ -44,21 +44,21 @@ fun OniSectionHeader(
                 modifier = Modifier
                     .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                     .clickable(onClick = onViewAllClick)
-                    .padding(horizontal = LibrarySpacing.sm),
+                    .padding(horizontal = OniSkin.spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
                     text = "View all",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = OniSkin.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = LocalAccentColor.current
+                    color = OniSkin.colors.primary
                 )
-                Spacer(modifier = Modifier.width(LibrarySpacing.xs))
+                Spacer(modifier = Modifier.width(OniSkin.spacing.xxs))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "View all $title",
-                    tint = LocalAccentColor.current,
+                    tint = OniSkin.colors.primary,
                     modifier = Modifier.size(16.dp)
                 )
             }

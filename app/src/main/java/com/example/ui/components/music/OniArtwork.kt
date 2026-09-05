@@ -34,15 +34,18 @@ fun OniArtwork(
     artworkUri: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    size: Dp = 48.dp,
+    size: Dp? = null,
     shape: Shape = OniSkin.artwork.shape,
     showGlow: Boolean = false,
     glowColor: Color = OniSkin.colors.primary,
     elevation: Dp = OniSkin.artwork.shadowElevation,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    placeholder: (@Composable () -> Unit)? = null
 ) {
+    val sizeModifier = if (size != null) Modifier.size(size) else Modifier
+
     Box(
-        modifier = modifier.size(size),
+        modifier = modifier.then(sizeModifier),
         contentAlignment = Alignment.Center
     ) {
         if (showGlow && OniSkin.artwork.glowAlpha > 0f) {
@@ -63,7 +66,7 @@ fun OniArtwork(
 
         Box(
             modifier = Modifier
-                .size(size)
+                .matchParentSize()
                 .then(
                     if (elevation > 0.dp) Modifier.shadow(elevation, shape)
                     else Modifier
@@ -86,12 +89,15 @@ fun OniArtwork(
                     contentScale = contentScale,
                     error = painterResource(id = android.R.drawable.ic_media_play)
                 )
+            } else if (placeholder != null) {
+                placeholder()
             } else {
+                val iconSize = if (size != null) size * 0.45f else 36.dp
                 Icon(
                     imageVector = Icons.Default.MusicNote,
                     contentDescription = contentDescription,
                     tint = OniSkin.colors.primary.copy(alpha = 0.4f),
-                    modifier = Modifier.size(size * 0.45f)
+                    modifier = Modifier.size(iconSize)
                 )
             }
         }
