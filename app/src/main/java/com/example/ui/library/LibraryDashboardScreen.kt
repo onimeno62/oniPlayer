@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -66,7 +68,11 @@ fun LibraryDashboardScreen(
     onShowTrackMenu: (SongEntity) -> Unit,
     albumUiModels: List<AlbumUiModel>,
     artistUiModels: List<ArtistUiModel>,
-    viewModel: com.example.ui.viewmodel.MusicPlayerViewModel
+    position: Long = 0L,
+    duration: Long = 0L,
+    isPreparing: Boolean = false,
+    onTogglePlayPause: () -> Unit,
+    onOpenPlayer: () -> Unit
 ) {
     var showAllCategories by rememberSaveable { mutableStateOf(false) }
     // Indices into categoryList: All Songs (0), Favorites (5), Playlists (8), Folders (1)
@@ -200,8 +206,10 @@ fun LibraryDashboardScreen(
                 singleLine = true,
                 shape = OniSkin.shapes.full,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = OniSkin.colors.primary,
-                    unfocusedBorderColor = OniSkin.colors.outline,
+                    focusedContainerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.45f),
+                    unfocusedContainerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.35f),
+                    focusedBorderColor = OniSkin.colors.primary.copy(alpha = 0.5f),
+                    unfocusedBorderColor = OniSkin.colors.outline.copy(alpha = 0.2f),
                     focusedTextColor = OniSkin.colors.textPrimary,
                     unfocusedTextColor = OniSkin.colors.textPrimary
                 )
@@ -261,29 +269,30 @@ fun LibraryDashboardScreen(
         } else {
             // 3. When searchQuery is blank and library not empty:
             // Continue Listening hero v2 - Foundation Stage A
-            if (lastPlayedSong != null) {
+            val activeHeroSong = currentSong ?: lastPlayedSong
+            if (activeHeroSong != null) {
                 item(key = "continue_listening_hero") {
-                    val isPreparing = viewModel.audioEngine.isPreparing.collectAsStateWithLifecycle().value && (currentSong?.id == lastPlayedSong.id)
+                    val isSongActive = currentSong?.id == activeHeroSong.id
+                    val isHeroPlaying = isPlaying && isSongActive
                     ContinueListeningHeroV2(
-                        song = lastPlayedSong,
-                        isPlaying = isPlaying && (currentSong?.id == lastPlayedSong.id),
-                        viewModel = viewModel,
-                        isPreparing = isPreparing,
+                        song = activeHeroSong,
+                        isPlaying = isHeroPlaying,
+                        position = if (isSongActive) position else 0L,
+                        duration = if (isSongActive) duration else activeHeroSong.duration,
+                        isPreparing = isPreparing && isSongActive,
                         onPlayPauseClick = {
-                            if (currentSong?.id == lastPlayedSong.id) {
-                                viewModel.togglePlayPause()
+                            if (isSongActive) {
+                                onTogglePlayPause()
                             } else {
-                                onPlaySong(lastPlayedSong, songs)
+                                onPlaySong(activeHeroSong, songs)
                             }
                         },
-                        onOpenNowPlaying = {
-                            viewModel.selectTab(1) // jump to Full Player
-                        },
+                        onOpenNowPlaying = onOpenPlayer,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = LibrarySpacing.lg)
+                            .padding(horizontal = OniSkin.spacing.screenHorizontal)
                     )
-                    Spacer(modifier = Modifier.height(LibrarySpacing.lg))
+                    Spacer(modifier = Modifier.height(OniSkin.spacing.md))
                 }
             }
 
@@ -295,7 +304,7 @@ fun LibraryDashboardScreen(
                     albumCount = uniqueAlbumsCount,
                     favoriteCount = favoritesCount
                 )
-                Spacer(modifier = Modifier.height(LibrarySpacing.lg))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.md))
             }
 
             // Made For You section
@@ -329,7 +338,7 @@ fun LibraryDashboardScreen(
                             MadeForYouCard(
                                 title = "Recently Added",
                                 countText = "${recentlyAddedSongs.size} tracks",
-                                icon = Icons.Default.QueueMusic,
+                                icon = Icons.AutoMirrored.Filled.QueueMusic,
                                 onClick = { onSelectCategory(7) }
                             )
                         }
@@ -448,7 +457,7 @@ fun LibraryDashboardScreen(
                                     text = "Quick Access",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = OniSkin.colors.textPrimary
                                 )
                             }
 
@@ -494,7 +503,7 @@ fun LibraryDashboardScreen(
                                     .fillMaxWidth()
                                     .padding(horizontal = LibrarySpacing.lg, vertical = LibrarySpacing.xs)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                    .background(OniSkin.colors.primary.copy(alpha = 0.08f))
                                     .clickable { showAllCategories = true }
                                     .padding(horizontal = 16.dp, vertical = 14.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -504,12 +513,12 @@ fun LibraryDashboardScreen(
                                     text = "See all categories",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = OniSkin.colors.primary
                                 )
                                 Icon(
                                     imageVector = Icons.Default.ChevronRight,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = OniSkin.colors.primary
                                 )
                             }
                         }
@@ -531,7 +540,7 @@ fun LibraryDashboardScreen(
                                     text = "All Categories",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = OniSkin.colors.textPrimary
                                 )
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TextButton(
@@ -544,9 +553,9 @@ fun LibraryDashboardScreen(
                                     }
                                     IconButton(onClick = onToggleLayoutMode) {
                                         Icon(
-                                            imageVector = if (layoutMode == "grid") Icons.Default.ViewList else Icons.Default.GridView,
+                                            imageVector = if (layoutMode == "grid") Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
                                             contentDescription = "Toggle Layout",
-                                            tint = MaterialTheme.colorScheme.primary
+                                            tint = OniSkin.colors.primary
                                         )
                                     }
                                 }

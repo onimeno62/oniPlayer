@@ -16,7 +16,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -290,7 +290,7 @@ fun SettingsDetailPlaceholder(
                     .testTag("settings_back_button")
             ) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Go back",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
@@ -399,7 +399,7 @@ fun AppearanceSettingsScreen(viewModel: MusicPlayerViewModel, onBack: () -> Unit
                         modifier = Modifier.testTag("appearance_back_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Go back",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
@@ -894,7 +894,7 @@ fun LibraryMetadataSettingsScreen(viewModel: MusicPlayerViewModel, onBack: () ->
                         modifier = Modifier.testTag("library_metadata_back_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Go back",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
@@ -1245,7 +1245,7 @@ fun PlaybackSettingsScreen(viewModel: MusicPlayerViewModel, onBack: () -> Unit) 
                         modifier = Modifier.testTag("playback_back_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Go back",
                             tint = MaterialTheme.colorScheme.onBackground
                         )

@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -84,6 +85,9 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
     val currentSong by viewModel.audioEngine.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.audioEngine.isPlaying.collectAsStateWithLifecycle()
+    val position by viewModel.audioEngine.position.collectAsStateWithLifecycle()
+    val duration by viewModel.audioEngine.duration.collectAsStateWithLifecycle()
+    val isPreparing by viewModel.audioEngine.isPreparing.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
@@ -289,7 +293,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         CategoryInfo(
             title = "Playlists",
             countText = "${playlists.size} playlists",
-            icon = Icons.Default.QueueMusic,
+            icon = Icons.AutoMirrored.Filled.QueueMusic,
             iconBgColor = Color(0x1F03A9F4), // Light Blue Tint
             iconColor = Color(0xFF03A9F4)
         ),
@@ -344,7 +348,11 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             onShowTrackMenu = { songForMenu = it },
             albumUiModels = albumUiModels,
             artistUiModels = artistUiModels,
-            viewModel = viewModel
+            position = position,
+            duration = duration,
+            isPreparing = isPreparing,
+            onTogglePlayPause = { viewModel.togglePlayPause() },
+            onOpenPlayer = { viewModel.selectTab(1) }
         )
     } else {
         Column(
@@ -389,7 +397,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         modifier = Modifier
                             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -919,7 +927,7 @@ fun SongItemRow(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.VolumeDown,
+                    imageVector = Icons.AutoMirrored.Filled.VolumeDown,
                     contentDescription = "Playing",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(end = 8.dp).size(20.dp)
@@ -1151,7 +1159,7 @@ fun GroupedListView(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
                     text = selectedGroup,
@@ -1405,7 +1413,7 @@ fun LibraryOptionsMenu(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(
                     Triple("grid", "Grid" to "Category tiles & song art grids", Icons.Default.GridView),
-                    Triple("list", "List" to "Rows everywhere", Icons.Default.ViewList)
+                    Triple("list", "List" to "Rows everywhere", Icons.AutoMirrored.Filled.ViewList)
                 ).forEach { (mode, labels, icon) ->
                     val (label, description) = labels
                     val isSelected = layoutMode == mode
@@ -2040,7 +2048,7 @@ fun MainLibraryDashboard(
                                 }
                                 IconButton(onClick = onToggleLayoutMode) {
                                     Icon(
-                                        imageVector = if (layoutMode == "grid") Icons.Default.ViewList else Icons.Default.GridView,
+                                        imageVector = if (layoutMode == "grid") Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
                                         contentDescription = "Toggle Layout",
                                         tint = MaterialTheme.colorScheme.primary
                                     )
@@ -2230,7 +2238,7 @@ fun LibraryStatsStrip(
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = OniSkin.spacing.screenHorizontal),
-        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
+        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
     ) {
         StatChip(icon = Icons.Default.MusicNote, value = songCount.toString(), label = "Songs", tint = OniSkin.colors.primary)
         StatChip(icon = Icons.Default.Person, value = artistCount.toString(), label = "Artists", tint = OniSkin.colors.accentSecondary)
@@ -2248,7 +2256,7 @@ fun StatChip(
 ) {
     OniSurface(
         variant = OniSurfaceVariant.Soft,
-        shape = OniSkin.shapes.card
+        shape = OniSkin.shapes.chip
     ) {
         Row(
             modifier = Modifier
@@ -2482,7 +2490,7 @@ fun TrackMenuBottomSheetDialog(
                                     .padding(vertical = 12.dp, horizontal = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.PlaylistPlay, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(pl.name, fontWeight = FontWeight.Medium, fontSize = 15.sp)
                             }
@@ -2649,7 +2657,7 @@ fun TrackMenuBottomSheetDialog(
                         )
 
                         CircularTrackAction(
-                            icon = Icons.Default.QueueMusic,
+                            icon = Icons.AutoMirrored.Filled.QueueMusic,
                             label = "Add Queue",
                             color = MaterialTheme.colorScheme.tertiary,
                             onClick = {
@@ -2676,7 +2684,7 @@ fun TrackMenuBottomSheetDialog(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(horizontal = 20.dp))
+                    HorizontalDivider(color = OniSkin.colors.outline.copy(alpha = 0.25f), modifier = Modifier.padding(horizontal = 20.dp))
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Options List Items
@@ -2690,7 +2698,7 @@ fun TrackMenuBottomSheetDialog(
                     )
 
                     TrackMenuItemOption(
-                        icon = Icons.Default.PlaylistAdd,
+                        icon = Icons.AutoMirrored.Filled.PlaylistAdd,
                         label = "Add to Playlist...",
                         onClick = {
                             showPlaylistSelect = true

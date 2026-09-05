@@ -158,70 +158,8 @@ fun OniPlayerTheme(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        themeColors.background.copy(
-                            alpha = if (!themeColors.isDark) 1f else if (glassEffectEnabled) backgroundTransparency / 100f else 1f
-                        )
-                    )
+                    .background(themeColors.background)
             ) {
-                // Smooth atmospheric breathing animation for the glows
-                val infiniteTransition = rememberInfiniteTransition(label = "aurora")
-                
-                val scaleFactor1 by infiniteTransition.animateFloat(
-                    initialValue = 0.85f,
-                    targetValue = 1.15f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(12000, easing = SineHeightEasing),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "scale1"
-                )
-                val scaleFactor2 by infiniteTransition.animateFloat(
-                    initialValue = 1.1f,
-                    targetValue = 0.9f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(14000, easing = SineHeightEasing),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "scale2"
-                )
-
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val w = size.width
-                    val h = size.height
-                    
-                    val alphaScale = if (glassEffectEnabled) (backgroundTransparency / 100f) else 0f
-                    
-                    if (alphaScale > 0f) {
-                        // Sphere 1: Top Right primary glow (Atmospheric Gaussian style)
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(accent.copy(alpha = 0.16f * alphaScale), Color.Transparent),
-                                center = Offset(w * 0.85f, h * 0.25f),
-                                radius = w * 0.9f * scaleFactor1
-                            )
-                        )
-                        
-                        // Sphere 2: Bottom Left secondary glow
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(secondary.copy(alpha = 0.14f * alphaScale), Color.Transparent),
-                                center = Offset(w * 0.15f, h * 0.75f),
-                                radius = w * 0.9f * scaleFactor2
-                            )
-                        )
-                        
-                        // Sphere 3: Center accent glow
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(glow.copy(alpha = 0.08f * alphaScale), Color.Transparent),
-                                center = Offset(w * 0.5f, h * 0.5f),
-                                radius = w * 0.6f
-                            )
-                        )
-                    }
-                }
-                
                 content()
             }
         }

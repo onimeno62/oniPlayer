@@ -81,13 +81,48 @@ fun OniArtwork(
                 },
             contentAlignment = Alignment.Center
         ) {
-            if (artworkUri != null) {
-                AsyncImage(
+            if (!artworkUri.isNullOrBlank()) {
+                coil.compose.SubcomposeAsyncImage(
                     model = artworkUri,
                     contentDescription = contentDescription,
                     modifier = Modifier.matchParentSize(),
                     contentScale = contentScale,
-                    error = painterResource(id = android.R.drawable.ic_media_play)
+                    loading = {
+                        Box(
+                            modifier = Modifier.matchParentSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (placeholder != null) {
+                                placeholder()
+                            } else {
+                                val iconSize = if (size != null) size * 0.45f else 36.dp
+                                Icon(
+                                    imageVector = Icons.Default.MusicNote,
+                                    contentDescription = contentDescription,
+                                    tint = OniSkin.colors.primary.copy(alpha = 0.35f),
+                                    modifier = Modifier.size(iconSize)
+                                )
+                            }
+                        }
+                    },
+                    error = {
+                        Box(
+                            modifier = Modifier.matchParentSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (placeholder != null) {
+                                placeholder()
+                            } else {
+                                val iconSize = if (size != null) size * 0.45f else 36.dp
+                                Icon(
+                                    imageVector = Icons.Default.MusicNote,
+                                    contentDescription = contentDescription,
+                                    tint = OniSkin.colors.primary.copy(alpha = 0.35f),
+                                    modifier = Modifier.size(iconSize)
+                                )
+                            }
+                        }
+                    }
                 )
             } else if (placeholder != null) {
                 placeholder()

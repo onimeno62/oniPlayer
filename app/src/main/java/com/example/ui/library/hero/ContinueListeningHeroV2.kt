@@ -62,7 +62,8 @@ fun rememberReduceMotion(): Boolean {
 fun ContinueListeningHeroV2(
     song: SongEntity,
     isPlaying: Boolean,
-    viewModel: com.example.ui.viewmodel.MusicPlayerViewModel,
+    position: Long,
+    duration: Long,
     onPlayPauseClick: () -> Unit,
     onOpenNowPlaying: () -> Unit,
     modifier: Modifier = Modifier,
@@ -75,10 +76,6 @@ fun ContinueListeningHeroV2(
         fallbackAccent = OniSkin.colors.primary
     )
     val accentColor = heroColors.dominant
-
-    // Real audio engine state from ViewModel (single source of truth)
-    val position by viewModel.audioEngine.position.collectAsStateWithLifecycle()
-    val duration by viewModel.audioEngine.duration.collectAsStateWithLifecycle()
 
     // 1. Subtle, slow breathing glow loop synchronized with playback (3800ms cycle)
     val glowAlpha by if (isPlaying && !isPreparing && !reduceMotion) {

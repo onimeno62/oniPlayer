@@ -1484,7 +1484,7 @@ fun PlayerScreen(viewModel: MusicPlayerViewModel) {
                             }
                         }
 
-                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 12.dp))
 
                         // Large Typography scrolling view
                         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {

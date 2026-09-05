@@ -95,7 +95,7 @@ fun ManualSearchDialog(
                     }
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
                 // Search Controls Box
                 Card(
@@ -476,7 +476,7 @@ fun LyricsEditorDialog(
                     }
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
                 // Guide
                 Card(
@@ -612,7 +612,7 @@ fun SyncEditorDialog(
                     }
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
                 // Progress Info Card
                 Card(

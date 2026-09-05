@@ -162,7 +162,7 @@ fun AlbumDetailScreen(
             }
         }
 
-        Divider(
+        HorizontalDivider(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
             thickness = 1.dp,
             modifier = Modifier.padding(bottom = 8.dp)

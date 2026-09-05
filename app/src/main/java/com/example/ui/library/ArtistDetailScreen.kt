@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -652,7 +654,7 @@ fun ArtistDetailScreen(
                                             .size(36.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.KeyboardArrowLeft,
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                                             contentDescription = "Previous photo",
                                             tint = Color.White
                                         )
@@ -674,7 +676,7 @@ fun ArtistDetailScreen(
                                             .size(36.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.KeyboardArrowRight,
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                             contentDescription = "Next photo",
                                             tint = Color.White
                                         )
