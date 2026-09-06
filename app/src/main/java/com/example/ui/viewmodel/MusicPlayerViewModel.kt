@@ -26,6 +26,7 @@ import com.example.data.api.GeminiMusicService
 import com.example.data.repository.MusicRepository
 import com.example.playback.OniAudioEngine
 import com.example.playback.ShuffleMode
+import com.example.ui.player.model.PlayerUiState
 import com.example.ui.theme.OniTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -291,6 +292,120 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     val allArtistSummaries: StateFlow<List<ArtistSummaryEntity>> = repository.allArtistSummaries
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Direct playback state flows for clean presentation consumption
+    val currentSong: StateFlow<SongEntity?> = audioEngine.currentSong
+    val isPlaying: StateFlow<Boolean> = audioEngine.isPlaying
+    val position: StateFlow<Long> = audioEngine.position
+    val duration: StateFlow<Long> = audioEngine.duration
+    val isPreparing: StateFlow<Boolean> = audioEngine.isPreparing
+
+    // Sleep Timer
+    private val _sleepTimerMinutesLeft = MutableStateFlow(0)
+    val sleepTimerMinutesLeft: StateFlow<Int> = _sleepTimerMinutesLeft.asStateFlow()
+
+    private val _isSleepTimerRunning = MutableStateFlow(false)
+    val isSleepTimerRunning: StateFlow<Boolean> = _isSleepTimerRunning.asStateFlow()
+
+    private var sleepTimerJob: Job? = null
+
+    fun setSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        if (minutes <= 0) {
+            _isSleepTimerRunning.value = false
+            _sleepTimerMinutesLeft.value = 0
+            return
+        }
+        _isSleepTimerRunning.value = true
+        _sleepTimerMinutesLeft.value = minutes
+        sleepTimerJob = viewModelScope.launch {
+            while (_sleepTimerMinutesLeft.value > 0) {
+                kotlinx.coroutines.delay(60_000L)
+                val current = _sleepTimerMinutesLeft.value
+                if (current <= 1) {
+                    _sleepTimerMinutesLeft.value = 0
+                    _isSleepTimerRunning.value = false
+                    audioEngine.pause()
+                    break
+                } else {
+                    _sleepTimerMinutesLeft.value = current - 1
+                }
+            }
+        }
+    }
+
+    fun cancelSleepTimer() {
+        setSleepTimer(0)
+    }
+
+    fun seekTo(positionMs: Long) {
+        audioEngine.seekTo(positionMs)
+    }
+
+    fun pausePlayback() {
+        audioEngine.pause()
+    }
+
+    fun resumePlayback() {
+        audioEngine.resume()
+    }
+
+    // Consolidated PlayerUiState for clean PlayerScreen presentation
+    private data class EnginePlaybackState(
+        val song: SongEntity?,
+        val isPlaying: Boolean,
+        val position: Long,
+        val duration: Long,
+        val isPreparing: Boolean
+    )
+
+    private data class EngineQueueState(
+        val isShuffle: Boolean,
+        val isRepeat: Boolean,
+        val queue: List<SongEntity>,
+        val favoriteIds: Set<String>
+    )
+
+    private data class PlayerFeaturesState(
+        val floatingLyrics: Boolean,
+        val delayCountdown: Int?,
+        val timerMinutes: Int,
+        val timerRunning: Boolean,
+        val isFetchingLyrics: Boolean
+    )
+
+    val playerUiState: StateFlow<PlayerUiState> = combine(
+        combine(audioEngine.currentSong, audioEngine.isPlaying, audioEngine.position, audioEngine.duration, audioEngine.isPreparing) { song, playing, pos, dur, prep ->
+            EnginePlaybackState(song, playing, pos, dur, prep)
+        },
+        combine(audioEngine.isShuffle, audioEngine.isRepeat, audioEngine.currentPlaylist, favoriteSongs) { shuf, rep, q, favs ->
+            EngineQueueState(shuf, rep, q, favs.map { it.id }.toSet())
+        },
+        combine(floatingLyricsEnabled, playbackDelayCountdown, _sleepTimerMinutesLeft, _isSleepTimerRunning, isFetchingLyrics) { floatLrc, delaySec, timerMin, timerRun, fetching ->
+            PlayerFeaturesState(floatLrc, delaySec, timerMin, timerRun, fetching)
+        }
+    ) { playback, queueState, features ->
+        PlayerUiState(
+            currentSong = playback.song,
+            isPlaying = playback.isPlaying,
+            isPreparing = playback.isPreparing,
+            position = playback.position,
+            duration = playback.duration,
+            isShuffle = queueState.isShuffle,
+            isRepeat = queueState.isRepeat,
+            isFavorite = playback.song != null && queueState.favoriteIds.contains(playback.song.id),
+            queue = queueState.queue,
+            floatingLyricsEnabled = features.floatingLyrics,
+            playbackDelayCountdown = features.delayCountdown,
+            sleepTimerMinutesLeft = features.timerMinutes,
+            isSleepTimerRunning = features.timerRunning,
+            isFetchingLyrics = features.isFetchingLyrics
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = PlayerUiState()
+    )
 
     // Equalizer UI Binding states
     private val _currentPresetName = MutableStateFlow("Flat")
