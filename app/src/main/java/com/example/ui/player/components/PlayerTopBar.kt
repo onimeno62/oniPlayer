@@ -2,9 +2,8 @@ package com.example.ui.player.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -16,7 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.ui.theme.OniSkin
 
 /**
@@ -61,7 +59,6 @@ fun PlayerTopBar(
                 style = OniSkin.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = OniSkin.colors.textSecondary,
-                letterSpacing = 1.5.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -83,7 +80,7 @@ fun PlayerTopBar(
             modifier = Modifier.testTag("player_queue_button")
         ) {
             Icon(
-                imageVector = Icons.Default.QueueMusic,
+                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                 contentDescription = "Playing queue",
                 tint = OniSkin.colors.textPrimary,
                 modifier = Modifier.size(24.dp)

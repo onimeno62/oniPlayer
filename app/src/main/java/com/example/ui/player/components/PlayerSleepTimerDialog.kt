@@ -1,7 +1,6 @@
 package com.example.ui.player.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TimerOff
@@ -12,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
@@ -35,7 +33,7 @@ fun PlayerSleepTimerDialog(
     Dialog(onDismissRequest = onDismiss) {
         OniSurface(
             variant = OniSurfaceVariant.Elevated,
-            shape = RoundedCornerShape(24.dp),
+            shape = OniSkin.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
@@ -85,7 +83,7 @@ fun PlayerSleepTimerDialog(
 
                             OniSurface(
                                 variant = variant,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = OniSkin.shapes.medium,
                                 onClick = {
                                     onSelectMinutes(mins)
                                     onDismiss()
@@ -118,7 +116,7 @@ fun PlayerSleepTimerDialog(
                             onSelectMinutes(0)
                             onDismiss()
                         },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = OniSkin.shapes.medium,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = OniSkin.colors.error),
                         modifier = Modifier.fillMaxWidth()
                     ) {

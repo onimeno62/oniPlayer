@@ -125,7 +125,7 @@ private fun FeatureActionButton(
 
     OniSurface(
         variant = containerVariant,
-        shape = RoundedCornerShape(14.dp),
+        shape = OniSkin.shapes.medium,
         onClick = onClick,
         modifier = modifier
             .height(52.dp)
@@ -148,7 +148,6 @@ private fun FeatureActionButton(
             Text(
                 text = label,
                 style = OniSkin.typography.caption,
-                fontSize = 10.sp,
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                 color = contentColor,
                 textAlign = TextAlign.Center,

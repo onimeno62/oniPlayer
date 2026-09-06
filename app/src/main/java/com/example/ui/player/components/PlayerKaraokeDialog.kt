@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Subject
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
 import com.example.ui.lyrics.LyricsHelper
 import com.example.ui.components.surface.OniSurface
@@ -65,9 +67,9 @@ fun PlayerKaraokeDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val currentPosition by viewModel.position.collectAsState()
-    val isPlaying by viewModel.isPlaying.collectAsState()
-    val duration by viewModel.duration.collectAsState()
+    val currentPosition by viewModel.position.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
 
     var showManualSearch by remember { mutableStateOf(false) }
     var showLyricsEditor by remember { mutableStateOf(false) }
@@ -96,9 +98,9 @@ fun PlayerKaraokeDialog(
                 mutableStateOf(!LyricsHelper.isSynced(song.lyrics))
             }
 
-            val isMicEnabled by viewModel.karaokeMicEngine.isMicEnabled.collectAsState()
-            val micAmplitude by viewModel.karaokeMicEngine.amplitude.collectAsState()
-            val micGain by viewModel.karaokeMicEngine.micGain.collectAsState()
+            val isMicEnabled by viewModel.karaokeMicEngine.isMicEnabled.collectAsStateWithLifecycle()
+            val micAmplitude by viewModel.karaokeMicEngine.amplitude.collectAsStateWithLifecycle()
+            val micGain by viewModel.karaokeMicEngine.micGain.collectAsStateWithLifecycle()
 
             val hasMicPermission = ContextCompat.checkSelfPermission(
                 context,
@@ -244,7 +246,7 @@ fun PlayerKaraokeDialog(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = Icons.Default.Subject,
+                                        imageVector = Icons.AutoMirrored.Filled.Subject,
                                         contentDescription = null,
                                         tint = if (showPlainTextMode) OniSkin.colors.primary else OniSkin.colors.textSecondary,
                                         modifier = Modifier.size(14.dp)
@@ -285,7 +287,7 @@ fun PlayerKaraokeDialog(
                     )
 
                     KaraokeActionChip(
-                        icon = Icons.Default.SyncAlt,
+                        icon = Icons.Default.Sync,
                         label = "Sync",
                         onClick = { showSyncEditor = true },
                         modifier = Modifier.weight(1f)

@@ -34,7 +34,7 @@ fun PlayerDeleteDialog(
     Dialog(onDismissRequest = onDismiss) {
         OniSurface(
             variant = OniSurfaceVariant.Elevated,
-            shape = RoundedCornerShape(24.dp),
+            shape = OniSkin.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
@@ -107,7 +107,7 @@ fun PlayerDeleteDialog(
                     Button(
                         onClick = { onConfirmDelete(deletePhysicalFile) },
                         colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.error),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = OniSkin.shapes.medium
                     ) {
                         Text("Delete", fontWeight = FontWeight.Bold)
                     }

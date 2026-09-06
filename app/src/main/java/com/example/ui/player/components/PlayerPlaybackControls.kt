@@ -63,7 +63,7 @@ fun PlayerPlaybackControls(
             if (playbackDelayCountdown != null) {
                 OniSurface(
                     variant = OniSurfaceVariant.Soft,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = OniSkin.shapes.medium,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = OniSkin.spacing.xs)
@@ -86,8 +86,7 @@ fun PlayerPlaybackControls(
                             text = "Next track starting in $playbackDelayCountdown s...",
                             style = OniSkin.typography.caption,
                             fontWeight = FontWeight.Bold,
-                            color = OniSkin.colors.primary,
-                            fontSize = 12.sp
+                            color = OniSkin.colors.primary
                         )
                     }
                 }

@@ -8,9 +8,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -90,7 +90,7 @@ fun PlayerQueueSheet(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.QueueMusic,
+                                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                                 contentDescription = null,
                                 tint = OniSkin.colors.primary,
                                 modifier = Modifier.size(22.dp)
@@ -158,7 +158,7 @@ fun PlayerQueueSheet(
 
                                 OniSurface(
                                     variant = containerVariant,
-                                    shape = RoundedCornerShape(14.dp),
+                                    shape = OniSkin.shapes.medium,
                                     onClick = { onPlaySong(song) },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -172,7 +172,7 @@ fun PlayerQueueSheet(
                                             artworkUri = song.albumArtUri,
                                             contentDescription = song.title,
                                             size = 44.dp,
-                                            shape = RoundedCornerShape(8.dp)
+                                            shape = OniSkin.shapes.small
                                         )
 
                                         Spacer(modifier = Modifier.width(12.dp))

@@ -232,7 +232,7 @@ fun PlayerContent(
                     Button(
                         onClick = onNavigateBack,
                         colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = OniSkin.shapes.medium
                     ) {
                         Text(
                             text = "Go to Library",
@@ -265,8 +265,7 @@ fun PlayerContent(
                 PlayerArtwork(
                     song = song,
                     isPlaying = uiState.isPlaying,
-                    onClick = onTogglePlayPause,
-                    modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal)
+                    onClick = onTogglePlayPause
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -277,8 +276,7 @@ fun PlayerContent(
                     artist = song.displayArtist,
                     album = song.displayAlbum,
                     isFavorite = uiState.isFavorite,
-                    onToggleFavorite = onToggleFavorite,
-                    modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal)
+                    onToggleFavorite = onToggleFavorite
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -296,8 +294,7 @@ fun PlayerContent(
                 PlayerProgress(
                     positionMs = uiState.position,
                     durationMs = uiState.duration,
-                    onSeek = onSeek,
-                    modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal)
+                    onSeek = onSeek
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -308,6 +305,7 @@ fun PlayerContent(
                     isPreparing = uiState.isPreparing,
                     isShuffle = uiState.isShuffle,
                     isRepeat = uiState.isRepeat,
+                    playbackDelayCountdown = uiState.playbackDelayCountdown,
                     onTogglePlayPause = onTogglePlayPause,
                     onSkipNext = onSkipNext,
                     onSkipPrevious = onSkipPrevious,

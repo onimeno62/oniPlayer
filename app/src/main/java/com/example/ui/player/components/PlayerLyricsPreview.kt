@@ -33,7 +33,7 @@ fun PlayerLyricsPreview(
 ) {
     OniSurface(
         variant = OniSurfaceVariant.Soft,
-        shape = RoundedCornerShape(16.dp),
+        shape = OniSkin.shapes.medium,
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()

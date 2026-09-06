@@ -65,6 +65,30 @@ class PlayerUiStateTest {
         assertFalse(stateWithoutLyrics.hasSynchronizedLyrics)
     }
 
+    @Test
+    fun playerUiState_handlesQueueAndPlaybackFeatures() {
+        val song1 = createSampleSong(id = "1", title = "Song 1")
+        val song2 = createSampleSong(id = "2", title = "Song 2")
+        val state = PlayerUiState(
+            currentSong = song1,
+            isPlaying = true,
+            isFavorite = true,
+            queue = listOf(song1, song2),
+            playbackDelayCountdown = 3,
+            sleepTimerMinutesLeft = 25,
+            isSleepTimerRunning = true,
+            floatingLyricsEnabled = true
+        )
+
+        assertTrue(state.isPlaying)
+        assertTrue(state.isFavorite)
+        assertEquals(2, state.queue.size)
+        assertEquals(Integer.valueOf(3), state.playbackDelayCountdown)
+        assertEquals(25, state.sleepTimerMinutesLeft)
+        assertTrue(state.isSleepTimerRunning)
+        assertTrue(state.floatingLyricsEnabled)
+    }
+
     private fun createSampleSong(
         id: String = "1",
         title: String = "Test Song",
