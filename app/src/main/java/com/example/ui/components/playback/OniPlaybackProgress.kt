@@ -56,7 +56,7 @@ fun OniPlaybackProgress(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 contentDescription = "Playback progress: ${formatTime(displayedPositionMs)} of ${formatTime(durationMs)}"
             }
     ) {
@@ -81,7 +81,7 @@ fun OniPlaybackProgress(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(36.dp)
+                .defaultMinSize(minHeight = 48.dp)
         )
 
         if (showTimeLabels) {

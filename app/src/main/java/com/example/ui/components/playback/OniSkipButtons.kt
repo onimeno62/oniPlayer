@@ -78,7 +78,7 @@ private fun OniSkipButton(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = effectiveTint,
             modifier = Modifier.size(iconSize)
         )

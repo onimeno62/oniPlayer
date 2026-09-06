@@ -46,7 +46,7 @@ fun PlayerTrackInfo(
                 style = OniSkin.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = OniSkin.colors.textPrimary,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
 

@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,6 +70,7 @@ fun PlayerQueueSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(top = 12.dp)
                 ) {
                     // Drag handle
@@ -112,8 +115,7 @@ fun PlayerQueueSheet(
                         }
 
                         IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(36.dp)
+                            onClick = onDismiss
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -161,7 +163,11 @@ fun PlayerQueueSheet(
                                     variant = containerVariant,
                                     shape = OniSkin.shapes.medium,
                                     onClick = { onPlaySong(song) },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .semantics {
+                                            selected = isCurrent
+                                        }
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -171,7 +177,7 @@ fun PlayerQueueSheet(
                                     ) {
                                         OniArtwork(
                                             artworkUri = song.albumArtUri,
-                                            contentDescription = song.title,
+                                            contentDescription = null,
                                             size = 44.dp,
                                             shape = OniSkin.shapes.small
                                         )

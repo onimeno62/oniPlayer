@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -84,13 +85,14 @@ fun OniFavoriteAction(
             )
             .semantics {
                 role = Role.Button
+                selected = isFavorite
                 contentDescription = description
             },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            contentDescription = description,
+            contentDescription = null,
             tint = tint,
             modifier = Modifier.size(iconSize)
         )
@@ -143,7 +145,7 @@ fun OniOverflowAction(
     ) {
         Icon(
             imageVector = Icons.Filled.MoreVert,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = if (enabled) tint else OniSkin.colors.disabled,
             modifier = Modifier.size(iconSize)
         )

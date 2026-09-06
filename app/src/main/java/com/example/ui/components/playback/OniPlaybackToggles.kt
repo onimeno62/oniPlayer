@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,6 +76,7 @@ fun OniShuffleButton(
 
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .size(size)
             .graphicsLayer {
                 scaleX = scale
@@ -97,7 +99,7 @@ fun OniShuffleButton(
     ) {
         Icon(
             imageVector = Icons.Default.Shuffle,
-            contentDescription = description,
+            contentDescription = null,
             tint = tint,
             modifier = Modifier.size(iconSize)
         )
@@ -145,6 +147,7 @@ fun OniRepeatButton(
 
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .size(size)
             .graphicsLayer {
                 scaleX = scale
@@ -167,7 +170,7 @@ fun OniRepeatButton(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = description,
+            contentDescription = null,
             tint = tint,
             modifier = Modifier.size(iconSize)
         )

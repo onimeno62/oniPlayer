@@ -177,12 +177,21 @@ fun PlayerContent(
             .testTag("player_screen")
             .pointerInput(isRtl) {
                 // Horizontal swipe gesture to skip tracks with RTL support
-                detectHorizontalDragGestures { _, dragAmount ->
-                    if (dragAmount.absoluteValue > 50f) {
-                        val isForward = if (isRtl) dragAmount > 0 else dragAmount < 0
-                        if (isForward) onSkipNext() else onSkipPrevious()
+                var accumulatedDrag = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { accumulatedDrag = 0f },
+                    onDragEnd = {
+                        if (accumulatedDrag.absoluteValue > 80f) {
+                            val isForward = if (isRtl) accumulatedDrag > 0 else accumulatedDrag < 0
+                            if (isForward) onSkipNext() else onSkipPrevious()
+                        }
+                        accumulatedDrag = 0f
+                    },
+                    onDragCancel = { accumulatedDrag = 0f },
+                    onHorizontalDrag = { _, dragAmount ->
+                        accumulatedDrag += dragAmount
                     }
-                }
+                )
             }
     ) {
         if (song == null) {
@@ -271,7 +280,7 @@ fun PlayerContent(
                     val lyricsSpacer = if (isCompactHeight) 6.dp else 12.dp
                     val progressSpacer = if (isCompactHeight) 6.dp else 10.dp
                     val controlsSpacer = if (isCompactHeight) 8.dp else 14.dp
-                    val featureBtnHeight = if (isCompactHeight) 44.dp else 48.dp
+                    val featureBtnHeight = 48.dp
 
                     Column(
                         modifier = Modifier
@@ -413,10 +422,12 @@ fun PlayerContent(
                             }
 
                             // Right Pane: Track Info, Progress, Playback Controls, Feature Actions
+                            val rightPaneScrollState = rememberScrollState()
                             Column(
                                 modifier = Modifier
                                     .weight(0.58f)
-                                    .fillMaxHeight(),
+                                    .fillMaxHeight()
+                                    .verticalScroll(rightPaneScrollState),
                                 verticalArrangement = Arrangement.SpaceEvenly,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
@@ -460,7 +471,7 @@ fun PlayerContent(
                                     onEditTagsClick = onOpenTagEditor,
                                     onDeleteClick = onDeleteClick,
                                     horizontalPadding = 0.dp,
-                                    buttonHeight = 44.dp
+                                    buttonHeight = 48.dp
                                 )
                             }
                         }

@@ -1,7 +1,7 @@
 package com.example.ui.player.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -75,13 +76,18 @@ fun PlayerDeleteDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { deletePhysicalFile = !deletePhysicalFile }
+                        .heightIn(min = 48.dp)
+                        .toggleable(
+                            value = deletePhysicalFile,
+                            role = Role.Checkbox,
+                            onValueChange = { deletePhysicalFile = it }
+                        )
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
                         checked = deletePhysicalFile,
-                        onCheckedChange = { deletePhysicalFile = it },
+                        onCheckedChange = null,
                         colors = CheckboxDefaults.colors(checkedColor = OniSkin.colors.error)
                     )
                     Spacer(modifier = Modifier.width(8.dp))

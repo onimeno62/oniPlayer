@@ -43,6 +43,7 @@ fun PlayerLyricsPreview(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
             .padding(horizontal = horizontalPadding)
             .testTag("player_lyrics_preview")
     ) {

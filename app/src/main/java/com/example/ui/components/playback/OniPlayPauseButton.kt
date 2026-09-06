@@ -62,7 +62,11 @@ fun OniPlayPauseButton(
 
     val effectiveContainerColor = if (enabled) containerColor else OniSkin.colors.disabled.copy(alpha = 0.5f)
     val effectiveContentColor = if (enabled) contentColor else OniSkin.colors.textSecondary.copy(alpha = 0.6f)
-    val description = if (isPlaying) "Pause" else "Play"
+    val description = when {
+        loading -> "Loading playback"
+        isPlaying -> "Pause"
+        else -> "Play"
+    }
 
     Box(
         modifier = modifier
@@ -104,7 +108,7 @@ fun OniPlayPauseButton(
             ) { playing ->
                 Icon(
                     imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = description,
+                    contentDescription = null,
                     tint = effectiveContentColor,
                     modifier = Modifier.size(iconSize)
                 )
