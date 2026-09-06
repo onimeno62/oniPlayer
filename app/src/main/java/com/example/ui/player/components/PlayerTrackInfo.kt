@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.music.OniFavoriteAction
 import com.example.ui.theme.OniSkin
@@ -25,12 +26,13 @@ fun PlayerTrackInfo(
     album: String?,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = OniSkin.spacing.screenHorizontal),
+            .padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

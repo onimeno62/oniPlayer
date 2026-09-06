@@ -14,9 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
@@ -165,18 +167,20 @@ fun PlayerContent(
 ) {
     val song = uiState.currentSong
     val scrollState = rememberScrollState()
+    val layoutDirection = LocalLayoutDirection.current
+    val isRtl = layoutDirection == LayoutDirection.Rtl
 
     Surface(
         color = OniSkin.colors.background,
         modifier = modifier
             .fillMaxSize()
             .testTag("player_screen")
-            .pointerInput(Unit) {
-                // Horizontal swipe gesture to skip tracks
+            .pointerInput(isRtl) {
+                // Horizontal swipe gesture to skip tracks with RTL support
                 detectHorizontalDragGestures { _, dragAmount ->
                     if (dragAmount.absoluteValue > 50f) {
-                        if (dragAmount < -50f) onSkipNext()
-                        else onSkipPrevious()
+                        val isForward = if (isRtl) dragAmount > 0 else dragAmount < 0
+                        if (isForward) onSkipNext() else onSkipPrevious()
                     }
                 }
             }
@@ -243,89 +247,225 @@ fun PlayerContent(
                 }
             }
         } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .verticalScroll(scrollState)
-                    .padding(bottom = OniSkin.spacing.screenVertical),
-                horizontalAlignment = Alignment.CenterHorizontally
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize()
             ) {
-                // 1. Top Bar
-                PlayerTopBar(
-                    title = "NOW PLAYING",
-                    subtitle = song.displayAlbum,
-                    onNavigateBack = onNavigateBack,
-                    onQueueClick = onOpenQueue
-                )
+                val isLandscape = maxWidth > maxHeight && maxWidth >= 540.dp
+                val availableHeight = maxHeight
+                val availableWidth = maxWidth
 
-                Spacer(modifier = Modifier.height(8.dp))
+                if (!isLandscape) {
+                    // Portrait Layout: Responsive vertical spacing & artwork constraint
+                    val isCompactHeight = availableHeight < 720.dp
+                    val isSmallScreen = availableHeight < 640.dp
 
-                // 2. Large Album Artwork
-                PlayerArtwork(
-                    song = song,
-                    isPlaying = uiState.isPlaying,
-                    onClick = onTogglePlayPause
-                )
+                    val artworkMaxSize = when {
+                        isSmallScreen -> (availableHeight * 0.33f).coerceIn(160.dp, 240.dp)
+                        isCompactHeight -> (availableHeight * 0.37f).coerceIn(200.dp, 290.dp)
+                        else -> minOf(availableWidth - (OniSkin.spacing.screenHorizontal * 2), 350.dp)
+                    }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    val topSpacer = if (isCompactHeight) 4.dp else 8.dp
+                    val artSpacer = if (isCompactHeight) 8.dp else 14.dp
+                    val infoSpacer = if (isCompactHeight) 6.dp else 12.dp
+                    val lyricsSpacer = if (isCompactHeight) 6.dp else 12.dp
+                    val progressSpacer = if (isCompactHeight) 6.dp else 10.dp
+                    val controlsSpacer = if (isCompactHeight) 8.dp else 14.dp
+                    val featureBtnHeight = if (isCompactHeight) 44.dp else 48.dp
 
-                // 3. Track Title, Artist, and Favorite Toggle
-                PlayerTrackInfo(
-                    title = song.displayTitle,
-                    artist = song.displayArtist,
-                    album = song.displayAlbum,
-                    isFavorite = uiState.isFavorite,
-                    onToggleFavorite = onToggleFavorite
-                )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .verticalScroll(scrollState)
+                            .padding(bottom = if (isCompactHeight) 8.dp else OniSkin.spacing.screenVertical),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // 1. Top Bar
+                        PlayerTopBar(
+                            title = "NOW PLAYING",
+                            subtitle = song.displayAlbum,
+                            onNavigateBack = onNavigateBack,
+                            onQueueClick = onOpenQueue
+                        )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(topSpacer))
 
-                // 4. Inline Lyrics / Karaoke Preview prompt
-                PlayerLyricsPreview(
-                    currentLyricLine = currentLyricLine,
-                    hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
-                    onClick = onOpenKaraoke
-                )
+                        // 2. Responsive Album Artwork with subtle playback motion
+                        PlayerArtwork(
+                            song = song,
+                            isPlaying = uiState.isPlaying,
+                            maxSize = artworkMaxSize,
+                            onClick = onTogglePlayPause
+                        )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(artSpacer))
 
-                // 5. Seekable Progress Bar & Timestamps
-                PlayerProgress(
-                    positionMs = uiState.position,
-                    durationMs = uiState.duration,
-                    onSeek = onSeek
-                )
+                        // 3. Track Title, Artist, and Favorite Toggle
+                        PlayerTrackInfo(
+                            title = song.displayTitle,
+                            artist = song.displayArtist,
+                            album = song.displayAlbum,
+                            isFavorite = uiState.isFavorite,
+                            onToggleFavorite = onToggleFavorite
+                        )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(infoSpacer))
 
-                // 6. Playback Controls (Shuffle, Prev, Play/Pause, Next, Repeat)
-                PlayerPlaybackControls(
-                    isPlaying = uiState.isPlaying,
-                    isPreparing = uiState.isPreparing,
-                    isShuffle = uiState.isShuffle,
-                    isRepeat = uiState.isRepeat,
-                    playbackDelayCountdown = uiState.playbackDelayCountdown,
-                    onTogglePlayPause = onTogglePlayPause,
-                    onSkipNext = onSkipNext,
-                    onSkipPrevious = onSkipPrevious,
-                    onToggleShuffle = onToggleShuffle,
-                    onToggleRepeat = onToggleRepeat
-                )
+                        // 4. Inline Lyrics / Karaoke Preview prompt
+                        PlayerLyricsPreview(
+                            currentLyricLine = currentLyricLine,
+                            hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
+                            onClick = onOpenKaraoke
+                        )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(lyricsSpacer))
 
-                // 7. Feature Actions Dock (Lyrics, Floating, Sleep Timer, Tag Editor, Delete)
-                PlayerFeatureActions(
-                    onLyricsClick = onOpenKaraoke,
-                    floatingLyricsEnabled = uiState.floatingLyricsEnabled,
-                    onToggleFloatingLyrics = onToggleFloatingLyrics,
-                    isSleepTimerRunning = uiState.isSleepTimerRunning,
-                    sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
-                    onSleepTimerClick = onOpenSleepTimer,
-                    onEditTagsClick = onOpenTagEditor,
-                    onDeleteClick = onDeleteClick
-                )
+                        // 5. Seekable Progress Bar & Timestamps
+                        PlayerProgress(
+                            positionMs = uiState.position,
+                            durationMs = uiState.duration,
+                            onSeek = onSeek
+                        )
+
+                        Spacer(modifier = Modifier.height(progressSpacer))
+
+                        // 6. Playback Controls (Shuffle, Prev, Play/Pause, Next, Repeat)
+                        PlayerPlaybackControls(
+                            isPlaying = uiState.isPlaying,
+                            isPreparing = uiState.isPreparing,
+                            isShuffle = uiState.isShuffle,
+                            isRepeat = uiState.isRepeat,
+                            playbackDelayCountdown = uiState.playbackDelayCountdown,
+                            onTogglePlayPause = onTogglePlayPause,
+                            onSkipNext = onSkipNext,
+                            onSkipPrevious = onSkipPrevious,
+                            onToggleShuffle = onToggleShuffle,
+                            onToggleRepeat = onToggleRepeat
+                        )
+
+                        Spacer(modifier = Modifier.height(controlsSpacer))
+
+                        // 7. Feature Actions Dock (Lyrics, Floating, Sleep Timer, Tag Editor, Delete)
+                        PlayerFeatureActions(
+                            onLyricsClick = onOpenKaraoke,
+                            floatingLyricsEnabled = uiState.floatingLyricsEnabled,
+                            onToggleFloatingLyrics = onToggleFloatingLyrics,
+                            isSleepTimerRunning = uiState.isSleepTimerRunning,
+                            sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
+                            onSleepTimerClick = onOpenSleepTimer,
+                            onEditTagsClick = onOpenTagEditor,
+                            onDeleteClick = onDeleteClick,
+                            buttonHeight = featureBtnHeight
+                        )
+                    }
+                } else {
+                    // Landscape Responsive Layout (Two-Pane)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = 4.dp)
+                    ) {
+                        PlayerTopBar(
+                            title = "NOW PLAYING",
+                            subtitle = song.displayAlbum,
+                            onNavigateBack = onNavigateBack,
+                            onQueueClick = onOpenQueue
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left Pane: Artwork + optional Lyrics Preview
+                            Column(
+                                modifier = Modifier
+                                    .weight(0.42f)
+                                    .fillMaxHeight(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                val landscapeArtMax = (availableHeight - 120.dp).coerceIn(140.dp, 280.dp)
+                                PlayerArtwork(
+                                    song = song,
+                                    isPlaying = uiState.isPlaying,
+                                    maxSize = landscapeArtMax,
+                                    horizontalPadding = 0.dp,
+                                    onClick = onTogglePlayPause
+                                )
+
+                                if (availableHeight >= 360.dp) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    PlayerLyricsPreview(
+                                        currentLyricLine = currentLyricLine,
+                                        hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
+                                        onClick = onOpenKaraoke,
+                                        horizontalPadding = 0.dp
+                                    )
+                                }
+                            }
+
+                            // Right Pane: Track Info, Progress, Playback Controls, Feature Actions
+                            Column(
+                                modifier = Modifier
+                                    .weight(0.58f)
+                                    .fillMaxHeight(),
+                                verticalArrangement = Arrangement.SpaceEvenly,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                PlayerTrackInfo(
+                                    title = song.displayTitle,
+                                    artist = song.displayArtist,
+                                    album = song.displayAlbum,
+                                    isFavorite = uiState.isFavorite,
+                                    onToggleFavorite = onToggleFavorite,
+                                    horizontalPadding = 0.dp
+                                )
+
+                                PlayerProgress(
+                                    positionMs = uiState.position,
+                                    durationMs = uiState.duration,
+                                    onSeek = onSeek,
+                                    horizontalPadding = 0.dp
+                                )
+
+                                PlayerPlaybackControls(
+                                    isPlaying = uiState.isPlaying,
+                                    isPreparing = uiState.isPreparing,
+                                    isShuffle = uiState.isShuffle,
+                                    isRepeat = uiState.isRepeat,
+                                    playbackDelayCountdown = uiState.playbackDelayCountdown,
+                                    onTogglePlayPause = onTogglePlayPause,
+                                    onSkipNext = onSkipNext,
+                                    onSkipPrevious = onSkipPrevious,
+                                    onToggleShuffle = onToggleShuffle,
+                                    onToggleRepeat = onToggleRepeat,
+                                    horizontalPadding = 0.dp
+                                )
+
+                                PlayerFeatureActions(
+                                    onLyricsClick = onOpenKaraoke,
+                                    floatingLyricsEnabled = uiState.floatingLyricsEnabled,
+                                    onToggleFloatingLyrics = onToggleFloatingLyrics,
+                                    isSleepTimerRunning = uiState.isSleepTimerRunning,
+                                    sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
+                                    onSleepTimerClick = onOpenSleepTimer,
+                                    onEditTagsClick = onOpenTagEditor,
+                                    onDeleteClick = onDeleteClick,
+                                    horizontalPadding = 0.dp,
+                                    buttonHeight = 44.dp
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

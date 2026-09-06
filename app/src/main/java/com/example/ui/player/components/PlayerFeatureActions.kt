@@ -47,12 +47,14 @@ fun PlayerFeatureActions(
     onSleepTimerClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    horizontalPadding: androidx.compose.ui.unit.Dp = OniSkin.spacing.screenHorizontal,
+    buttonHeight: androidx.compose.ui.unit.Dp = 48.dp
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = OniSkin.spacing.screenHorizontal),
+            .padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -62,6 +64,7 @@ fun PlayerFeatureActions(
             isActive = false,
             onClick = onLyricsClick,
             testTag = "player_lyrics_button",
+            height = buttonHeight,
             modifier = Modifier.weight(1f)
         )
 
@@ -73,6 +76,7 @@ fun PlayerFeatureActions(
             isActive = floatingLyricsEnabled,
             onClick = onToggleFloatingLyrics,
             testTag = "player_floating_lyrics_button",
+            height = buttonHeight,
             modifier = Modifier.weight(1f)
         )
 
@@ -84,6 +88,7 @@ fun PlayerFeatureActions(
             isActive = isSleepTimerRunning,
             onClick = onSleepTimerClick,
             testTag = "player_sleep_timer_button",
+            height = buttonHeight,
             modifier = Modifier.weight(1f)
         )
 
@@ -95,6 +100,7 @@ fun PlayerFeatureActions(
             isActive = false,
             onClick = onEditTagsClick,
             testTag = "player_edit_tags_button",
+            height = buttonHeight,
             modifier = Modifier.weight(1f)
         )
 
@@ -106,6 +112,7 @@ fun PlayerFeatureActions(
             isActive = false,
             onClick = onDeleteClick,
             testTag = "player_delete_track_button",
+            height = buttonHeight,
             modifier = Modifier.weight(1f)
         )
     }
@@ -118,6 +125,7 @@ private fun FeatureActionButton(
     isActive: Boolean,
     onClick: () -> Unit,
     testTag: String,
+    height: androidx.compose.ui.unit.Dp = 48.dp,
     modifier: Modifier = Modifier
 ) {
     val containerVariant = if (isActive) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft
@@ -128,7 +136,7 @@ private fun FeatureActionButton(
         shape = OniSkin.shapes.medium,
         onClick = onClick,
         modifier = modifier
-            .height(52.dp)
+            .height(height)
             .testTag(testTag)
     ) {
         Column(

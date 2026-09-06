@@ -1,7 +1,11 @@
 package com.example.ui.player.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material3.Icon
@@ -13,8 +17,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
@@ -23,13 +27,15 @@ import com.example.ui.theme.OniSkin
  * Clean inline lyrics preview or prompt banner for the Player screen in Default Skin.
  *
  * Tapping triggers full-screen synchronized lyrics / karaoke mode.
+ * Features smooth subtle text crossfade when synced lyrics advance.
  */
 @Composable
 fun PlayerLyricsPreview(
     currentLyricLine: String?,
     hasSynchronizedLyrics: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal
 ) {
     OniSurface(
         variant = OniSurfaceVariant.Soft,
@@ -37,7 +43,7 @@ fun PlayerLyricsPreview(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = OniSkin.spacing.screenHorizontal)
+            .padding(horizontal = horizontalPadding)
             .testTag("player_lyrics_preview")
     ) {
         Row(
@@ -62,16 +68,27 @@ fun PlayerLyricsPreview(
                 else -> "Lyrics & Karaoke · Tap to view or search"
             }
 
-            Text(
-                text = displayText,
-                style = OniSkin.typography.bodySmall,
-                fontWeight = if (!currentLyricLine.isNullOrBlank()) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (!currentLyricLine.isNullOrBlank()) OniSkin.colors.textPrimary else OniSkin.colors.textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Start
-            )
+            val fadeDuration = OniSkin.motion.componentStateDurationMs
+
+            AnimatedContent(
+                targetState = displayText,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(durationMillis = fadeDuration)) togetherWith
+                        fadeOut(animationSpec = tween(durationMillis = fadeDuration))
+                },
+                label = "lyrics_preview_text_transition",
+                modifier = Modifier.weight(1f)
+            ) { targetText ->
+                Text(
+                    text = targetText,
+                    style = OniSkin.typography.bodySmall,
+                    fontWeight = if (!currentLyricLine.isNullOrBlank()) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (!currentLyricLine.isNullOrBlank()) OniSkin.colors.textPrimary else OniSkin.colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Start
+                )
+            }
         }
     }
 }

@@ -46,12 +46,13 @@ fun PlayerPlaybackControls(
     onToggleRepeat: () -> Unit,
     modifier: Modifier = Modifier,
     playbackDelayCountdown: Int? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    horizontalPadding: androidx.compose.ui.unit.Dp = OniSkin.spacing.screenHorizontal
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = OniSkin.spacing.screenHorizontal),
+            .padding(horizontal = horizontalPadding),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Playback delay countdown banner (e.g., crossfade/gap countdown)

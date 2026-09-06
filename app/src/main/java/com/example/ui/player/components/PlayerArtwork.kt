@@ -1,17 +1,23 @@
 package com.example.ui.player.components
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.data.entity.SongEntity
 import com.example.ui.components.music.OniArtwork
@@ -25,14 +31,16 @@ import com.example.ui.theme.OniSkin
  * Uses the shared [OniArtwork] component for consistent artwork rendering,
  * caching, and placeholder display across the application.
  *
- * Consumes [OniSkin.artwork], [OniSkin.shapes], and [OniSkin.colors] tokens.
- * Replaces the legacy Aurora Glass breathing/drifting vinyl presentation.
+ * Responsive dimension constraints and subtle, calm motion tied to playback state.
+ * Consumes [OniSkin.artwork], [OniSkin.shapes], [OniSkin.motion], and [OniSkin.colors] tokens.
  */
 @Composable
 fun PlayerArtwork(
     song: SongEntity?,
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
+    maxSize: Dp? = null,
+    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
     onClick: (() -> Unit)? = null
 ) {
     val formatBadge = song?.let { s ->
@@ -51,10 +59,30 @@ fun PlayerArtwork(
 
     val artworkShape = OniSkin.artwork.shape
 
+    // Subtle, calm motion tied to playback state (Phase 5 Motion Specification)
+    // Full scale (1.0) when playing, gently settling to 0.95f when paused.
+    val artworkScale by animateFloatAsState(
+        targetValue = if (isPlaying) 1.0f else 0.95f,
+        animationSpec = tween(
+            durationMillis = OniSkin.motion.artworkTransitionDurationMs,
+            easing = OniSkin.motion.standardEasing
+        ),
+        label = "artwork_playback_scale"
+    )
+
+    val shadowElevation by animateDpAsState(
+        targetValue = if (isPlaying) OniSkin.artwork.shadowElevation else 1.dp,
+        animationSpec = tween(
+            durationMillis = OniSkin.motion.artworkTransitionDurationMs,
+            easing = OniSkin.motion.standardEasing
+        ),
+        label = "artwork_shadow_elevation"
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = OniSkin.spacing.screenHorizontal),
+            .padding(horizontal = horizontalPadding),
         contentAlignment = Alignment.Center
     ) {
         val clickModifier = if (onClick != null) {
@@ -68,10 +96,22 @@ fun PlayerArtwork(
             Modifier
         }
 
-        Box(
-            modifier = Modifier
+        val dimensionModifier = if (maxSize != null) {
+            Modifier
+                .sizeIn(maxWidth = maxSize, maxHeight = maxSize)
+                .aspectRatio(1f)
+        } else {
+            Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
+        }
+
+        Box(
+            modifier = dimensionModifier
+                .graphicsLayer {
+                    scaleX = artworkScale
+                    scaleY = artworkScale
+                }
                 .clip(artworkShape)
                 .then(clickModifier),
             contentAlignment = Alignment.Center
@@ -80,7 +120,7 @@ fun PlayerArtwork(
                 artworkUri = song?.albumArtUri,
                 contentDescription = song?.title?.let { "Album art for $it" } ?: "Album artwork",
                 shape = artworkShape,
-                elevation = OniSkin.artwork.shadowElevation,
+                elevation = shadowElevation,
                 modifier = Modifier.fillMaxSize()
             )
 

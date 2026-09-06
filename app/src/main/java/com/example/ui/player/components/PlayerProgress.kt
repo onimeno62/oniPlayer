@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import com.example.ui.components.playback.OniPlaybackProgress
 import com.example.ui.theme.OniSkin
 
@@ -21,12 +22,13 @@ fun PlayerProgress(
     durationMs: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = OniSkin.spacing.screenHorizontal)
+            .padding(horizontal = horizontalPadding)
             .testTag("player_progress_bar")
     ) {
         OniPlaybackProgress(

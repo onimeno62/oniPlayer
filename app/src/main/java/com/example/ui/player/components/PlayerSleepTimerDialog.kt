@@ -36,6 +36,7 @@ fun PlayerSleepTimerDialog(
             shape = OniSkin.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
+                .widthIn(max = 440.dp)
                 .padding(16.dp)
                 .testTag("player_sleep_timer_dialog")
         ) {

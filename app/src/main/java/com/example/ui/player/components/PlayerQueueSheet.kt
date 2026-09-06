@@ -57,10 +57,11 @@ fun PlayerQueueSheet(
         ) {
             OniSurface(
                 variant = OniSurfaceVariant.Elevated,
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.72f)
+                    .widthIn(max = 600.dp)
+                    .fillMaxHeight(0.75f)
                     .clickable(enabled = false) {}
                     .testTag("player_queue_sheet")
             ) {
@@ -75,7 +76,7 @@ fun PlayerQueueSheet(
                             .align(Alignment.CenterHorizontally)
                             .size(width = 36.dp, height = 4.dp)
                             .clip(CircleShape)
-                            .background(OniSkin.colors.outline.copy(alpha = 0.4f))
+                            .background(OniSkin.colors.outline.copy(alpha = 0.5f))
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
