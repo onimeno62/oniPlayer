@@ -23,12 +23,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.data.entity.SongEntity
+import com.example.ui.components.music.OniArtwork
 import com.example.ui.library.components.SongRow
-import com.example.ui.library.components.glassCard
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.screens.dashboardRadiusMedium
 import com.example.ui.screens.formatDuration
 import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.OniSkin
 
 @Composable
 fun AlbumDetailScreen(
@@ -61,32 +62,13 @@ fun AlbumDetailScreen(
                 .padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Album Artwork with Glass Card treatment
-            Box(
-                modifier = Modifier
-                    .size(110.dp)
-                    .glassCard(shape = RoundedCornerShape(dashboardRadiusMedium()))
-                    .padding(8.dp)
-                    .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                    .background(LocalAccentColor.current.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (album.artworkUri != null) {
-                    AsyncImage(
-                        model = album.artworkUri,
-                        contentDescription = "Cover art for ${album.title}",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Album,
-                        contentDescription = null,
-                        tint = LocalAccentColor.current.copy(alpha = 0.7f),
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
-            }
+            // Album Artwork using Default Skin OniArtwork
+            OniArtwork(
+                artworkUri = album.artworkUri,
+                size = 110.dp,
+                shape = OniSkin.artwork.shape,
+                contentDescription = "Cover art for ${album.title}"
+            )
 
             Spacer(modifier = Modifier.width(16.dp))
 

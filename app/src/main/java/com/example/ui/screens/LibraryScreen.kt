@@ -49,6 +49,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -70,6 +74,8 @@ import com.example.ui.library.AlbumsScreen
 import com.example.ui.library.ArtistsScreen
 import com.example.ui.library.AlbumDetailScreen
 import com.example.ui.library.ArtistDetailScreen
+import com.example.ui.library.components.HorizontalSongCard
+import com.example.ui.library.components.LibraryStatsStrip
 import com.example.ui.library.model.toAlbumUiModels
 import com.example.ui.library.model.toArtistUiModels
 import java.io.File
@@ -761,6 +767,10 @@ fun CategoryCard(
                 .fillMaxWidth()
                 .height(130.dp)
                 .defaultMinSize(minHeight = 48.dp)
+                .semantics(mergeDescendants = true) {
+                    role = Role.Button
+                    contentDescription = "${category.title}, ${category.countText}"
+                }
                 .clickable { onClick() },
             variant = OniSurfaceVariant.Soft,
             shape = OniSkin.shapes.card
@@ -810,6 +820,10 @@ fun CategoryCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 48.dp)
+                .semantics(mergeDescendants = true) {
+                    role = Role.Button
+                    contentDescription = "${category.title}, ${category.countText}"
+                }
                 .clickable { onClick() },
             variant = OniSurfaceVariant.Soft,
             shape = OniSkin.shapes.card
@@ -853,7 +867,7 @@ fun CategoryCard(
                 }
 
                 Icon(
-                    Icons.Default.ChevronRight,
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = OniSkin.colors.textTertiary
                 )
@@ -2227,27 +2241,6 @@ fun ContinueListeningHero(
 }
 
 @Composable
-fun LibraryStatsStrip(
-    songCount: Int,
-    artistCount: Int,
-    albumCount: Int,
-    favoriteCount: Int
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = OniSkin.spacing.screenHorizontal),
-        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
-    ) {
-        StatChip(icon = Icons.Default.MusicNote, value = songCount.toString(), label = "Songs", tint = OniSkin.colors.primary)
-        StatChip(icon = Icons.Default.Person, value = artistCount.toString(), label = "Artists", tint = OniSkin.colors.accentSecondary)
-        StatChip(icon = Icons.Default.Album, value = albumCount.toString(), label = "Albums", tint = OniSkin.colors.primary)
-        StatChip(icon = Icons.Filled.Favorite, value = favoriteCount.toString(), label = "Favorites", tint = OniSkin.colors.accentSecondary)
-    }
-}
-
-@Composable
 fun StatChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     value: String,
@@ -2314,41 +2307,6 @@ fun HorizontalSongRow(
                 HorizontalSongCard(song = song, onClick = { onSongClick(song) })
             }
         }
-    }
-}
-
-@Composable
-fun HorizontalSongCard(
-    song: SongEntity,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .width(120.dp)
-            .clickable(onClick = onClick)
-    ) {
-        OniArtwork(
-            artworkUri = song.albumArtUri,
-            size = 120.dp,
-            shape = OniSkin.artwork.shape,
-            contentDescription = "Cover art"
-        )
-        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
-        Text(
-            text = song.customTitle ?: song.title,
-            style = OniSkin.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = OniSkin.colors.textPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = song.customArtist ?: song.artist,
-            style = OniSkin.typography.bodySmall,
-            color = OniSkin.colors.textSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 

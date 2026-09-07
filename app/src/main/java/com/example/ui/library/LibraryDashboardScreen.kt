@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
@@ -26,6 +27,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -106,7 +111,7 @@ fun LibraryDashboardScreen(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 96.dp)
     ) {
-        // 1. Top bar / greeting — restyled with LibrarySpacing tokens
+        // 1. Top bar / greeting — styled with OniSkin.spacing tokens
         item(key = "dashboard_header") {
             Row(
                 modifier = Modifier
@@ -222,14 +227,12 @@ fun LibraryDashboardScreen(
             item(key = "search_header") {
                 Text(
                     text = "Found ${sortedSongs.size} tracks",
-                    fontSize = 13.sp,
+                    style = OniSkin.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = OniSkin.colors.primary,
                     modifier = Modifier.padding(
-                        start = LibrarySpacing.lg,
-                        end = LibrarySpacing.lg,
-                        top = LibrarySpacing.sm,
-                        bottom = LibrarySpacing.sm
+                        horizontal = OniSkin.spacing.screenHorizontal,
+                        vertical = OniSkin.spacing.xs
                     )
                 )
             }
@@ -244,15 +247,13 @@ fun LibraryDashboardScreen(
                 }
             } else {
                 items(sortedSongs, key = { "search_${it.id}" }) { song ->
-                    Box(modifier = Modifier.padding(horizontal = LibrarySpacing.md)) {
-                        SongRow(
-                            song = song,
-                            isCurrent = song.id == currentSong?.id,
-                            isPlaying = isPlaying,
-                            onClick = { onPlaySong(song, sortedSongs) },
-                            onShowMenu = { onShowTrackMenu(song) }
-                        )
-                    }
+                    SongRow(
+                        song = song,
+                        isCurrent = song.id == currentSong?.id,
+                        isPlaying = isPlaying,
+                        onClick = { onPlaySong(song, sortedSongs) },
+                        onShowMenu = { onShowTrackMenu(song) }
+                    )
                 }
             }
         } else if (songs.isEmpty()) {
@@ -312,8 +313,8 @@ fun LibraryDashboardScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     OniSectionHeader(title = "Made For You")
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = LibrarySpacing.lg),
-                        horizontalArrangement = Arrangement.spacedBy(LibrarySpacing.md)
+                        contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                     ) {
                         // Most Played -> index 6 in categoryList
                         item(key = "mfy_most_played") {
@@ -353,7 +354,7 @@ fun LibraryDashboardScreen(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(LibrarySpacing.lg))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
             }
 
             // Recently Played section — only rendered if recentlyPlayedSongs is not empty
@@ -365,8 +366,8 @@ fun LibraryDashboardScreen(
                             onViewAllClick = { onSelectCategory(9) }
                         )
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = LibrarySpacing.lg),
-                            horizontalArrangement = Arrangement.spacedBy(LibrarySpacing.md)
+                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                         ) {
                             items(recentlyPlayedSongs.take(15), key = { "rp_${it.id}" }) { song ->
                                 HorizontalSongCard(
@@ -376,7 +377,7 @@ fun LibraryDashboardScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(LibrarySpacing.lg))
+                    Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
                 }
             }
 
@@ -389,8 +390,8 @@ fun LibraryDashboardScreen(
                             onViewAllClick = { onSelectCategory(2) }
                         )
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = LibrarySpacing.lg),
-                            horizontalArrangement = Arrangement.spacedBy(LibrarySpacing.md)
+                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                         ) {
                             items(frequentlyPlayedAlbums.take(15), key = { "album_${it.albumKey}" }) { album ->
                                 AlbumCard(
@@ -400,7 +401,7 @@ fun LibraryDashboardScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(LibrarySpacing.lg))
+                    Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
                 }
             }
 
@@ -413,8 +414,8 @@ fun LibraryDashboardScreen(
                             onViewAllClick = { onSelectCategory(3) }
                         )
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = LibrarySpacing.lg),
-                            horizontalArrangement = Arrangement.spacedBy(LibrarySpacing.md)
+                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                         ) {
                             items(favoriteArtists.take(15), key = { "artist_${it.artistKey}" }) { artist ->
                                 Box(modifier = Modifier.width(240.dp)) {
@@ -426,7 +427,7 @@ fun LibraryDashboardScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(LibrarySpacing.lg))
+                    Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
                 }
             }
 
@@ -445,17 +446,15 @@ fun LibraryDashboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(
-                                        start = LibrarySpacing.lg,
-                                        end = LibrarySpacing.lg,
-                                        top = LibrarySpacing.md,
-                                        bottom = LibrarySpacing.sm
+                                        horizontal = OniSkin.spacing.screenHorizontal,
+                                        vertical = OniSkin.spacing.sm
                                     ),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = "Quick Access",
-                                    fontSize = 18.sp,
+                                    style = OniSkin.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = OniSkin.colors.textPrimary
                                 )
@@ -465,8 +464,8 @@ fun LibraryDashboardScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = LibrarySpacing.lg, vertical = LibrarySpacing.xs),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs),
+                                    horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                                 ) {
                                     val idx1 = rowIndices[0]
                                     val cat1 = categoryList.getOrNull(idx1)
@@ -497,26 +496,26 @@ fun LibraryDashboardScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(LibrarySpacing.sm))
+                            Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = LibrarySpacing.lg, vertical = LibrarySpacing.xs)
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs)
+                                    .clip(OniSkin.shapes.card)
                                     .background(OniSkin.colors.primary.copy(alpha = 0.08f))
                                     .clickable { showAllCategories = true }
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
                                     text = "See all categories",
-                                    fontSize = 14.sp,
+                                    style = OniSkin.typography.labelLarge,
                                     fontWeight = FontWeight.SemiBold,
                                     color = OniSkin.colors.primary
                                 )
                                 Icon(
-                                    imageVector = Icons.Default.ChevronRight,
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                     contentDescription = null,
                                     tint = OniSkin.colors.primary
                                 )
@@ -528,17 +527,15 @@ fun LibraryDashboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(
-                                        start = LibrarySpacing.lg,
-                                        end = LibrarySpacing.lg,
-                                        top = LibrarySpacing.md,
-                                        bottom = LibrarySpacing.sm
+                                        horizontal = OniSkin.spacing.screenHorizontal,
+                                        vertical = OniSkin.spacing.sm
                                     ),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = "All Categories",
-                                    fontSize = 18.sp,
+                                    style = OniSkin.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = OniSkin.colors.textPrimary
                                 )
@@ -549,7 +546,7 @@ fun LibraryDashboardScreen(
                                     ) {
                                         Icon(Icons.Default.ExpandLess, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Show less")
+                                        Text("Show less", style = OniSkin.typography.labelMedium)
                                     }
                                     IconButton(onClick = onToggleLayoutMode) {
                                         Icon(
@@ -566,8 +563,8 @@ fun LibraryDashboardScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = LibrarySpacing.lg, vertical = LibrarySpacing.xs),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs),
+                                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                                     ) {
                                         val cat1 = rowPair[0]
                                         val index1 = categoryList.indexOf(cat1)
@@ -595,7 +592,7 @@ fun LibraryDashboardScreen(
                                 }
                             } else {
                                 categoryList.forEachIndexed { index, category ->
-                                    Box(modifier = Modifier.padding(horizontal = LibrarySpacing.lg, vertical = 4.dp)) {
+                                    Box(modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs)) {
                                         CategoryCard(
                                             category = category,
                                             isGrid = false,
@@ -626,6 +623,10 @@ private fun MadeForYouCard(
             .width(150.dp)
             .height(100.dp)
             .defaultMinSize(minHeight = 48.dp)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = "$title, $countText"
+            }
             .clickable(onClick = onClick),
         variant = OniSurfaceVariant.Soft,
         shape = OniSkin.shapes.card

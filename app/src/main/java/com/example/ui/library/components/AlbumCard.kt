@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -26,6 +30,10 @@ fun AlbumCard(
         modifier = modifier
             .width(160.dp)
             .defaultMinSize(minHeight = 48.dp)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = "${album.title} by ${album.artist}, ${album.songCount} songs"
+            }
             .clickable(onClick = onClick),
         variant = OniSurfaceVariant.Soft,
         shape = OniSkin.shapes.card

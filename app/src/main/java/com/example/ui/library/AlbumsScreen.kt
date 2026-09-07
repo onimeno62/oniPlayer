@@ -24,13 +24,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.ui.components.music.OniArtwork
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.library.components.AlbumCard
 import com.example.ui.library.components.LibraryEmptyState
-import com.example.ui.library.components.glassCard
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.screens.dashboardRadiusMedium
 import com.example.ui.screens.formatDuration
 import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.OniSkin
 
 @Composable
 fun AlbumsScreen(
@@ -91,48 +94,36 @@ fun AlbumsScreen(
                 modifier = modifier.fillMaxSize()
             ) {
                 items(albums, key = { it.albumKey }) { album ->
-                    Row(
+                    OniSurface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .glassCard(shape = RoundedCornerShape(dashboardRadiusMedium()))
-                            .clickable { onAlbumClick(album) }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .clickable { onAlbumClick(album) },
+                        variant = OniSurfaceVariant.Soft,
+                        shape = OniSkin.shapes.card
                     ) {
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                                .background(LocalAccentColor.current.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (album.artworkUri != null) {
-                                AsyncImage(
-                                    model = album.artworkUri,
-                                    contentDescription = "Cover art for ${album.title}",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Album,
-                                    contentDescription = null,
-                                    tint = LocalAccentColor.current.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
+                            OniArtwork(
+                                artworkUri = album.artworkUri,
+                                size = 56.dp,
+                                shape = OniSkin.artwork.shape,
+                                contentDescription = "Cover art for ${album.title}"
+                            )
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
 
                         Column(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
                                 text = album.title,
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = OniSkin.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = OniSkin.colors.textPrimary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -141,8 +132,8 @@ fun AlbumsScreen(
 
                             Text(
                                 text = album.artist,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = OniSkin.typography.bodyMedium,
+                                color = OniSkin.colors.textSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -151,14 +142,15 @@ fun AlbumsScreen(
 
                             Text(
                                 text = "${album.songCount} songs • ${formatDuration(album.totalDurationMs)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                style = OniSkin.typography.caption,
+                                color = OniSkin.colors.textTertiary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
                 }
+            }
             }
         }
     }

@@ -26,12 +26,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.ui.library.components.ArtistRow
 import com.example.ui.library.components.LibraryEmptyState
-import com.example.ui.library.components.glassCardColors
-import com.example.ui.library.components.glassCardBorder
-import com.example.ui.library.components.glassCardElevation
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.screens.dashboardRadiusMedium
 import com.example.ui.theme.LocalAccentColor
+import com.example.ui.theme.OniSkin
 
 @Composable
 fun ArtistsScreen(
@@ -75,9 +73,10 @@ fun ArtistsScreen(
                         .fillMaxWidth()
                         .aspectRatio(0.9f)
                         .clickable { onArtistClick(artist) },
-                    shape = RoundedCornerShape(dashboardRadiusMedium()),
-                    border = glassCardBorder(),
-                    elevation = glassCardElevation()
+                    shape = OniSkin.shapes.card,
+                    colors = CardDefaults.cardColors(
+                        containerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.5f)
+                    )
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize()
