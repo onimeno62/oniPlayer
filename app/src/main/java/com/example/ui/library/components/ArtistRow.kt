@@ -10,6 +10,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -26,10 +30,17 @@ fun ArtistRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
+    val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
+
     OniSurface(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 64.dp)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = "${artist.name}, $albumText, $songText"
+            }
             .clickable(onClick = onClick),
         variant = OniSurfaceVariant.Soft,
         shape = OniSkin.shapes.card
@@ -44,7 +55,7 @@ fun ArtistRow(
                 artworkUri = artist.artworkUri,
                 size = 48.dp,
                 shape = CircleShape,
-                contentDescription = "Avatar for ${artist.name}",
+                contentDescription = null,
                 placeholder = {
                     val initial = artist.name.trim().take(1).uppercase().ifEmpty { "?" }
                     Text(
@@ -72,8 +83,6 @@ fun ArtistRow(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
-                val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
                 Text(
                     text = "$albumText • $songText",
                     style = OniSkin.typography.bodySmall,

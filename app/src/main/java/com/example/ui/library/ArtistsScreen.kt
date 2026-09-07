@@ -7,8 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,19 +15,21 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.example.ui.components.music.OniArtwork
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.library.components.ArtistRow
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.model.ArtistUiModel
-import com.example.ui.screens.dashboardRadiusMedium
-import com.example.ui.theme.LocalAccentColor
 import com.example.ui.theme.OniSkin
 
 @Composable
@@ -61,60 +62,47 @@ fun ArtistsScreen(
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             state = gridState,
-            contentPadding = PaddingValues(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(OniSkin.spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
             modifier = modifier.fillMaxSize()
         ) {
-            items(artists.size, key = { index -> artists[index].artistKey }) { index ->
-                val artist = artists[index]
-                Card(
+            items(artists, key = { it.artistKey }) { artist ->
+                val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
+                val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
+
+                OniSurface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(0.9f)
+                        .semantics(mergeDescendants = true) {
+                            role = Role.Button
+                            contentDescription = "${artist.name}, $albumText, $songText"
+                        }
                         .clickable { onArtistClick(artist) },
-                    shape = OniSkin.shapes.card,
-                    colors = CardDefaults.cardColors(
-                        containerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.5f)
-                    )
+                    variant = OniSurfaceVariant.Soft,
+                    shape = OniSkin.shapes.card
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        val accentColor = LocalAccentColor.current
-                        if (artist.artworkUri != null) {
-                            AsyncImage(
-                                model = artist.artworkUri,
-                                contentDescription = "Artwork for ${artist.name}",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            // Abstract aesthetic gradient background
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                accentColor.copy(alpha = 0.5f),
-                                                accentColor.copy(alpha = 0.15f)
-                                            )
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
+                        OniArtwork(
+                            artworkUri = artist.artworkUri,
+                            shape = OniSkin.artwork.shape,
+                            contentDescription = null,
+                            placeholder = {
                                 val initial = artist.name.trim().take(1).uppercase().ifEmpty { "?" }
                                 Text(
                                     text = initial,
-                                    style = MaterialTheme.typography.displayMedium,
+                                    style = OniSkin.typography.displayMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White.copy(alpha = 0.5f)
+                                    color = OniSkin.colors.primary.copy(alpha = 0.5f)
                                 )
-                            }
-                        }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
 
-                        // Gradient protection overlay to guarantee text legibility
+                        // Gradient protection overlay to guarantee text legibility over artwork
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -133,11 +121,11 @@ fun ArtistsScreen(
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
-                                .padding(12.dp)
+                                .padding(OniSkin.spacing.sm)
                         ) {
                             Text(
                                 text = artist.name,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = OniSkin.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 maxLines = 1,
@@ -146,11 +134,9 @@ fun ArtistsScreen(
 
                             Spacer(modifier = Modifier.height(2.dp))
 
-                            val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
-                            val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
                             Text(
                                 text = "$albumText • $songText",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = OniSkin.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
                                 color = Color.White.copy(alpha = 0.8f),
                                 maxLines = 1,
@@ -171,8 +157,8 @@ fun ArtistsScreen(
         }
         LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(OniSkin.spacing.screenHorizontal),
+            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
             modifier = modifier.fillMaxSize()
         ) {
             items(artists, key = { it.artistKey }) { artist ->

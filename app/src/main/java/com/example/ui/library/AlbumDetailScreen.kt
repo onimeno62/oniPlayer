@@ -1,13 +1,10 @@
 package com.example.ui.library
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
@@ -16,19 +13,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.data.entity.SongEntity
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.library.components.SongRow
 import com.example.ui.library.model.AlbumUiModel
-import com.example.ui.screens.dashboardRadiusMedium
 import com.example.ui.screens.formatDuration
-import com.example.ui.theme.LocalAccentColor
 import com.example.ui.theme.OniSkin
 
 @Composable
@@ -53,13 +45,13 @@ fun AlbumDetailScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = OniSkin.spacing.screenHorizontal)
     ) {
         // Album Header Section
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
+                .padding(vertical = OniSkin.spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Album Artwork using Default Skin OniArtwork
@@ -70,16 +62,16 @@ fun AlbumDetailScreen(
                 contentDescription = "Cover art for ${album.title}"
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
 
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = album.title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = OniSkin.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = OniSkin.colors.textPrimary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -88,8 +80,8 @@ fun AlbumDetailScreen(
 
                 Text(
                     text = album.artist,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = OniSkin.typography.bodyLarge,
+                    color = OniSkin.colors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -98,8 +90,8 @@ fun AlbumDetailScreen(
 
                 Text(
                     text = "${album.songCount} songs • ${formatDuration(album.totalDurationMs)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    style = OniSkin.typography.bodyMedium,
+                    color = OniSkin.colors.textTertiary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -110,15 +102,15 @@ fun AlbumDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(bottom = OniSkin.spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
         ) {
             Button(
                 onClick = onPlayAll,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = LocalAccentColor.current,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = OniSkin.colors.primary,
+                    contentColor = OniSkin.colors.surface
                 )
             ) {
                 Icon(
@@ -132,7 +124,11 @@ fun AlbumDetailScreen(
 
             FilledTonalButton(
                 onClick = onShufflePlay,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = OniSkin.colors.surfaceVariant,
+                    contentColor = OniSkin.colors.textPrimary
+                )
             ) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
@@ -145,9 +141,9 @@ fun AlbumDetailScreen(
         }
 
         HorizontalDivider(
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+            color = OniSkin.colors.outline.copy(alpha = 0.2f),
             thickness = 1.dp,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
         )
 
         // Song List
@@ -163,7 +159,7 @@ fun AlbumDetailScreen(
 
         LazyColumn(
             state = albumListState,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xxs),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(sortedSongs, key = { it.id }) { song ->

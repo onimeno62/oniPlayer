@@ -5,11 +5,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,6 +46,10 @@ fun OniSectionHeader(
             Row(
                 modifier = Modifier
                     .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                    .semantics(mergeDescendants = true) {
+                        role = Role.Button
+                        contentDescription = "View all $title"
+                    }
                     .clickable(onClick = onViewAllClick)
                     .padding(horizontal = OniSkin.spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
@@ -57,7 +64,7 @@ fun OniSectionHeader(
                 Spacer(modifier = Modifier.width(OniSkin.spacing.xxs))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "View all $title",
+                    contentDescription = null,
                     tint = OniSkin.colors.primary,
                     modifier = Modifier.size(16.dp)
                 )

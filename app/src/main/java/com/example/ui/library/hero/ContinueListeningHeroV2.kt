@@ -25,13 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.playback.OniPlayPauseButton
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
-import com.example.ui.theme.LocalAccentColor
 import com.example.ui.theme.OniSkin
 
 @Composable

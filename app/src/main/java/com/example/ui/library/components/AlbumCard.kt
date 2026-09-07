@@ -46,7 +46,7 @@ fun AlbumCard(
             OniArtwork(
                 artworkUri = album.artworkUri,
                 shape = OniSkin.artwork.shape,
-                contentDescription = "Cover art for ${album.title}",
+                contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)

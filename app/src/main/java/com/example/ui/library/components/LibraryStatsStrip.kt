@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.surface.OniSurface
@@ -44,7 +45,7 @@ private fun StatItem(
     OniSurface(
         modifier = modifier
             .defaultMinSize(minHeight = 48.dp)
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 contentDescription = "$label: $value"
             },
         variant = OniSurfaceVariant.Soft,
@@ -62,14 +63,16 @@ private fun StatItem(
                 style = OniSkin.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = OniSkin.colors.textPrimary,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
                 style = OniSkin.typography.caption,
                 color = OniSkin.colors.textSecondary,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
