@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -21,7 +22,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
@@ -55,21 +55,22 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
 
     val layoutDirection = LocalLayoutDirection.current
     val transitionDuration = OniSkin.motion.screenTransitionDurationMs
+    val transitionEasing = OniSkin.motion.standardEasing
 
     AnimatedContent(
         targetState = activeSubScreen,
         transitionSpec = {
             val forwardSign = if (layoutDirection == LayoutDirection.Ltr) 1 else -1
             if (targetState != null) {
-                (slideInHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { it * forwardSign } +
-                        fadeIn(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing))) togetherWith
-                        (slideOutHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { -it * forwardSign } +
-                        fadeOut(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)))
+                (slideInHorizontally(animationSpec = tween(transitionDuration, easing = transitionEasing)) { it * forwardSign } +
+                        fadeIn(animationSpec = tween(transitionDuration, easing = transitionEasing))) togetherWith
+                        (slideOutHorizontally(animationSpec = tween(transitionDuration, easing = transitionEasing)) { -it * forwardSign } +
+                        fadeOut(animationSpec = tween(transitionDuration, easing = transitionEasing)))
             } else {
-                (slideInHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { -it * forwardSign } +
-                        fadeIn(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing))) togetherWith
-                        (slideOutHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { it * forwardSign } +
-                        fadeOut(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)))
+                (slideInHorizontally(animationSpec = tween(transitionDuration, easing = transitionEasing)) { -it * forwardSign } +
+                        fadeIn(animationSpec = tween(transitionDuration, easing = transitionEasing))) togetherWith
+                        (slideOutHorizontally(animationSpec = tween(transitionDuration, easing = transitionEasing)) { it * forwardSign } +
+                        fadeOut(animationSpec = tween(transitionDuration, easing = transitionEasing)))
             }
         },
         label = "Settings Navigation"
@@ -200,7 +201,7 @@ fun SettingsDetailPlaceholder(
     ) {
         SettingsSubscreenHeader(
             title = category.title,
-            subtitle = "Settings category",
+            subtitle = category.subtitle,
             onBack = onBack,
             backButtonTestTag = "settings_back_button"
         )

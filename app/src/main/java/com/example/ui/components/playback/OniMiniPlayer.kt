@@ -2,18 +2,14 @@ package com.example.ui.components.playback
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.music.OniTrackMetadata
@@ -43,6 +39,8 @@ fun OniMiniPlayer(
     shape: Shape = OniSkin.shapes.card,
     surfaceVariant: OniSurfaceVariant = OniSurfaceVariant.Soft
 ) {
+    // Use the compact secondary-control token rather than the 64dp full-player default.
+    val controlSize = OniSkin.playbackControls.secondaryControlSize.coerceAtLeast(48.dp)
     OniSurface(
         modifier = modifier
             .fillMaxWidth()
@@ -50,9 +48,9 @@ fun OniMiniPlayer(
             .clip(shape)
             .clickable(
                 role = Role.Button,
+                onClickLabel = "Open Player",
                 onClick = onPlayerClick
-            )
-            .semantics { role = Role.Button },
+            ),
         variant = surfaceVariant,
         shape = shape,
         elevation = OniSkin.elevation.raised
@@ -64,10 +62,10 @@ fun OniMiniPlayer(
                     .padding(horizontal = OniSkin.spacing.md, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Artwork
+                // Decorative: the metadata already names the track.
                 OniArtwork(
                     artworkUri = artworkUri,
-                    contentDescription = "Artwork for $title",
+                    contentDescription = null,
                     size = 44.dp,
                     shape = OniSkin.shapes.small
                 )
@@ -88,7 +86,7 @@ fun OniMiniPlayer(
                 if (onNextClick != null) {
                     OniNextButton(
                         onClick = onNextClick,
-                        size = 38.dp
+                        size = controlSize
                     )
                     Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
                 }
@@ -97,9 +95,9 @@ fun OniMiniPlayer(
                 OniPlayPauseButton(
                     isPlaying = isPlaying,
                     onClick = onPlayPauseClick,
-                    size = 40.dp,
+                    size = controlSize,
                     iconSize = 22.dp,
-                    elevation = 0.dp,
+                    elevation = OniSkin.playbackControls.secondaryElevation,
                     modifier = Modifier.testTag("mini_player_play_pause")
                 )
             }

@@ -1,31 +1,26 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.example.ui.theme.*
+import com.example.ui.components.navigation.OniFloatingNavigation
+import com.example.ui.components.navigation.OniNavigationDestination
+import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.theme.OniPlayerTheme
+import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 
 @Composable
@@ -39,7 +34,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
     val cornerRadius by viewModel.cornerRadius.collectAsState()
     val backgroundTransparency by viewModel.backgroundTransparency.collectAsState()
     val isSystemDark = isSystemInDarkTheme()
-    
+
     LaunchedEffect(selectedThemeOption, isSystemDark) {
         viewModel.updateThemeFromOption(selectedThemeOption, isSystemDark)
     }
@@ -47,11 +42,19 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
     val currentTab by viewModel.currentTab.collectAsState()
     val currentSong by viewModel.audioEngine.currentSong.collectAsState()
     val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
-    
+
     val position by viewModel.audioEngine.position.collectAsState()
     val duration by viewModel.audioEngine.duration.collectAsState()
     val progressFraction = remember(position, duration) {
         if (duration > 0) position.toFloat() / duration.toFloat() else 0f
+    }
+    val destinations = remember {
+        listOf(
+            OniNavigationDestination(0, "Library", Icons.Default.LibraryMusic, Icons.Outlined.LibraryMusic, "nav_library"),
+            OniNavigationDestination(1, "Player", Icons.Default.PlayCircle, Icons.Outlined.PlayCircle, "nav_player"),
+            OniNavigationDestination(2, "Equalizer", Icons.Default.Tune, Icons.Outlined.Tune, "nav_equalizer"),
+            OniNavigationDestination(3, "Settings", Icons.Default.Settings, Icons.Outlined.Settings, "nav_settings")
+        )
     }
 
     OniPlayerTheme(
@@ -64,129 +67,73 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         cornerRadius = cornerRadius,
         backgroundTransparency = backgroundTransparency
     ) {
+        // Capture composition-local tokens outside the non-composable transition callback.
+        val motion = OniSkin.motion
         Scaffold(
+            // The shell owns top/side protection. Player still owns its bottom system inset
+            // when the bottom chrome is absent. Applied padding is consumed below.
+            contentWindowInsets = WindowInsets.safeDrawing.only(
+                WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+            ),
             bottomBar = {
-                if (currentTab != 1) { // Floating bottom navigation disappears while playing!
+                if (currentTab != 1) {
                     Column(
-                        modifier = Modifier
-                            .background(Color.Transparent)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
+                        modifier = Modifier.windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(
+                                WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
+                            )
+                        )
                     ) {
-                        // Mini Player Bar (Frosted glass floating capsule)
-                        if (currentSong != null) {
+                        currentSong?.let { song ->
                             MiniPlayerBar(
-                                title = currentSong!!.customTitle ?: currentSong!!.title,
-                                artist = currentSong!!.customArtist ?: currentSong!!.artist,
-                                artworkUri = currentSong!!.albumArtUri,
+                                title = song.customTitle ?: song.title,
+                                artist = song.customArtist ?: song.artist,
+                                artworkUri = song.albumArtUri,
                                 isPlaying = isPlaying,
                                 progressFraction = progressFraction,
                                 onPlayPauseToggle = { viewModel.togglePlayPause() },
-                                onBarClick = { viewModel.selectTab(1) } // jump to Full Player
+                                onBarClick = { viewModel.selectTab(1) }
                             )
                         }
 
-                        val glassEnabled = LocalGlassEffectEnabled.current
-                        val radiusVal = LocalCornerRadius.current
-                        val transparencyVal = LocalBackgroundTransparency.current
-
-                        // Floating Bottom Navigation Bar (Frosted Glass Capsule)
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 24.dp, end = 24.dp, bottom = 12.dp, top = 2.dp),
-                            shape = RoundedCornerShape(if (glassEnabled) radiusVal.dp else 28.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (glassEnabled) {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f * (transparencyVal / 50f))
-                                } else {
-                                    MaterialTheme.colorScheme.surface
-                                }
-                            ),
-                            border = BorderStroke(1.dp, if (glassEnabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                        ) {
-                            NavigationBar(
-                                containerColor = Color.Transparent,
-                                tonalElevation = 0.dp,
-                                modifier = Modifier.height(64.dp)
-                            ) {
-                                NavigationBarItem(
-                                    selected = currentTab == 0,
-                                    onClick = { viewModel.goToLibraryDashboard() },
-                                    icon = { Icon(if (currentTab == 0) Icons.Default.LibraryMusic else Icons.Outlined.LibraryMusic, contentDescription = "Library") },
-                                    label = { Text("Library", fontSize = 10.sp, fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.SemiBold) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = LocalAccentColor.current,
-                                        selectedTextColor = LocalAccentColor.current,
-                                        indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                    ),
-                                    modifier = Modifier.testTag("nav_library")
+                        // Keep the supported appearance overrides, but render them through
+                        // the shared skin surface. No new blur or background effect is added.
+                        val frostedColor = OniSkin.surfaces.frosted.containerColor
+                        OniFloatingNavigation(
+                            destinations = destinations,
+                            selectedId = currentTab,
+                            onDestinationSelected = { destination ->
+                                if (destination == 0) viewModel.goToLibraryDashboard()
+                                else viewModel.selectTab(destination)
+                            },
+                            surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft,
+                            shape = if (glassEffectEnabled) RoundedCornerShape(cornerRadius.dp) else OniSkin.navigation.shape,
+                            containerColor = if (glassEffectEnabled) {
+                                // Preserve the existing slider response: 50 is the baseline.
+                                frostedColor.copy(
+                                    alpha = (frostedColor.alpha * (backgroundTransparency / 50f)).coerceIn(0f, 1f)
                                 )
-                                NavigationBarItem(
-                                    selected = currentTab == 1,
-                                    onClick = { viewModel.selectTab(1) },
-                                    icon = { Icon(if (currentTab == 1) Icons.Default.PlayCircle else Icons.Outlined.PlayCircle, contentDescription = "Player") },
-                                    label = { Text("Player", fontSize = 10.sp, fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.SemiBold) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = LocalAccentColor.current,
-                                        selectedTextColor = LocalAccentColor.current,
-                                        indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                    ),
-                                    modifier = Modifier.testTag("nav_player")
-                                )
-                                NavigationBarItem(
-                                    selected = currentTab == 2,
-                                    onClick = { viewModel.selectTab(2) },
-                                    icon = { Icon(if (currentTab == 2) Icons.Default.Tune else Icons.Outlined.Tune, contentDescription = "Equalizer") },
-                                    label = { Text("Equalizer", fontSize = 10.sp, fontWeight = if (currentTab == 2) FontWeight.Bold else FontWeight.SemiBold) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = LocalAccentColor.current,
-                                        selectedTextColor = LocalAccentColor.current,
-                                        indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                    ),
-                                    modifier = Modifier.testTag("nav_equalizer")
-                                )
-                                NavigationBarItem(
-                                    selected = currentTab == 3,
-                                    onClick = { viewModel.selectTab(3) },
-                                    icon = { Icon(if (currentTab == 3) Icons.Default.Settings else Icons.Outlined.Settings, contentDescription = "Settings") },
-                                    label = { Text("Settings", fontSize = 10.sp, fontWeight = if (currentTab == 3) FontWeight.Bold else FontWeight.SemiBold) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = LocalAccentColor.current,
-                                        selectedTextColor = LocalAccentColor.current,
-                                        indicatorColor = LocalAccentColor.current.copy(alpha = 0.14f),
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                    ),
-                                    modifier = Modifier.testTag("nav_settings")
-                                )
-                            }
-                        }
+                            } else null
+                        )
                     }
                 }
             },
-            containerColor = Color.Transparent, // Let the background auras shine through!
+            // ThemeProvider remains the background owner, including AMOLED compatibility.
+            containerColor = Color.Transparent,
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(
-                        top = innerPadding.calculateTopPadding(),
-                        bottom = if (currentTab == 1) 0.dp else innerPadding.calculateBottomPadding()
-                    )
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
             ) {
-                // Crossfade or slide animation when switching screens
+                // A direction-neutral crossfade preserves the existing navigation behavior.
                 AnimatedContent(
                     targetState = currentTab,
                     transitionSpec = {
-                        fadeIn(animationSpec = tween(260)) togetherWith fadeOut(animationSpec = tween(260))
+                        fadeIn(animationSpec = tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) togetherWith
+                            fadeOut(animationSpec = tween(motion.screenTransitionDurationMs, easing = motion.standardEasing))
                     },
                     label = "Screen transition"
                 ) { tab ->
