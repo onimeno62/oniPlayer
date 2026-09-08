@@ -14,7 +14,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,112 +38,52 @@ data class SettingCategory(
 @Composable
 fun SettingsScreen(viewModel: MusicPlayerViewModel) {
     var activeSubScreen by remember { mutableStateOf<String?>(null) }
-    
     val categories = remember {
         listOf(
-            SettingCategory(
-                id = "appearance",
-                title = "Appearance",
-                subtitle = "Custom themes, animations, & visual layouts",
-                icon = Icons.Default.Palette
-            ),
-            SettingCategory(
-                id = "playback",
-                title = "Playback",
-                subtitle = "Audio engine, equalizer, & crossfade",
-                icon = Icons.Default.PlayCircle
-            ),
-            SettingCategory(
-                id = "lyrics",
-                title = "Lyrics",
-                subtitle = "Floating lyrics, sync settings, & alignment",
-                icon = Icons.Default.Description
-            ),
-            SettingCategory(
-                id = "library_metadata",
-                title = "Library & Metadata",
-                subtitle = "Scan folders, edit tags, & clean duplicates",
-                icon = Icons.Default.Folder
-            ),
-            SettingCategory(
-                id = "widgets",
-                title = "Widgets",
-                subtitle = "Homescreen widget styles & configuration",
-                icon = Icons.Default.Widgets
-            ),
-            SettingCategory(
-                id = "notifications",
-                title = "Notifications",
-                subtitle = "Status bar media controls & alerts",
-                icon = Icons.Default.Notifications
-            ),
-            SettingCategory(
-                id = "backup",
-                title = "Backup",
-                subtitle = "Export & import library database & preferences",
-                icon = Icons.Default.CloudUpload
-            ),
-            SettingCategory(
-                id = "advanced",
-                title = "Advanced",
-                subtitle = "Hardware acceleration, cache, & expert settings",
-                icon = Icons.Default.Tune
-            ),
-            SettingCategory(
-                id = "help",
-                title = "Help",
-                subtitle = "User manual, FAQs, & community support",
-                icon = Icons.Default.Help
-            ),
-            SettingCategory(
-                id = "about",
-                title = "About",
-                subtitle = "Version info, license agreement, & developer",
-                icon = Icons.Default.Info
-            )
+            SettingCategory("appearance", "Appearance", "Custom themes, animations, & visual layouts", Icons.Default.Palette),
+            SettingCategory("playback", "Playback", "Audio engine, equalizer, & crossfade", Icons.Default.PlayCircle),
+            SettingCategory("lyrics", "Lyrics", "Floating lyrics, sync settings, & alignment", Icons.Default.Description),
+            SettingCategory("library_metadata", "Library & Metadata", "Scan folders, edit tags, & clean duplicates", Icons.Default.Folder),
+            SettingCategory("widgets", "Widgets", "Homescreen widget styles & configuration", Icons.Default.Widgets),
+            SettingCategory("notifications", "Notifications", "Status bar media controls & alerts", Icons.Default.Notifications),
+            SettingCategory("backup", "Backup", "Export & import library database & preferences", Icons.Default.CloudUpload),
+            SettingCategory("advanced", "Advanced", "Hardware acceleration, cache, & expert settings", Icons.Default.Tune),
+            SettingCategory("help", "Help", "User manual, FAQs, & community support", Icons.Default.Help),
+            SettingCategory("about", "About", "Version info, license agreement, & developer", Icons.Default.Info)
         )
     }
+
+    val layoutDirection = LocalLayoutDirection.current
+    val transitionDuration = OniSkin.motion.screenTransitionDurationMs
 
     AnimatedContent(
         targetState = activeSubScreen,
         transitionSpec = {
+            val forwardSign = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Ltr) 1 else -1
             if (targetState != null) {
-                // Navigate forward
-                (slideInHorizontally(animationSpec = tween(300)) { it } + fadeIn(animationSpec = tween(300))) togetherWith
-                        (slideOutHorizontally(animationSpec = tween(300)) { -it } + fadeOut(animationSpec = tween(300)))
+                (slideInHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { it * forwardSign } +
+                        fadeIn(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing))) togetherWith
+                        (slideOutHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { -it * forwardSign } +
+                        fadeOut(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)))
             } else {
-                // Navigate backward
-                (slideInHorizontally(animationSpec = tween(300)) { -it } + fadeIn(animationSpec = tween(300))) togetherWith
-                        (slideOutHorizontally(animationSpec = tween(300)) { it } + fadeOut(animationSpec = tween(300)))
+                (slideInHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { -it * forwardSign } +
+                        fadeIn(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing))) togetherWith
+                        (slideOutHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { it * forwardSign } +
+                        fadeOut(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)))
             }
         },
         label = "Settings Navigation"
     ) { subScreen ->
         if (subScreen == null) {
-            SettingsList(
-                categories = categories,
-                onCategoryClick = { activeSubScreen = it }
-            )
+            SettingsList(categories = categories, onCategoryClick = { activeSubScreen = it })
         } else {
             val category = categories.find { it.id == subScreen }
             if (category != null) {
                 when (category.id) {
-                    "appearance" -> AppearanceSettingsScreen(
-                        viewModel = viewModel,
-                        onBack = { activeSubScreen = null }
-                    )
-                    "library_metadata" -> LibraryMetadataSettingsScreen(
-                        viewModel = viewModel,
-                        onBack = { activeSubScreen = null }
-                    )
-                    "playback" -> PlaybackSettingsScreen(
-                        viewModel = viewModel,
-                        onBack = { activeSubScreen = null }
-                    )
-                    else -> SettingsDetailPlaceholder(
-                        category = category,
-                        onBack = { activeSubScreen = null }
-                    )
+                    "appearance" -> AppearanceSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                    "library_metadata" -> LibraryMetadataSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                    "playback" -> PlaybackSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                    else -> SettingsDetailPlaceholder(category, onBack = { activeSubScreen = null })
                 }
             } else {
                 activeSubScreen = null
@@ -159,98 +104,89 @@ fun SettingsList(
             .padding(horizontal = OniSkin.spacing.screenHorizontal)
     ) {
         Spacer(modifier = Modifier.height(OniSkin.spacing.screenVertical))
-        
-        // Header
         Text(
             text = "Settings",
             style = OniSkin.typography.displayMedium,
             color = OniSkin.colors.textPrimary
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
         Text(
             text = "Configure Oni Player to match your musical lifestyle",
             style = OniSkin.typography.bodySmall,
             color = OniSkin.colors.textSecondary
         )
-
         Spacer(modifier = Modifier.height(OniSkin.spacing.section))
 
-        // Cards list
         LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
             items(categories, key = { it.id }) { category ->
-                OniSurface(
-                    variant = OniSurfaceVariant.Soft,
-                    shape = OniSkin.shapes.card,
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .semantics(mergeDescendants = true) {
+                            role = Role.Button
+                            contentDescription = "${category.title}. ${category.subtitle}"
+                        }
+                        .clickable { onCategoryClick(category.id) }
                         .testTag("settings_card_${category.id}")
+                        .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onCategoryClick(category.id) }
-                            .padding(
-                                horizontal = OniSkin.spacing.md,
-                                vertical = OniSkin.spacing.sm
-                            ),
-                        verticalAlignment = Alignment.CenterVertically
+                    OniSurface(
+                        variant = OniSurfaceVariant.Soft,
+                        shape = OniSkin.shapes.card,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Icon container using OniSkin surface & primary tint
-                        OniSurface(
-                            variant = OniSurfaceVariant.Flat,
-                            shape = OniSkin.shapes.button,
-                            containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
-                            modifier = Modifier.size(42.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
+                            OniSurface(
+                                variant = OniSurfaceVariant.Flat,
+                                shape = OniSkin.shapes.button,
+                                containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
+                                modifier = Modifier.size(42.dp)
                             ) {
-                                Icon(
-                                    imageVector = category.icon,
-                                    contentDescription = category.title,
-                                    tint = OniSkin.colors.primary,
-                                    modifier = Modifier.size(22.dp)
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = category.icon,
+                                        contentDescription = null,
+                                        tint = OniSkin.colors.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = category.title,
+                                    style = OniSkin.typography.bodyLarge,
+                                    color = OniSkin.colors.textPrimary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+                                Text(
+                                    text = category.subtitle,
+                                    style = OniSkin.typography.caption,
+                                    color = OniSkin.colors.textSecondary,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                        }
-
-                        Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-
-                        // Text content
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = category.title,
-                                style = OniSkin.typography.bodyLarge,
-                                color = OniSkin.colors.textPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = category.subtitle,
-                                style = OniSkin.typography.caption,
-                                color = OniSkin.colors.textSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = OniSkin.colors.textTertiary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-
-                        Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-
-                        // Navigation Arrow
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Navigate to ${category.title}",
-                            tint = OniSkin.colors.textTertiary,
-                            modifier = Modifier.size(20.dp)
-                        )
                     }
                 }
             }
@@ -274,9 +210,7 @@ fun SettingsDetailPlaceholder(
             onBack = onBack,
             backButtonTestTag = "settings_back_button"
         )
-
         Spacer(modifier = Modifier.height(OniSkin.spacing.section))
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -300,10 +234,7 @@ fun SettingsDetailPlaceholder(
                         containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
                         modifier = Modifier.size(64.dp)
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = category.icon,
                                 contentDescription = null,
@@ -312,32 +243,21 @@ fun SettingsDetailPlaceholder(
                             )
                         }
                     }
-
                     Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
-
-                    Text(
-                        text = category.title,
-                        style = OniSkin.typography.titleMedium,
-                        color = OniSkin.colors.textPrimary
-                    )
-
+                    Text(category.title, style = OniSkin.typography.titleMedium, color = OniSkin.colors.textPrimary)
                     Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
-
                     Text(
                         text = category.subtitle,
                         style = OniSkin.typography.bodyMedium,
                         color = OniSkin.colors.textSecondary,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
-
                     Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
-
                     Text(
                         text = "${category.title} configurations are structured and ready for implementation.",
                         style = OniSkin.typography.caption,
                         color = OniSkin.colors.textTertiary,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        lineHeight = 18.sp
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
             }
