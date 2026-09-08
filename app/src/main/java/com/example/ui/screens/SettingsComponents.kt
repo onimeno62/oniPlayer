@@ -73,16 +73,16 @@ fun SettingsSubscreenHeader(
                 text = title,
                 style = OniSkin.typography.titleLarge,
                 color = OniSkin.colors.textPrimary,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             if (subtitle != null) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                 Text(
                     text = subtitle,
                     style = OniSkin.typography.caption,
                     color = OniSkin.colors.textSecondary,
-                    maxLines = 1,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -115,7 +115,7 @@ fun SettingSection(
                 color = OniSkin.colors.primary
             )
             if (description != null) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                 Text(
                     text = description,
                     style = OniSkin.typography.bodySmall,
@@ -128,9 +128,7 @@ fun SettingSection(
             shape = OniSkin.shapes.card,
             modifier = cardModifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 content()
             }
         }
@@ -168,6 +166,7 @@ fun SwitchSettingRow(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+            .semantics(mergeDescendants = true) { }
             .clickable(
                 enabled = enabled,
                 role = Role.Switch,
@@ -190,7 +189,7 @@ fun SwitchSettingRow(
                 color = if (enabled) OniSkin.colors.textPrimary else OniSkin.colors.disabled
             )
             if (description != null) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                 Text(
                     text = description,
                     style = OniSkin.typography.bodySmall,
@@ -200,7 +199,7 @@ fun SwitchSettingRow(
         }
         Switch(
             checked = checked,
-            onCheckedChange = null, // Handled by row clickable for full touch target
+            onCheckedChange = null,
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = OniSkin.colors.onPrimary,
@@ -313,7 +312,7 @@ fun AccentColorPickerRow(
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
-            contentPadding = PaddingValues(vertical = 4.dp)
+            contentPadding = PaddingValues(vertical = OniSkin.spacing.xxs)
         ) {
             items(colors) { (hex, name) ->
                 val isSelected = selectedHex.equals(hex, ignoreCase = true)
@@ -321,7 +320,7 @@ fun AccentColorPickerRow(
 
                 Box(
                     modifier = Modifier
-                        .size(48.dp) // Minimum 48dp touch target
+                        .size(48.dp)
                         .testTag("color_circle_$name")
                         .clickable(
                             role = Role.RadioButton,
@@ -405,7 +404,6 @@ fun DurationPickerSettingRow(
 
         Spacer(modifier = Modifier.height(OniSkin.spacing.md))
 
-        // Dual Wheel Pickers (Minutes & Seconds)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -440,7 +438,6 @@ fun DurationPickerSettingRow(
 
         Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
-        // Quick Preset Suggestions
         val presets = listOf(
             0 to "Instant",
             5 to "5s",
@@ -522,7 +519,6 @@ fun WheelPicker(
             .fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
-        // Selection highlight indicator using OniSkin primary container
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.85f)
