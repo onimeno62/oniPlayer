@@ -1,12 +1,10 @@
 package com.example.ui.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,9 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.ui.components.button.OniIconButton
+import com.example.ui.components.button.OniIconButtonStyle
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
@@ -70,16 +72,22 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                     shape = OniSkin.shapes.chip,
                     containerColor = if (isActive) OniSkin.colors.primary.copy(alpha = 0.14f) else null,
                     onClick = { viewModel.selectPreset(preset) },
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).semantics { selected = isActive }
                 ) {
                     Row(modifier = Modifier.padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                         Text(preset.name, style = OniSkin.typography.labelLarge, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium, color = if (isActive) OniSkin.colors.primary else OniSkin.colors.textPrimary)
                         if (preset.isCustom) {
                             Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Icon(Icons.Default.Close, contentDescription = "Delete custom preset", tint = OniSkin.colors.textSecondary, modifier = Modifier.size(24.dp).clickable {
-                                viewModel.deletePreset(preset)
-                                Toast.makeText(context, "Preset deleted", Toast.LENGTH_SHORT).show()
-                            })
+                            OniIconButton(
+                                icon = Icons.Default.Close,
+                                contentDescription = "Delete custom preset",
+                                onClick = {
+                                    viewModel.deletePreset(preset)
+                                    Toast.makeText(context, "Preset deleted", Toast.LENGTH_SHORT).show()
+                                },
+                                style = OniIconButtonStyle.Ghost,
+                                iconSize = 24.dp
+                            )
                         }
                     }
                 }
@@ -123,10 +131,29 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                     Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
                     Text("Save current frequency filter bands configuration to custom preset library.", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
                     Spacer(modifier = Modifier.height(OniSkin.spacing.md))
-                    OutlinedTextField(value = presetNameToSave, onValueChange = { presetNameToSave = it }, placeholder = { Text("My Preset Name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = OniSkin.shapes.button, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = OniSkin.colors.textPrimary, unfocusedTextColor = OniSkin.colors.textPrimary, focusedBorderColor = OniSkin.colors.primary, unfocusedBorderColor = OniSkin.colors.outline))
+                    OutlinedTextField(
+                        value = presetNameToSave,
+                        onValueChange = { presetNameToSave = it },
+                        placeholder = { Text("My Preset Name", style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = OniSkin.typography.bodyMedium,
+                        shape = OniSkin.shapes.button,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = OniSkin.colors.textPrimary,
+                            unfocusedTextColor = OniSkin.colors.textPrimary,
+                            focusedBorderColor = OniSkin.colors.primary,
+                            unfocusedBorderColor = OniSkin.colors.outline,
+                            cursorColor = OniSkin.colors.primary
+                        )
+                    )
                     Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { showSaveDialog = false }) { Text("Cancel", style = OniSkin.typography.labelLarge) }
+                        TextButton(
+                            onClick = { showSaveDialog = false },
+                            shape = OniSkin.shapes.button,
+                            colors = ButtonDefaults.textButtonColors(contentColor = OniSkin.colors.primary)
+                        ) { Text("Cancel", style = OniSkin.typography.labelLarge) }
                         Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
                         Button(onClick = { if (presetNameToSave.isNotBlank()) { viewModel.saveCustomPreset(presetNameToSave.trim()); Toast.makeText(context, "Preset saved!", Toast.LENGTH_SHORT).show(); showSaveDialog = false; presetNameToSave = "" } }, shape = OniSkin.shapes.button, colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary, contentColor = OniSkin.colors.onPrimary)) { Text("Save", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold) }
                     }

@@ -2,39 +2,43 @@ package com.example.ui.screens
 
 import android.widget.Toast
 import android.util.Log
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.SongEntity
+import com.example.ui.components.button.OniCircularActionButton
+import com.example.ui.components.button.OniIconButton
+import com.example.ui.components.button.OniIconButtonStyle
+import com.example.ui.components.button.OniPrimaryButton
+import com.example.ui.components.button.OniSecondaryButton
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.lyrics.LyricsHelper
 import com.example.ui.lyrics.LrcLine
+import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ManualSearchDialog(
     song: SongEntity,
@@ -53,23 +57,34 @@ fun ManualSearchDialog(
     val sources = listOf("All (Auto)", "LRCLIB Database", "Lyrist API", "Lyrics.ovh")
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = OniSkin.colors.textPrimary,
+        unfocusedTextColor = OniSkin.colors.textPrimary,
+        focusedContainerColor = OniSkin.colors.surfaceVariant,
+        unfocusedContainerColor = OniSkin.colors.surfaceVariant,
+        focusedBorderColor = OniSkin.colors.primary,
+        unfocusedBorderColor = OniSkin.colors.outline,
+        focusedLabelColor = OniSkin.colors.primary,
+        unfocusedLabelColor = OniSkin.colors.textSecondary,
+        cursorColor = OniSkin.colors.primary,
+        selectionColors = TextSelectionColors(OniSkin.colors.primary, OniSkin.colors.primaryContainer)
+    )
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
+        OniSurface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .padding(OniSkin.spacing.md),
+            variant = OniSurfaceVariant.Elevated,
+            shape = OniSkin.shapes.dialog
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
+                    .padding(OniSkin.spacing.lg)
             ) {
                 // Header
                 Row(
@@ -77,80 +92,99 @@ fun ManualSearchDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Public,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = OniSkin.colors.primary,
                             modifier = Modifier.size(28.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text("Online Lyrics Search", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("Query verified live databases to fetch real lyrics", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Online Lyrics Search", fontWeight = FontWeight.Bold, style = OniSkin.typography.titleMedium, color = OniSkin.colors.textPrimary)
+                            Text("Query verified live databases to fetch real lyrics", style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary)
                         }
                     }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
+                    OniIconButton(
+                        icon = Icons.Default.Close,
+                        contentDescription = "Close",
+                        onClick = onDismiss,
+                        style = OniIconButtonStyle.Ghost
+                    )
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = OniSkin.spacing.sm), color = OniSkin.colors.divider)
 
                 // Search Controls Box
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                    shape = RoundedCornerShape(16.dp),
+                OniSurface(
+                    variant = OniSurfaceVariant.Soft,
+                    shape = OniSkin.shapes.card,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(OniSkin.spacing.sm), verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                             OutlinedTextField(
                                 value = title,
                                 onValueChange = { title = it },
-                                label = { Text("Title") },
+                                label = { Text("Title", style = OniSkin.typography.caption) },
                                 modifier = Modifier.weight(1.2f),
                                 singleLine = true,
-                                textStyle = TextStyle(fontSize = 13.sp)
+                                textStyle = OniSkin.typography.bodySmall,
+                                shape = OniSkin.shapes.button,
+                                colors = textFieldColors
                             )
                             OutlinedTextField(
                                 value = artist,
                                 onValueChange = { artist = it },
-                                label = { Text("Artist") },
+                                label = { Text("Artist", style = OniSkin.typography.caption) },
                                 modifier = Modifier.weight(0.8f),
                                 singleLine = true,
-                                textStyle = TextStyle(fontSize = 13.sp)
+                                textStyle = OniSkin.typography.bodySmall,
+                                shape = OniSkin.shapes.button,
+                                colors = textFieldColors
                             )
                         }
 
                         // Source Selection Row
                         Column {
-                            Text("TARGET DATABASE:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.5.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
+                            Text("TARGET DATABASE:", style = OniSkin.typography.labelMedium, fontWeight = FontWeight.Bold, color = OniSkin.colors.primary)
+                            Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+                            // Let token-sized labels wrap without squeezing the source controls.
+                            FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xxs)
                             ) {
                                 sources.forEach { src ->
                                     val isSelected = selectedSource == src
                                     FilterChip(
                                         selected = isSelected,
                                         onClick = { selectedSource = src },
-                                        label = { Text(src, fontSize = 10.sp) },
+                                        label = { Text(src, style = OniSkin.typography.labelMedium) },
+                                        modifier = Modifier.heightIn(min = 48.dp),
+                                        shape = OniSkin.shapes.chip,
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                            containerColor = OniSkin.colors.surface,
+                                            labelColor = OniSkin.colors.textPrimary,
+                                            selectedContainerColor = OniSkin.colors.primaryContainer,
+                                            selectedLabelColor = OniSkin.colors.onPrimaryContainer
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSelected,
+                                            borderColor = OniSkin.colors.outline,
+                                            selectedBorderColor = OniSkin.colors.primary
                                         )
                                     )
                                 }
                             }
                         }
 
-                        Button(
+                        OniPrimaryButton(
+                            text = if (isSearching) "Searching Live Databases..." else "Search Live Databases",
                             onClick = {
                                 if (title.isBlank()) {
                                     Toast.makeText(context, "Please enter a song title", Toast.LENGTH_SHORT).show()
-                                    return@Button
+                                    return@OniPrimaryButton
                                 }
                                 coroutineScope.launch {
                                     isSearching = true
@@ -177,22 +211,15 @@ fun ManualSearchDialog(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isSearching,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (isSearching) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Searching Live Databases...")
-                            } else {
+                            loading = isSearching,
+                            leadingIcon = {
                                 Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Search Live Databases")
                             }
-                        }
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
                 if (isSearching) {
                     Box(
@@ -201,64 +228,64 @@ fun ManualSearchDialog(
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Connecting to API endpoints...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Checking LRCLIB Open database, Lyrist API, and Lyrics.ovh", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+                            CircularProgressIndicator(color = OniSkin.colors.primary)
+                            Text("Connecting to API endpoints...", style = OniSkin.typography.bodySmall, fontWeight = FontWeight.Bold, color = OniSkin.colors.textPrimary)
+                            Text("Checking LRCLIB Open database, Lyrist API, and Lyrics.ovh", style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary)
                         }
                     }
                 } else if (hasSearched) {
                     if (results.isNotEmpty()) {
                         Text(
                             text = "CHOOSE CORRECT LYRICS OPTION:",
-                            fontSize = 11.sp,
+                            style = OniSkin.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            color = OniSkin.colors.primary,
+                            modifier = Modifier.padding(bottom = OniSkin.spacing.xxs)
                         )
 
                         // Results Selection Cards
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                         ) {
                             results.forEachIndexed { idx, item ->
                                 val isSelected = selectedResultIndex == idx
-                                Card(
+                                OniSurface(
                                     onClick = {
                                         selectedResultIndex = idx
                                         editedLyrics = item.third
                                     },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                                    ),
-                                    border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                                    variant = OniSurfaceVariant.Soft,
+                                    shape = OniSkin.shapes.card,
+                                    containerColor = if (isSelected) OniSkin.colors.primaryContainer else null,
+                                    border = if (isSelected) BorderStroke(1.dp, OniSkin.colors.primary) else null,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(68.dp)
+                                        .heightIn(min = 68.dp)
+                                        .semantics(mergeDescendants = true) { selected = isSelected }
                                 ) {
                                     Column(
                                         modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(8.dp),
-                                        verticalArrangement = Arrangement.SpaceBetween
+                                            .fillMaxWidth()
+                                            .padding(OniSkin.spacing.xs),
+                                        verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xxs)
                                     ) {
                                         Text(
                                             text = item.first,
-                                            fontSize = 11.sp,
+                                            style = OniSkin.typography.labelMedium,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                            color = if (isSelected) OniSkin.colors.onPrimaryContainer else OniSkin.colors.textPrimary
                                         )
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
-                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Icon(Icons.Default.Star, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(OniSkin.spacing.xxs))
                                             Text(
                                                 text = if (item.first.contains("Synced")) "Synchronized" else "Plain Text",
-                                                fontSize = 10.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                style = OniSkin.typography.caption,
+                                                color = if (isSelected) OniSkin.colors.onPrimaryContainer else OniSkin.colors.textSecondary
                                             )
                                         }
                                     }
@@ -266,28 +293,27 @@ fun ManualSearchDialog(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
                         // Preview Area Header
-                        Row(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 text = "PREVIEW & VERIFY LYRICS:",
-                                fontSize = 11.sp,
+                                style = OniSkin.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = OniSkin.colors.primary
                             )
                             Text(
                                 text = "Editable plain-text",
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = OniSkin.typography.caption,
+                                color = OniSkin.colors.textSecondary
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
 
                         // Lyrics preview box (Editable so user can correct or customize)
                         OutlinedTextField(
@@ -296,26 +322,29 @@ fun ManualSearchDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            textStyle = TextStyle(fontSize = 13.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
-                            )
+                            textStyle = OniSkin.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                            shape = OniSkin.shapes.button,
+                            colors = textFieldColors
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.md))
 
                         // Actions
-                        Row(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm, Alignment.End),
+                            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                         ) {
-                            TextButton(onClick = onDismiss) {
-                                Text("Cancel")
+                            TextButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                shape = OniSkin.shapes.button,
+                                colors = ButtonDefaults.textButtonColors(contentColor = OniSkin.colors.primary)
+                            ) {
+                                Text("Cancel", style = OniSkin.typography.labelLarge)
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Button(
+                            OniPrimaryButton(
+                                text = "Yes, Save Lyrics",
                                 onClick = {
                                     if (editedLyrics.isNotBlank()) {
                                         viewModel.updateLyrics(song.id, editedLyrics.trim())
@@ -324,88 +353,93 @@ fun ManualSearchDialog(
                                     } else {
                                         Toast.makeText(context, "Lyrics cannot be blank", Toast.LENGTH_SHORT).show()
                                     }
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                                 }
-                            ) {
-                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Yes, Save Lyrics")
-                            }
+                            )
                         }
                     } else {
                         // Empty State / No Results Found
-                        Card(
+                        OniSurface(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.12f)),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                            variant = OniSurfaceVariant.Soft,
+                            shape = OniSkin.shapes.card,
+                            border = BorderStroke(1.dp, OniSkin.colors.error)
                         ) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(24.dp),
+                                    modifier = Modifier.padding(OniSkin.spacing.xl),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.SentimentDissatisfied,
                                         contentDescription = "Not found",
                                         modifier = Modifier.size(48.dp),
-                                        tint = MaterialTheme.colorScheme.error
+                                        tint = OniSkin.colors.error
                                     )
                                     Text(
                                         "No Real-World Lyrics Found",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.error
+                                        style = OniSkin.typography.titleSmall,
+                                        color = OniSkin.colors.error
                                     )
                                     Text(
                                         text = "We searched open online lyric APIs (LRCLIB, Lyrist, and Lyrics.ovh) but couldn't find matches for \"$title\"" +
                                                 (if (artist.isNotEmpty()) " by \"$artist\"" else "") +
                                                 ". This usually happens for rare covers, instrumental audio, or localized unreleased demos.",
                                         textAlign = TextAlign.Center,
-                                        fontSize = 11.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = OniSkin.typography.bodySmall,
+                                        color = OniSkin.colors.textSecondary
                                     )
                                     
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                                     
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedButton(
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs),
+                                        verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
+                                    ) {
+                                        OniSecondaryButton(
+                                            text = "Write / Paste Manually",
                                             onClick = {
                                                 // Reset and allow manual typing inside the editor
                                                 results = listOf(Triple("Custom Lyrics Entry", 5.0, ""))
                                                 selectedResultIndex = 0
                                                 editedLyrics = ""
                                             },
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) {
-                                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Write / Paste Manually", fontSize = 11.sp)
-                                        }
+                                            leadingIcon = {
+                                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            }
+                                        )
                                         
-                                        Button(
+                                        OniPrimaryButton(
+                                            text = "Try Different Keywords",
                                             onClick = {
                                                 // Clear and let them try again with another query
                                                 hasSearched = false
-                                            },
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) {
-                                            Text("Try Different Keywords", fontSize = 11.sp)
-                                        }
+                                            }
+                                        )
                                     }
                                 }
                             }
                         }
                         
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
                         
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(onClick = onDismiss) {
-                                Text("Cancel")
+                            TextButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                shape = OniSkin.shapes.button,
+                                colors = ButtonDefaults.textButtonColors(contentColor = OniSkin.colors.primary)
+                            ) {
+                                Text("Cancel", style = OniSkin.typography.labelLarge)
                             }
                         }
                     }
@@ -418,10 +452,10 @@ fun ManualSearchDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Public, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text("Enter terms and click Search above", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Querying official lyrics repositories", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            Icon(Icons.Default.Public, contentDescription = null, modifier = Modifier.size(48.dp), tint = OniSkin.colors.textTertiary)
+                            Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
+                            Text("Enter terms and click Search above", style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary)
+                            Text("Querying official lyrics repositories", style = OniSkin.typography.caption, color = OniSkin.colors.textTertiary)
                         }
                     }
                 }
@@ -430,6 +464,7 @@ fun ManualSearchDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LyricsEditorDialog(
     song: SongEntity,
@@ -444,18 +479,17 @@ fun LyricsEditorDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
+        OniSurface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .padding(OniSkin.spacing.md),
+            variant = OniSurfaceVariant.Elevated,
+            shape = OniSkin.shapes.dialog
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
+                    .padding(OniSkin.spacing.lg)
             ) {
                 // Header
                 Row(
@@ -463,85 +497,104 @@ fun LyricsEditorDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.EditNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text("Lyrics Editor", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text(song.customTitle ?: song.title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.EditNote, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(28.dp))
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Lyrics Editor", fontWeight = FontWeight.Bold, style = OniSkin.typography.titleMedium, color = OniSkin.colors.textPrimary)
+                            Text(song.customTitle ?: song.title, style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary)
                         }
                     }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
+                    OniIconButton(
+                        icon = Icons.Default.Close,
+                        contentDescription = "Close",
+                        onClick = onDismiss,
+                        style = OniIconButtonStyle.Ghost
+                    )
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = OniSkin.spacing.sm), color = OniSkin.colors.divider)
 
                 // Guide
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                OniSurface(
+                    variant = OniSurfaceVariant.Soft,
+                    shape = OniSkin.shapes.card,
+                    containerColor = OniSkin.colors.primaryContainer,
+                    contentColor = OniSkin.colors.onPrimaryContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(10.dp),
+                        modifier = Modifier.padding(OniSkin.spacing.xs),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.Default.Info, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
                         Text(
                             "You can paste plain text or synchronized LRC text with [mm:ss.xx] timestamp tags.",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            style = OniSkin.typography.caption,
+                            color = OniSkin.colors.onPrimaryContainer
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
                 // Text Area
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    placeholder = { Text("Type or paste lyrics here...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
+                    placeholder = { Text("Type or paste lyrics here...", style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    textStyle = TextStyle(fontSize = 14.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                    textStyle = OniSkin.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    shape = OniSkin.shapes.button,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
+                        focusedTextColor = OniSkin.colors.textPrimary,
+                        unfocusedTextColor = OniSkin.colors.textPrimary,
+                        focusedContainerColor = OniSkin.colors.surfaceVariant,
+                        unfocusedContainerColor = OniSkin.colors.surfaceVariant,
+                        focusedBorderColor = OniSkin.colors.primary,
+                        unfocusedBorderColor = OniSkin.colors.outline,
+                        cursorColor = OniSkin.colors.primary,
+                        selectionColors = TextSelectionColors(OniSkin.colors.primary, OniSkin.colors.primaryContainer)
                     )
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.md))
 
                 // Actions
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        shape = OniSkin.shapes.button,
+                        colors = ButtonDefaults.textButtonColors(contentColor = OniSkin.colors.primary)
+                    ) {
+                        Text("Cancel", style = OniSkin.typography.labelLarge)
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Button(
+                    OniPrimaryButton(
+                        text = "Save Changes",
                         onClick = {
                             viewModel.updateLyrics(song.id, text.trim().ifEmpty { null })
                             Toast.makeText(context, "Lyrics saved successfully", Toast.LENGTH_SHORT).show()
                             onDismiss()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Save Changes")
-                    }
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SyncEditorDialog(
     song: SongEntity,
@@ -580,18 +633,17 @@ fun SyncEditorDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
+        OniSurface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .padding(OniSkin.spacing.md),
+            variant = OniSurfaceVariant.Elevated,
+            shape = OniSkin.shapes.dialog
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
+                    .padding(OniSkin.spacing.lg)
             ) {
                 // Header
                 Row(
@@ -599,28 +651,31 @@ fun SyncEditorDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SyncAlt, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text("Interactive Sync Editor", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("Tap the sync icon on each line when it is sung!", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.SyncAlt, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(28.dp))
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Interactive Sync Editor", fontWeight = FontWeight.Bold, style = OniSkin.typography.titleMedium, color = OniSkin.colors.textPrimary)
+                            Text("Tap the sync icon on each line when it is sung!", style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary)
                         }
                     }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
+                    OniIconButton(
+                        icon = Icons.Default.Close,
+                        contentDescription = "Close",
+                        onClick = onDismiss,
+                        style = OniIconButtonStyle.Ghost
+                    )
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = OniSkin.spacing.xs), color = OniSkin.colors.divider)
 
                 // Progress Info Card
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth(),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                OniSurface(
+                    variant = OniSurfaceVariant.Soft,
+                    shape = OniSkin.shapes.card,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(OniSkin.spacing.sm)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -628,36 +683,34 @@ fun SyncEditorDialog(
                         ) {
                             Text(
                                 text = "Current Position: ${LyricsHelper.formatLrcTime(position).replace("[", "").replace("]", "")}",
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f),
+                                fontFamily = FontFamily.Monospace,
+                                style = OniSkin.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = OniSkin.colors.primary
                             )
 
                             // Play Pause inside editor
-                            IconButton(
+                            OniCircularActionButton(
+                                icon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = "Play/Pause",
                                 onClick = { viewModel.togglePlayPause() },
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = "Play/Pause",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                                size = 48.dp,
+                                iconSize = 20.dp,
+                                elevation = OniSkin.elevation.flat
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
 
                         // Quick Adjust actions
-                        Row(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                         ) {
-                            Button(
+                            OniSecondaryButton(
+                                text = "Delay -0.5s",
                                 onClick = {
                                     // Delay all timestamps by 500ms
                                     for (i in initialLines.indices) {
@@ -667,17 +720,11 @@ fun SyncEditorDialog(
                                         }
                                     }
                                     Toast.makeText(context, "Delayed all lines by -0.5s", Toast.LENGTH_SHORT).show()
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(28.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
-                            ) {
-                                Text("Delay -0.5s", fontSize = 10.sp)
-                            }
+                                }
+                            )
 
-                            Button(
+                            OniSecondaryButton(
+                                text = "Advance +0.5s",
                                 onClick = {
                                     // Advance all timestamps by 500ms
                                     for (i in initialLines.indices) {
@@ -687,16 +734,10 @@ fun SyncEditorDialog(
                                         }
                                     }
                                     Toast.makeText(context, "Advanced all lines by +0.5s", Toast.LENGTH_SHORT).show()
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(28.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
-                            ) {
-                                Text("Advance +0.5s", fontSize = 10.sp)
-                            }
+                                }
+                            )
 
+                            // No shared destructive-button variant: retain Material behavior with skin styling.
                             Button(
                                 onClick = {
                                     // Clear all syncs
@@ -705,105 +746,95 @@ fun SyncEditorDialog(
                                     }
                                     Toast.makeText(context, "Cleared all timing tags", Toast.LENGTH_SHORT).show()
                                 },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(28.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                                contentPadding = PaddingValues(horizontal = OniSkin.spacing.buttonHorizontal, vertical = OniSkin.spacing.buttonVertical),
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                shape = OniSkin.shapes.button,
+                                colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.error, contentColor = OniSkin.colors.onError)
                             ) {
-                                Text("Reset All", fontSize = 10.sp)
+                                Text("Reset All", style = OniSkin.typography.labelLarge)
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
 
                 // List of Lyrics to Sync
-                Box(modifier = Modifier.weight(1f)) {
+                OniSurface(
+                    modifier = Modifier.weight(1f),
+                    variant = OniSurfaceVariant.Outlined,
+                    shape = OniSkin.shapes.card
+                ) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                            .padding(4.dp)
+                            .padding(OniSkin.spacing.xxs)
                     ) {
                         itemsIndexed(initialLines) { index, linePair ->
                             val (lineText, timestamp) = linePair
                             val isSynced = timestamp >= 0L
 
-                            val itemBgColor = if (isSynced) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
-                            } else {
-                                Color.Transparent
-                            }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(itemBgColor, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            OniSurface(
+                                modifier = Modifier.fillMaxWidth(),
+                                variant = OniSurfaceVariant.Flat,
+                                shape = OniSkin.shapes.listItem,
+                                containerColor = if (isSynced) OniSkin.colors.primaryContainer else OniSkin.colors.surface
                             ) {
-                                // Left Sync indicator button
-                                IconButton(
-                                    onClick = {
-                                        initialLines[index] = lineText to position
-                                        // Auto-scroll slightly to next line for fast sync workflow!
-                                        if (index + 1 < initialLines.size) {
-                                            coroutineScope.launch {
-                                                listState.animateScrollToItem(maxOf(0, index - 1))
-                                            }
-                                        }
-                                    },
+                                Row(
                                     modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            if (isSynced) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                            CircleShape
-                                        )
+                                        .fillMaxWidth()
+                                        .padding(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = if (isSynced) Icons.Default.CheckCircle else Icons.Default.Timer,
+                                    // Left Sync indicator button
+                                    OniIconButton(
+                                        icon = if (isSynced) Icons.Default.CheckCircle else Icons.Default.Timer,
                                         contentDescription = "Sync line",
-                                        tint = if (isSynced) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                // Lyric sentence
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = lineText,
-                                        fontSize = 14.sp,
-                                        color = if (isSynced) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                        fontWeight = if (isSynced) FontWeight.Medium else FontWeight.Normal
+                                        onClick = {
+                                            initialLines[index] = lineText to position
+                                            // Auto-scroll slightly to next line for fast sync workflow!
+                                            if (index + 1 < initialLines.size) {
+                                                coroutineScope.launch {
+                                                    listState.animateScrollToItem(maxOf(0, index - 1))
+                                                }
+                                            }
+                                        },
+                                        selected = isSynced,
+                                        style = OniIconButtonStyle.Neutral,
+                                        iconSize = 18.dp
                                     )
 
-                                    if (isSynced) {
+                                    Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+
+                                    // Lyric sentence
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = LyricsHelper.formatLrcTime(timestamp).replace("[", "").replace("]", ""),
-                                            fontSize = 10.sp,
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold
+                                            text = lineText,
+                                            style = OniSkin.typography.bodyMedium,
+                                            color = if (isSynced) OniSkin.colors.onPrimaryContainer else OniSkin.colors.textSecondary,
+                                            fontWeight = if (isSynced) FontWeight.Medium else FontWeight.Normal
                                         )
-                                    }
-                                }
 
-                                // Clear individual sync button
-                                if (isSynced) {
-                                    IconButton(
-                                        onClick = { initialLines[index] = lineText to -1L },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
+                                        if (isSynced) {
+                                            Text(
+                                                text = LyricsHelper.formatLrcTime(timestamp).replace("[", "").replace("]", ""),
+                                                style = OniSkin.typography.caption,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = OniSkin.colors.onPrimaryContainer,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    // Clear individual sync button
+                                    if (isSynced) {
+                                        OniIconButton(
+                                            icon = Icons.Default.Clear,
                                             contentDescription = "Clear timestamp",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                            modifier = Modifier.size(16.dp)
+                                            onClick = { initialLines[index] = lineText to -1L },
+                                            style = OniIconButtonStyle.Ghost,
+                                            iconSize = 16.dp
                                         )
                                     }
                                 }
@@ -812,18 +843,24 @@ fun SyncEditorDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.md))
 
                 // Actions
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        shape = OniSkin.shapes.button,
+                        colors = ButtonDefaults.textButtonColors(contentColor = OniSkin.colors.primary)
+                    ) {
+                        Text("Cancel", style = OniSkin.typography.labelLarge)
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Button(
+                    OniPrimaryButton(
+                        text = "Save & Apply",
                         onClick = {
                             // Check if at least some lines are synced
                             val syncedLines = initialLines.filter { it.second >= 0L }.map { LrcLine(it.second, it.first) }
@@ -839,12 +876,11 @@ fun SyncEditorDialog(
                                 Toast.makeText(context, "Successfully saved synchronized LRC lyrics!", Toast.LENGTH_SHORT).show()
                             }
                             onDismiss()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Save & Apply")
-                    }
+                    )
                 }
             }
         }

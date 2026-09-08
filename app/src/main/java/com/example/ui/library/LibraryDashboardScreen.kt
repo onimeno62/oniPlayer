@@ -33,7 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.entity.SongEntity
 import com.example.ui.library.components.*
 import com.example.ui.library.model.AlbumUiModel
@@ -42,7 +41,6 @@ import com.example.ui.screens.*
 import com.example.ui.theme.OniSkin
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.library.hero.ContinueListeningHeroV2
 
 @Composable
@@ -123,8 +121,7 @@ fun LibraryDashboardScreen(
                         text = greetingForTime(),
                         style = OniSkin.typography.caption,
                         fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.primary,
-                        letterSpacing = 1.sp
+                        color = OniSkin.colors.primary
                     )
                     Text(
                         text = "Your Library",
@@ -135,37 +132,44 @@ fun LibraryDashboardScreen(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
-                    IconButton(
-                        onClick = showOptionsMenu,
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                            .background(OniSkin.colors.surfaceVariant, CircleShape)
+                    OniSurface(
+                        variant = OniSurfaceVariant.Soft,
+                        shape = OniSkin.shapes.full
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "Library Options",
-                            tint = OniSkin.colors.primary
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onRescan,
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                            .background(OniSkin.colors.primary.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        if (isScanning) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = OniSkin.colors.primary
-                            )
-                        } else {
+                        IconButton(
+                            onClick = showOptionsMenu,
+                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Scan Library",
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Library Options",
                                 tint = OniSkin.colors.primary
                             )
+                        }
+                    }
+
+                    OniSurface(
+                        variant = OniSurfaceVariant.Flat,
+                        shape = OniSkin.shapes.full,
+                        containerColor = OniSkin.colors.primaryContainer
+                    ) {
+                        IconButton(
+                            onClick = onRescan,
+                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        ) {
+                            if (isScanning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = OniSkin.colors.primary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Scan Library",
+                                    tint = OniSkin.colors.primary
+                                )
+                            }
                         }
                     }
                 }
@@ -431,10 +435,12 @@ fun LibraryDashboardScreen(
 
             // Category preview — Quick Access / All Categories toggle and CategoryCard rendering
             item(key = "category_preview_section") {
+                val motion = OniSkin.motion
                 AnimatedContent(
                     targetState = showAllCategories,
                     transitionSpec = {
-                        fadeIn(animationSpec = tween(260)) togetherWith fadeOut(animationSpec = tween(260))
+                        fadeIn(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing)) togetherWith
+                            fadeOut(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing))
                     },
                     label = "Categories section transition"
                 ) { isShowingAll ->
