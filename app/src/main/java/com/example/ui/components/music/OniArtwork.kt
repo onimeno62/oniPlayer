@@ -16,19 +16,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.example.ui.theme.OniSkin
 
-/**
- * Reusable album-artwork component.
- * Consumes [OniSkin.artwork], [OniSkin.shapes], and [OniSkin.colors] tokens.
- * Pure presentation component accepting visual data.
- */
 @Composable
 fun OniArtwork(
     artworkUri: String?,
@@ -43,98 +37,28 @@ fun OniArtwork(
     placeholder: (@Composable () -> Unit)? = null
 ) {
     val sizeModifier = if (size != null) Modifier.size(size) else Modifier
-
-    Box(
-        modifier = modifier.then(sizeModifier),
-        contentAlignment = Alignment.Center
-    ) {
+    val artworkSemantics = if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier
+    Box(modifier = modifier.then(sizeModifier), contentAlignment = Alignment.Center) {
         if (showGlow && OniSkin.artwork.glowAlpha > 0f) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        brush = Brush.radialGradient(
-                            listOf(
-                                glowColor.copy(alpha = OniSkin.artwork.glowAlpha),
-                                Color.Transparent
-                            )
-                        ),
-                        shape = shape
-                    )
-            )
+            Box(modifier = Modifier.matchParentSize().background(Brush.radialGradient(listOf(glowColor.copy(alpha = OniSkin.artwork.glowAlpha), Color.Transparent), shape = shape)))
         }
-
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                .then(
-                    if (elevation > 0.dp) Modifier.shadow(elevation, shape)
-                    else Modifier
-                )
-                .clip(shape)
-                .background(OniSkin.colors.surfaceVariant)
-                .border(1.dp, OniSkin.colors.outline.copy(alpha = 0.25f), shape)
-                .semantics {
-                    if (contentDescription != null) {
-                        this.contentDescription = contentDescription
-                    }
-                },
+            modifier = Modifier.matchParentSize().then(if (elevation > 0.dp) Modifier.shadow(elevation, shape) else Modifier).clip(shape).background(OniSkin.colors.surfaceVariant).border(1.dp, OniSkin.colors.outline.copy(alpha = 0.25f), shape).then(artworkSemantics),
             contentAlignment = Alignment.Center
         ) {
             if (!artworkUri.isNullOrBlank()) {
-                coil.compose.SubcomposeAsyncImage(
-                    model = artworkUri,
-                    contentDescription = contentDescription,
-                    modifier = Modifier.matchParentSize(),
-                    contentScale = contentScale,
-                    loading = {
-                        Box(
-                            modifier = Modifier.matchParentSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (placeholder != null) {
-                                placeholder()
-                            } else {
-                                val iconSize = if (size != null) size * 0.45f else 36.dp
-                                Icon(
-                                    imageVector = Icons.Default.MusicNote,
-                                    contentDescription = contentDescription,
-                                    tint = OniSkin.colors.primary.copy(alpha = 0.35f),
-                                    modifier = Modifier.size(iconSize)
-                                )
-                            }
-                        }
-                    },
-                    error = {
-                        Box(
-                            modifier = Modifier.matchParentSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (placeholder != null) {
-                                placeholder()
-                            } else {
-                                val iconSize = if (size != null) size * 0.45f else 36.dp
-                                Icon(
-                                    imageVector = Icons.Default.MusicNote,
-                                    contentDescription = contentDescription,
-                                    tint = OniSkin.colors.primary.copy(alpha = 0.35f),
-                                    modifier = Modifier.size(iconSize)
-                                )
-                            }
-                        }
-                    }
-                )
-            } else if (placeholder != null) {
-                placeholder()
+                SubcomposeAsyncImage(model = artworkUri, contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = contentScale, loading = { ArtworkPlaceholder(size, placeholder) }, error = { ArtworkPlaceholder(size, placeholder) })
             } else {
-                val iconSize = if (size != null) size * 0.45f else 36.dp
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = contentDescription,
-                    tint = OniSkin.colors.primary.copy(alpha = 0.4f),
-                    modifier = Modifier.size(iconSize)
-                )
+                ArtworkPlaceholder(size, placeholder)
             }
         }
+    }
+}
+
+@Composable
+private fun ArtworkPlaceholder(size: Dp?, placeholder: (@Composable () -> Unit)?) {
+    if (placeholder != null) placeholder() else {
+        val iconSize = if (size != null) size * 0.45f else 36.dp
+        Icon(Icons.Default.MusicNote, contentDescription = null, tint = OniSkin.colors.primary.copy(alpha = 0.4f), modifier = Modifier.size(iconSize))
     }
 }
