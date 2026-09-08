@@ -1,9 +1,6 @@
 package com.example.ui.player.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.EditNote
@@ -12,22 +9,18 @@ import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
@@ -51,73 +44,21 @@ fun PlayerFeatureActions(
     onEditTagsClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
-    horizontalPadding: androidx.compose.ui.unit.Dp = OniSkin.spacing.screenHorizontal,
-    buttonHeight: androidx.compose.ui.unit.Dp = 48.dp
+    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
+    buttonHeight: Dp = 48.dp
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = horizontalPadding),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FeatureActionButton(
-            icon = Icons.Default.Lyrics,
-            label = "Lyrics",
-            isActive = false,
-            onClick = onLyricsClick,
-            testTag = "player_lyrics_button",
-            height = buttonHeight,
-            modifier = Modifier.weight(1f)
-        )
-
-        Spacer(modifier = Modifier.width(6.dp))
-
-        FeatureActionButton(
-            icon = Icons.Default.PictureInPicture,
-            label = "Floating",
-            isActive = floatingLyricsEnabled,
-            onClick = onToggleFloatingLyrics,
-            testTag = "player_floating_lyrics_button",
-            height = buttonHeight,
-            modifier = Modifier.weight(1f)
-        )
-
-        Spacer(modifier = Modifier.width(6.dp))
-
-        FeatureActionButton(
-            icon = Icons.Default.Timer,
-            label = if (isSleepTimerRunning) "${sleepTimerMinutesLeft}m" else "Timer",
-            isActive = isSleepTimerRunning,
-            onClick = onSleepTimerClick,
-            testTag = "player_sleep_timer_button",
-            height = buttonHeight,
-            modifier = Modifier.weight(1f)
-        )
-
-        Spacer(modifier = Modifier.width(6.dp))
-
-        FeatureActionButton(
-            icon = Icons.Default.EditNote,
-            label = "Tags",
-            isActive = false,
-            onClick = onEditTagsClick,
-            testTag = "player_edit_tags_button",
-            height = buttonHeight,
-            modifier = Modifier.weight(1f)
-        )
-
-        Spacer(modifier = Modifier.width(6.dp))
-
-        FeatureActionButton(
-            icon = Icons.Default.DeleteOutline,
-            label = "Delete",
-            isActive = false,
-            onClick = onDeleteClick,
-            testTag = "player_delete_track_button",
-            height = buttonHeight,
-            modifier = Modifier.weight(1f)
-        )
+        FeatureActionButton(Icons.Default.Lyrics, "Lyrics", false, onLyricsClick, "player_lyrics_button", buttonHeight, Modifier.weight(1f))
+        FeatureActionButton(Icons.Default.PictureInPicture, "Floating", floatingLyricsEnabled, onToggleFloatingLyrics, "player_floating_lyrics_button", buttonHeight, Modifier.weight(1f))
+        FeatureActionButton(Icons.Default.Timer, if (isSleepTimerRunning) "${sleepTimerMinutesLeft}m" else "Timer", isSleepTimerRunning, onSleepTimerClick, "player_sleep_timer_button", buttonHeight, Modifier.weight(1f))
+        FeatureActionButton(Icons.Default.EditNote, "Tags", false, onEditTagsClick, "player_edit_tags_button", buttonHeight, Modifier.weight(1f))
+        FeatureActionButton(Icons.Default.DeleteOutline, "Delete", false, onDeleteClick, "player_delete_track_button", buttonHeight, Modifier.weight(1f))
     }
 }
 
@@ -128,7 +69,7 @@ private fun FeatureActionButton(
     isActive: Boolean,
     onClick: () -> Unit,
     testTag: String,
-    height: androidx.compose.ui.unit.Dp = 48.dp,
+    height: Dp = 48.dp,
     modifier: Modifier = Modifier
 ) {
     val containerVariant = if (isActive) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft
@@ -139,16 +80,14 @@ private fun FeatureActionButton(
         shape = OniSkin.shapes.medium,
         onClick = onClick,
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .testTag(testTag)
-            .semantics {
-                selected = isActive
-            }
+            .semantics { selected = isActive }
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 6.dp),
+                .fillMaxWidth()
+                .padding(vertical = OniSkin.spacing.xs),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -158,14 +97,14 @@ private fun FeatureActionButton(
                 tint = contentColor,
                 modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
             Text(
                 text = label,
                 style = OniSkin.typography.caption,
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                 color = contentColor,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
