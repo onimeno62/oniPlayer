@@ -18,132 +18,43 @@ import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
 
-/**
- * Clean Sleep Timer selection dialog for the Player screen in Default Skin.
- *
- * Replaces the legacy Aurora Glass timer dialog with Default Skin tokens.
- */
 @Composable
-fun PlayerSleepTimerDialog(
-    isTimerRunning: Boolean,
-    minutesLeft: Int,
-    onSelectMinutes: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
+fun PlayerSleepTimerDialog(isTimerRunning: Boolean, minutesLeft: Int, onSelectMinutes: (Int) -> Unit, onDismiss: () -> Unit) {
     val options = listOf(5, 15, 30, 45, 60)
-
     Dialog(onDismissRequest = onDismiss) {
-        OniSurface(
-            variant = OniSurfaceVariant.Elevated,
-            shape = OniSkin.shapes.large,
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 440.dp)
-                .padding(16.dp)
-                .testTag("player_sleep_timer_dialog")
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Timer,
-                    contentDescription = null,
-                    tint = OniSkin.colors.primary,
-                    modifier = Modifier.size(32.dp)
-                )
+        OniSurface(variant = OniSurfaceVariant.Elevated, shape = OniSkin.shapes.large, modifier = Modifier.fillMaxWidth().widthIn(max = 440.dp).padding(OniSkin.spacing.md).testTag("player_sleep_timer_dialog")) {
+            Column(modifier = Modifier.fillMaxWidth().padding(OniSkin.spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Timer, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(32.dp))
+                Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
+                Text("Sleep Timer", style = OniSkin.typography.titleLarge, fontWeight = FontWeight.Bold, color = OniSkin.colors.textPrimary)
+                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+                Text(if (isTimerRunning) "Playback stops in $minutesLeft min" else "Select duration to stop playback", style = OniSkin.typography.bodySmall, color = if (isTimerRunning) OniSkin.colors.primary else OniSkin.colors.textSecondary)
+                Spacer(modifier = Modifier.height(OniSkin.spacing.md))
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Sleep Timer",
-                    style = OniSkin.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = OniSkin.colors.textPrimary
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = if (isTimerRunning) "Playback stops in $minutesLeft min" else "Select duration to stop playback",
-                    style = OniSkin.typography.bodySmall,
-                    color = if (isTimerRunning) OniSkin.colors.primary else OniSkin.colors.textSecondary
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Options grid/column
+                // Three equal columns on regular widths. The final row receives an
+                // explicit spacer so its tiles keep the same geometry as the first row.
                 options.chunked(3).forEach { rowOptions ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                         rowOptions.forEach { mins ->
                             val isSelected = isTimerRunning && minutesLeft == mins
-                            val variant = if (isSelected) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft
-
-                            OniSurface(
-                                variant = variant,
-                                shape = OniSkin.shapes.medium,
-                                onClick = {
-                                    onSelectMinutes(mins)
-                                    onDismiss()
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 48.dp)
-                                    .semantics {
-                                        selected = isSelected
-                                    }
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "${mins}m",
-                                        style = OniSkin.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textPrimary
-                                    )
-                                }
+                            OniSurface(variant = if (isSelected) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft, shape = OniSkin.shapes.medium, onClick = { onSelectMinutes(mins); onDismiss() }, modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics { selected = isSelected }) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("${mins}m", style = OniSkin.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textPrimary) }
                             }
                         }
+                        repeat(3 - rowOptions.size) { Spacer(modifier = Modifier.weight(1f)) }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
                 }
 
                 if (isTimerRunning) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OutlinedButton(
-                        onClick = {
-                            onSelectMinutes(0)
-                            onDismiss()
-                        },
-                        shape = OniSkin.shapes.medium,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = OniSkin.colors.error),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.TimerOff,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Turn Off Timer", fontWeight = FontWeight.Bold)
+                    OutlinedButton(onClick = { onSelectMinutes(0); onDismiss() }, shape = OniSkin.shapes.medium, colors = ButtonDefaults.outlinedButtonColors(contentColor = OniSkin.colors.error), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Icon(Icons.Default.TimerOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                        Text("Turn Off Timer", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Close", color = OniSkin.colors.textSecondary)
-                }
+                Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp)) { Text("Close", style = OniSkin.typography.labelLarge, color = OniSkin.colors.textSecondary) }
             }
         }
     }
