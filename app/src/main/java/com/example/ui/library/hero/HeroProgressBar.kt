@@ -14,6 +14,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.OniSkin
@@ -32,7 +35,11 @@ fun HeroProgressBar(position: Long, duration: Long, tintColor: Color = OniSkin.c
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
         Text(formatTime(position), style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary)
         Canvas(
-            modifier = Modifier.weight(1f).height(48.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpenNowPlaying)
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = onOpenNowPlaying)
+                .semantics { contentDescription = "Playback progress: ${formatTime(position)} of ${formatTime(duration)}" }
         ) {
             val centerY = size.height / 2f
             val width = size.width
