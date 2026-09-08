@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -25,14 +26,6 @@ import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
 
-/**
- * Secondary feature action row for the Player screen in Default Skin.
- *
- * Provides access to Lyrics/Karaoke, Floating Lyrics, Sleep Timer, Tag Editor,
- * and Track Deletion in a quiet, organized row.
- *
- * Replaces the legacy Aurora Glass floating dock.
- */
 @Composable
 fun PlayerFeatureActions(
     onLyricsClick: () -> Unit,
@@ -48,9 +41,7 @@ fun PlayerFeatureActions(
     buttonHeight: Dp = 48.dp
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding),
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -63,50 +54,22 @@ fun PlayerFeatureActions(
 }
 
 @Composable
-private fun FeatureActionButton(
-    icon: ImageVector,
-    label: String,
-    isActive: Boolean,
-    onClick: () -> Unit,
-    testTag: String,
-    height: Dp = 48.dp,
-    modifier: Modifier = Modifier
-) {
+private fun FeatureActionButton(icon: ImageVector, label: String, isActive: Boolean, onClick: () -> Unit, testTag: String, height: Dp = 48.dp, modifier: Modifier = Modifier) {
     val containerVariant = if (isActive) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft
     val contentColor = if (isActive) OniSkin.colors.primary else OniSkin.colors.textSecondary
-
     OniSurface(
         variant = containerVariant,
         shape = OniSkin.shapes.medium,
         onClick = onClick,
-        modifier = modifier
-            .heightIn(min = height)
-            .testTag(testTag)
-            .semantics { selected = isActive }
+        modifier = modifier.heightIn(min = height).testTag(testTag).semantics(mergeDescendants = true) {
+            selected = isActive
+            contentDescription = "$label${if (isActive) ", active" else ""}"
+        }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = OniSkin.spacing.xs),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(18.dp)
-            )
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = OniSkin.spacing.xs), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
-            Text(
-                text = label,
-                style = OniSkin.typography.caption,
-                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                color = contentColor,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Text(label, style = OniSkin.typography.caption, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium, color = contentColor, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
