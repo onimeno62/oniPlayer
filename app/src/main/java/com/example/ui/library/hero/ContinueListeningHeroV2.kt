@@ -22,35 +22,32 @@ import com.example.ui.theme.OniSkin
 
 @Composable
 fun ContinueListeningHeroV2(song: SongEntity, isPlaying: Boolean, position: Long, duration: Long, onPlayPauseClick: () -> Unit, onOpenNowPlaying: () -> Unit, modifier: Modifier = Modifier, isPreparing: Boolean = false) {
-    val cardShape = OniSkin.shapes.card
     OniSurface(
         modifier = modifier.fillMaxWidth().testTag("continue_listening_hero").semantics(mergeDescendants = true) { role = Role.Button; contentDescription = "Continue listening: ${song.displayTitle} by ${song.displayArtist}" },
         variant = OniSurfaceVariant.Elevated,
-        shape = cardShape,
+        shape = OniSkin.shapes.card,
         elevation = OniSkin.elevation.raised,
         onClick = onOpenNowPlaying
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm), verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(if (isPlaying) "NOW PLAYING" else "CONTINUE LISTENING", style = OniSkin.typography.caption, fontWeight = FontWeight.Bold, color = OniSkin.colors.primary)
-                if (duration > 0) {
-                    val percent = (position.toFloat() / duration.toFloat() * 100).toInt().coerceIn(0, 100)
-                    Text("$percent%", style = OniSkin.typography.caption, color = OniSkin.colors.textTertiary)
-                }
+                if (duration > 0) Text("${(position.toFloat() / duration.toFloat() * 100).toInt().coerceIn(0, 100)}%", style = OniSkin.typography.caption, color = OniSkin.colors.textTertiary)
             }
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val compact = maxWidth < 360.dp
+                // Keep the approved horizontal composition on normal phones. Only the
+                // genuinely narrow content width uses a stacked fallback.
+                val compact = maxWidth < 300.dp
                 if (compact) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
-                        OniArtwork(artworkUri = song.albumArtUri, size = 72.dp, shape = OniSkin.artwork.shape, contentDescription = null)
+                        OniArtwork(song.albumArtUri, contentDescription = null, size = 72.dp, shape = OniSkin.artwork.shape)
                         Text(song.displayTitle, style = OniSkin.typography.titleMedium, fontWeight = FontWeight.Bold, color = OniSkin.colors.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(song.displayArtist, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (!song.album.isNullOrBlank()) Text(song.album, style = OniSkin.typography.bodySmall, color = OniSkin.colors.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        OniPlayPauseButton(isPlaying = isPlaying, onClick = onPlayPauseClick, size = OniSkin.playbackControls.secondaryControlSize.coerceAtLeast(48.dp), loading = isPreparing)
+                        OniPlayPauseButton(isPlaying, onPlayPauseClick, size = OniSkin.playbackControls.secondaryControlSize.coerceAtLeast(48.dp), loading = isPreparing)
                     }
                 } else {
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        OniArtwork(artworkUri = song.albumArtUri, size = 80.dp, shape = OniSkin.artwork.shape, contentDescription = null)
+                        OniArtwork(song.albumArtUri, contentDescription = null, size = 80.dp, shape = OniSkin.artwork.shape)
                         Spacer(modifier = Modifier.width(OniSkin.spacing.md))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(song.displayTitle, style = OniSkin.typography.titleMedium, fontWeight = FontWeight.Bold, color = OniSkin.colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -58,11 +55,11 @@ fun ContinueListeningHeroV2(song: SongEntity, isPlaying: Boolean, position: Long
                             if (!song.album.isNullOrBlank()) Text(song.album, style = OniSkin.typography.bodySmall, color = OniSkin.colors.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                        OniPlayPauseButton(isPlaying = isPlaying, onClick = onPlayPauseClick, size = OniSkin.playbackControls.secondaryControlSize.coerceAtLeast(48.dp), loading = isPreparing)
+                        OniPlayPauseButton(isPlaying, onPlayPauseClick, size = OniSkin.playbackControls.secondaryControlSize.coerceAtLeast(48.dp), loading = isPreparing)
                     }
                 }
             }
-            HeroProgressBar(position = position, duration = duration, tintColor = OniSkin.colors.primary, onOpenNowPlaying = onOpenNowPlaying)
+            HeroProgressBar(position, duration, OniSkin.colors.primary, onOpenNowPlaying)
         }
     }
 }
