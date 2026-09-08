@@ -122,7 +122,9 @@ fun SettingsList(
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
             items(categories, key = { it.id }) { category ->
-                Row(
+                OniSurface(
+                    variant = OniSurfaceVariant.Soft,
+                    shape = OniSkin.shapes.card,
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics(mergeDescendants = true) {
@@ -131,61 +133,53 @@ fun SettingsList(
                         }
                         .clickable { onCategoryClick(category.id) }
                         .testTag("settings_card_${category.id}")
-                        .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OniSurface(
-                        variant = OniSurfaceVariant.Soft,
-                        shape = OniSkin.shapes.card,
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                            verticalAlignment = Alignment.CenterVertically
+                        OniSurface(
+                            variant = OniSurfaceVariant.Flat,
+                            shape = OniSkin.shapes.button,
+                            containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
+                            modifier = Modifier.size(42.dp)
                         ) {
-                            OniSurface(
-                                variant = OniSurfaceVariant.Flat,
-                                shape = OniSkin.shapes.button,
-                                containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
-                                modifier = Modifier.size(42.dp)
-                            ) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = category.icon,
-                                        contentDescription = null,
-                                        tint = OniSkin.colors.primary,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = category.title,
-                                    style = OniSkin.typography.bodyLarge,
-                                    color = OniSkin.colors.textPrimary,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
-                                Text(
-                                    text = category.subtitle,
-                                    style = OniSkin.typography.caption,
-                                    color = OniSkin.colors.textSecondary,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = category.icon,
+                                    contentDescription = null,
+                                    tint = OniSkin.colors.primary,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = OniSkin.colors.textTertiary,
-                                modifier = Modifier.size(20.dp)
+                        }
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = category.title,
+                                style = OniSkin.typography.bodyLarge,
+                                color = OniSkin.colors.textPrimary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+                            Text(
+                                text = category.subtitle,
+                                style = OniSkin.typography.caption,
+                                color = OniSkin.colors.textSecondary,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = OniSkin.colors.textTertiary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
