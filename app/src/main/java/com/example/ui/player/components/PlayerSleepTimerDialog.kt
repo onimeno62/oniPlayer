@@ -31,16 +31,22 @@ fun PlayerSleepTimerDialog(isTimerRunning: Boolean, minutesLeft: Int, onSelectMi
                 Text(if (isTimerRunning) "Playback stops in $minutesLeft min" else "Select duration to stop playback", style = OniSkin.typography.bodySmall, color = if (isTimerRunning) OniSkin.colors.primary else OniSkin.colors.textSecondary)
                 Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
-                // Two compact columns keep all five options visible on short phone screens.
                 options.chunked(2).forEach { rowOptions ->
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                         rowOptions.forEach { mins ->
                             val isSelected = isTimerRunning && minutesLeft == mins
-                            OniSurface(variant = if (isSelected) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft, shape = OniSkin.shapes.medium, onClick = { onSelectMinutes(mins); onDismiss() }, modifier = Modifier.weight(1f).heightIn(min = 44.dp).semantics { selected = isSelected }) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("${mins}m", style = OniSkin.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textPrimary) }
+                            OniSurface(
+                                variant = if (isSelected) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft,
+                                shape = OniSkin.shapes.medium,
+                                onClick = { onSelectMinutes(mins); onDismiss() },
+                                modifier = Modifier.weight(1f).height(56.dp).semantics { selected = isSelected }
+                            ) {
+                                Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                                    Text("${mins}m", style = OniSkin.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textPrimary)
+                                }
                             }
                         }
-                        if (rowOptions.size == 1) Spacer(modifier = Modifier.weight(1f))
+                        if (rowOptions.size == 1) Spacer(modifier = Modifier.weight(1f).height(56.dp))
                     }
                     Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
                 }
