@@ -72,22 +72,14 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
                     onClick = { viewModel.selectPreset(preset) },
                     modifier = Modifier.defaultMinSize(minHeight = 48.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.xs),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                         Text(preset.name, style = OniSkin.typography.labelLarge, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium, color = if (isActive) OniSkin.colors.primary else OniSkin.colors.textPrimary)
                         if (preset.isCustom) {
                             Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Delete custom preset",
-                                tint = OniSkin.colors.textSecondary,
-                                modifier = Modifier.size(24.dp).clickable {
-                                    viewModel.deletePreset(preset)
-                                    Toast.makeText(context, "Preset deleted", Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                            Icon(Icons.Default.Close, contentDescription = "Delete custom preset", tint = OniSkin.colors.textSecondary, modifier = Modifier.size(24.dp).clickable {
+                                viewModel.deletePreset(preset)
+                                Toast.makeText(context, "Preset deleted", Toast.LENGTH_SHORT).show()
+                            })
                         }
                     }
                 }
@@ -106,55 +98,37 @@ fun EqualizerScreen(viewModel: MusicPlayerViewModel) {
         }
 
         EqualizerSectionLabel("SPATIAL AUDIO EXPANSION")
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
-            EffectCard("Sub-Bass", Icons.Default.Hearing, bassBoost, OniSkin.colors.primary, "% boost", Modifier.weight(1f)) { viewModel.updateBassBoost(it) }
-            EffectCard("Spatializer", Icons.Default.SurroundSound, virtualizer, OniSkin.colors.accentSecondary, "% width", Modifier.weight(1f)) { viewModel.updateVirtualizer(it) }
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 420.dp
+            if (compact) {
+                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
+                    EffectCard("Sub-Bass", Icons.Default.Hearing, bassBoost, OniSkin.colors.primary, "% boost", Modifier.fillMaxWidth()) { viewModel.updateBassBoost(it) }
+                    EffectCard("Spatializer", Icons.Default.SurroundSound, virtualizer, OniSkin.colors.accentSecondary, "% width", Modifier.fillMaxWidth()) { viewModel.updateVirtualizer(it) }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
+                    EffectCard("Sub-Bass", Icons.Default.Hearing, bassBoost, OniSkin.colors.primary, "% boost", Modifier.weight(1f)) { viewModel.updateBassBoost(it) }
+                    EffectCard("Spatializer", Icons.Default.SurroundSound, virtualizer, OniSkin.colors.accentSecondary, "% width", Modifier.weight(1f)) { viewModel.updateVirtualizer(it) }
+                }
+            }
         }
         Spacer(modifier = Modifier.height(OniSkin.spacing.xxl))
     }
 
     if (showSaveDialog) {
         Dialog(onDismissRequest = { showSaveDialog = false }) {
-            OniSurface(
-                variant = OniSurfaceVariant.Elevated,
-                shape = OniSkin.shapes.dialog,
-                modifier = Modifier.fillMaxWidth().padding(OniSkin.spacing.md)
-            ) {
+            OniSurface(variant = OniSurfaceVariant.Elevated, shape = OniSkin.shapes.dialog, modifier = Modifier.fillMaxWidth().padding(OniSkin.spacing.md)) {
                 Column(modifier = Modifier.padding(OniSkin.spacing.xl)) {
                     Text("Save Personal Preset", style = OniSkin.typography.titleMedium, fontWeight = FontWeight.Bold, color = OniSkin.colors.textPrimary)
                     Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
                     Text("Save current frequency filter bands configuration to custom preset library.", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
                     Spacer(modifier = Modifier.height(OniSkin.spacing.md))
-                    OutlinedTextField(
-                        value = presetNameToSave,
-                        onValueChange = { presetNameToSave = it },
-                        placeholder = { Text("My Preset Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = OniSkin.shapes.button,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = OniSkin.colors.textPrimary,
-                            unfocusedTextColor = OniSkin.colors.textPrimary,
-                            focusedBorderColor = OniSkin.colors.primary,
-                            unfocusedBorderColor = OniSkin.colors.outline
-                        )
-                    )
+                    OutlinedTextField(value = presetNameToSave, onValueChange = { presetNameToSave = it }, placeholder = { Text("My Preset Name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = OniSkin.shapes.button, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = OniSkin.colors.textPrimary, unfocusedTextColor = OniSkin.colors.textPrimary, focusedBorderColor = OniSkin.colors.primary, unfocusedBorderColor = OniSkin.colors.outline))
                     Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { showSaveDialog = false }) { Text("Cancel", style = OniSkin.typography.labelLarge) }
                         Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                        Button(
-                            onClick = {
-                                if (presetNameToSave.isNotBlank()) {
-                                    viewModel.saveCustomPreset(presetNameToSave.trim())
-                                    Toast.makeText(context, "Preset saved!", Toast.LENGTH_SHORT).show()
-                                    showSaveDialog = false
-                                    presetNameToSave = ""
-                                }
-                            },
-                            shape = OniSkin.shapes.button,
-                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary, contentColor = OniSkin.colors.onPrimary)
-                        ) { Text("Save", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold) }
+                        Button(onClick = { if (presetNameToSave.isNotBlank()) { viewModel.saveCustomPreset(presetNameToSave.trim()); Toast.makeText(context, "Preset saved!", Toast.LENGTH_SHORT).show(); showSaveDialog = false; presetNameToSave = "" } }, shape = OniSkin.shapes.button, colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary, contentColor = OniSkin.colors.onPrimary)) { Text("Save", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold) }
                     }
                 }
             }
@@ -168,15 +142,7 @@ private fun EqualizerSectionLabel(text: String) {
 }
 
 @Composable
-private fun EffectCard(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: Float,
-    tint: Color,
-    suffix: String,
-    modifier: Modifier,
-    onValueChange: (Float) -> Unit
-) {
+private fun EffectCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, value: Float, tint: Color, suffix: String, modifier: Modifier, onValueChange: (Float) -> Unit) {
     OniSurface(variant = OniSurfaceVariant.Soft, shape = OniSkin.shapes.card, modifier = modifier) {
         Column(modifier = Modifier.padding(OniSkin.spacing.md), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
