@@ -14,13 +14,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
@@ -58,7 +59,7 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
     AnimatedContent(
         targetState = activeSubScreen,
         transitionSpec = {
-            val forwardSign = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Ltr) 1 else -1
+            val forwardSign = if (layoutDirection == LayoutDirection.Ltr) 1 else -1
             if (targetState != null) {
                 (slideInHorizontally(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing)) { it * forwardSign } +
                         fadeIn(animationSpec = tween(transitionDuration, easing = OniSkin.motion.standardEasing))) togetherWith
