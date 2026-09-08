@@ -201,7 +201,7 @@ fun SettingsDetailPlaceholder(
     ) {
         SettingsSubscreenHeader(
             title = category.title,
-            subtitle = category.subtitle,
+            subtitle = "Settings category",
             onBack = onBack,
             backButtonTestTag = "settings_back_button"
         )
