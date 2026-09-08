@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,7 +47,7 @@ fun AlbumDetailScreen(album: AlbumUiModel, songsInAlbum: List<SongEntity>, curre
             Button(onClick = onPlayAll, modifier = Modifier.weight(1f), shape = OniSkin.shapes.button, contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm), colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary, contentColor = OniSkin.colors.onPrimary)) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp)); Spacer(modifier = Modifier.width(OniSkin.spacing.xs)); Text("Play All", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
-            FilledTonalButton(onClick = onShufflePlay, modifier = Modifier.weight(1f), shape = OniSkin.shapes.button, contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm), colors = FilledTonalButtonDefaults.filledTonalButtonColors(containerColor = OniSkin.colors.surfaceVariant, contentColor = OniSkin.colors.textPrimary)) {
+            FilledTonalButton(onClick = onShufflePlay, modifier = Modifier.weight(1f), shape = OniSkin.shapes.button, contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm), colors = ButtonDefaults.filledTonalButtonColors(containerColor = OniSkin.colors.surfaceVariant, contentColor = OniSkin.colors.textPrimary)) {
                 Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(OniSkin.spacing.xs)); Text("Shuffle", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }

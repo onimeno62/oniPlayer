@@ -40,7 +40,16 @@ fun OniArtwork(
     val artworkSemantics = if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier
     Box(modifier = modifier.then(sizeModifier), contentAlignment = Alignment.Center) {
         if (showGlow && OniSkin.artwork.glowAlpha > 0f) {
-            Box(modifier = Modifier.matchParentSize().background(Brush.radialGradient(listOf(glowColor.copy(alpha = OniSkin.artwork.glowAlpha), Color.Transparent), shape = shape)))
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        brush = Brush.radialGradient(
+                            listOf(glowColor.copy(alpha = OniSkin.artwork.glowAlpha), Color.Transparent)
+                        ),
+                        shape = shape
+                    )
+            )
         }
         Box(
             modifier = Modifier.matchParentSize().then(if (elevation > 0.dp) Modifier.shadow(elevation, shape) else Modifier).clip(shape).background(OniSkin.colors.surfaceVariant).border(1.dp, OniSkin.colors.outline.copy(alpha = 0.25f), shape).then(artworkSemantics),
