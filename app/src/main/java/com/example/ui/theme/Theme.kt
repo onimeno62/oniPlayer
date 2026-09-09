@@ -35,6 +35,7 @@ val LocalGlassEffectEnabled = compositionLocalOf { true }
 val LocalBlurStrength = compositionLocalOf { 20f }
 val LocalCornerRadius = compositionLocalOf { 16f }
 val LocalBackgroundTransparency = compositionLocalOf { 50f }
+val LocalReduceMotion = compositionLocalOf { false }
 
 fun getSongPalette(song: SongEntity?): Triple<Color, Color, Color> {
     if (song == null) {
@@ -68,6 +69,7 @@ fun OniPlayerTheme(
     blurStrength: Float = 20f,
     cornerRadius: Float = 16f,
     backgroundTransparency: Float = 50f,
+    reduceMotion: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -109,17 +111,32 @@ fun OniPlayerTheme(
     val glow = if (themeColors.isDark) dynamicAccent else themeColors.accent.copy(alpha = 0.3f)
 
     // Build the active OniSkinTokens
-    val activeSkin = remember(themeColors.isDark, accent, secondary, glow, cornerRadius) {
+    val activeSkin = remember(themeColors.isDark, accent, secondary, glow, cornerRadius, reduceMotion) {
         val baseSkin = DefaultSkin.createSkin(
             isDark = themeColors.isDark,
             accentColor = accent,
             accentSecondary = secondary,
             accentGlow = glow
         )
+        val skinWithMotion = if (reduceMotion) {
+            baseSkin.copy(
+                motion = baseSkin.motion.copy(
+                    quickDurationMs = 0,
+                    buttonPressDurationMs = 0,
+                    componentStateDurationMs = 0,
+                    screenTransitionDurationMs = 0,
+                    artworkTransitionDurationMs = 0,
+                    ambientLoopDurationMs = 0
+                )
+            )
+        } else {
+            baseSkin
+        }
+
         if (cornerRadius != 16f) {
             val ratio = cornerRadius / 16f
-            baseSkin.copy(
-                shapes = baseSkin.shapes.copy(
+            skinWithMotion.copy(
+                shapes = skinWithMotion.shapes.copy(
                     xs = androidx.compose.foundation.shape.RoundedCornerShape((6f * ratio).dp),
                     small = androidx.compose.foundation.shape.RoundedCornerShape((10f * ratio).dp),
                     medium = androidx.compose.foundation.shape.RoundedCornerShape((14f * ratio).dp),
@@ -136,7 +153,7 @@ fun OniPlayerTheme(
                 )
             )
         } else {
-            baseSkin
+            skinWithMotion
         }
     }
 
@@ -148,7 +165,8 @@ fun OniPlayerTheme(
         LocalGlassEffectEnabled provides glassEffectEnabled,
         LocalBlurStrength provides blurStrength,
         LocalCornerRadius provides cornerRadius,
-        LocalBackgroundTransparency provides backgroundTransparency
+        LocalBackgroundTransparency provides backgroundTransparency,
+        LocalReduceMotion provides reduceMotion
     ) {
         MaterialTheme(
             colorScheme = activeSkin.colors.toMaterialColorScheme(),
@@ -165,11 +183,3 @@ fun OniPlayerTheme(
         }
     }
 }
-
-private val SineHeightEasing = Easing { fraction ->
-    val t = fraction * Math.PI
-    kotlin.math.sin(t).toFloat()
-}
-
-
-

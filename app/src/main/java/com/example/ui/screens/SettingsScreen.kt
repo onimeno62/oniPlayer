@@ -20,46 +20,73 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.theme.LocalReduceMotion
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 
-data class SettingCategory(val id: String, val title: String, val subtitle: String, val icon: ImageVector)
+data class SettingCategory(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val section: String = "General"
+)
 
 @Composable
 fun SettingsScreen(viewModel: MusicPlayerViewModel) {
     var activeSubScreen by remember { mutableStateOf<String?>(null) }
-    val categories = remember {
+    
+    val selectedThemeOption by viewModel.selectedThemeOption.collectAsStateWithLifecycle()
+    val nextSongDelaySeconds by viewModel.nextSongDelaySeconds.collectAsStateWithLifecycle()
+    val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
+    val crossfadeDurationSeconds by viewModel.crossfadeDurationSeconds.collectAsStateWithLifecycle()
+    val autoSearchArtistData by viewModel.autoSearchArtistData.collectAsStateWithLifecycle()
+    val floatingLyricsEnabled by viewModel.floatingLyricsEnabled.collectAsStateWithLifecycle()
+    val isAutoDownloadLyrics by viewModel.isAutoDownloadEnabled.collectAsStateWithLifecycle()
+
+    val appearanceValue = "$selectedThemeOption • Default Skin"
+    val playbackValue = if (crossfadeEnabled) "Crossfade • ${crossfadeDurationSeconds}s" else if (nextSongDelaySeconds > 0) "Delay • ${nextSongDelaySeconds}s" else "Standard Gapless"
+    val lyricsValue = if (floatingLyricsEnabled) "Floating Overlay Active" else if (isAutoDownloadLyrics) "Auto-download enabled" else "Manual sync"
+    val libraryValue = if (autoSearchArtistData) "Auto-sync metadata enabled" else "Local indexing only"
+
+    val categories = remember(appearanceValue, playbackValue, lyricsValue, libraryValue) {
         listOf(
-            SettingCategory("appearance", "Appearance", "Custom themes, animations, & visual layouts", Icons.Default.Palette),
-            SettingCategory("playback", "Playback", "Audio engine, equalizer, & crossfade", Icons.Default.PlayCircle),
-            SettingCategory("lyrics", "Lyrics", "Floating lyrics, sync settings, & alignment", Icons.Default.Description),
-            SettingCategory("library_metadata", "Library & Metadata", "Search, scan, metadata, and library organization", Icons.Default.LibraryMusic),
-            SettingCategory("widgets", "Widgets", "Homescreen widget styles & configuration", Icons.Default.Widgets),
-            SettingCategory("notifications", "Notifications", "Status bar media controls & alerts", Icons.Default.Notifications),
-            SettingCategory("backup", "Backup", "Export & import library database & preferences", Icons.Default.CloudUpload),
-            SettingCategory("advanced", "Advanced", "Hardware acceleration, cache, & expert settings", Icons.Default.Tune),
-            SettingCategory("help", "Help", "User manual, FAQs, & community support", Icons.Default.Help),
-            SettingCategory("about", "About", "Version info, license agreement, & developer", Icons.Default.Info)
+            SettingCategory("appearance", "Appearance", appearanceValue, Icons.Default.Palette, "Interface & Playback"),
+            SettingCategory("playback", "Playback", playbackValue, Icons.Default.PlayCircle, "Interface & Playback"),
+            SettingCategory("audio_eq", "Audio & Equalizer", "Parametric 5-band EQ & spatializer", Icons.Default.Tune, "Interface & Playback"),
+            SettingCategory("lyrics", "Lyrics", lyricsValue, Icons.Default.Description, "Interface & Playback"),
+            SettingCategory("library_metadata", "Library & Metadata", libraryValue, Icons.Default.LibraryMusic, "Library & Storage"),
+            SettingCategory("storage", "Storage & Cache", "Manage offline tracks & metadata storage", Icons.Default.Storage, "Library & Storage"),
+            SettingCategory("about", "About & Legal", "oniPlayer v1.0 • Modern Material Skin", Icons.Default.Info, "Application"),
+            SettingCategory("help", "Help & Guidance", "FAQ, gestures, and audio engine guide", Icons.Default.Help, "Application")
         )
     }
+
     val layoutDirection = LocalLayoutDirection.current
     val motion = OniSkin.motion
+    val reduceMotion = LocalReduceMotion.current
 
     AnimatedContent(
         targetState = activeSubScreen,
         transitionSpec = {
-            val sign = if (layoutDirection == LayoutDirection.Ltr) 1 else -1
-            if (targetState != null) {
-                (slideInHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { it * sign } + fadeIn(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing))) togetherWith
-                    (slideOutHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { -it * sign } + fadeOut(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)))
+            if (reduceMotion) {
+                EnterTransition.None togetherWith ExitTransition.None
             } else {
-                (slideInHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { -it * sign } + fadeIn(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing))) togetherWith
-                    (slideOutHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { it * sign } + fadeOut(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)))
+                val sign = if (layoutDirection == LayoutDirection.Ltr) 1 else -1
+                if (targetState != null) {
+                    (slideInHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { it * sign } + fadeIn(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing))) togetherWith
+                        (slideOutHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { -it * sign } + fadeOut(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)))
+                } else {
+                    (slideInHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { -it * sign } + fadeIn(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing))) togetherWith
+                        (slideOutHorizontally(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) { it * sign } + fadeOut(tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)))
+                }
             }
         },
         label = "Settings Navigation"
@@ -67,13 +94,19 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
         if (subScreen == null) {
             SettingsList(categories) { activeSubScreen = it }
         } else {
-            val category = categories.find { it.id == subScreen }
-            when (category?.id) {
+            when (subScreen) {
                 "appearance" -> AppearanceSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "library_metadata" -> LibraryMetadataSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "playback" -> PlaybackSettingsScreen(viewModel, onBack = { activeSubScreen = null })
-                null -> activeSubScreen = null
-                else -> SettingsDetailPlaceholder(category, onBack = { activeSubScreen = null })
+                "lyrics" -> LyricsSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                "audio_eq" -> AudioEqualizerSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                "storage" -> StorageSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                "about" -> AboutSettingsScreen(onBack = { activeSubScreen = null })
+                "help" -> HelpSettingsScreen(onBack = { activeSubScreen = null })
+                else -> SettingsDetailPlaceholder(
+                    category = categories.find { it.id == subScreen } ?: SettingCategory("unknown", "Settings", "", Icons.Default.Settings),
+                    onBack = { activeSubScreen = null }
+                )
             }
         }
     }
@@ -81,31 +114,80 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
 
 @Composable
 fun SettingsList(categories: List<SettingCategory>, onCategoryClick: (String) -> Unit) {
+    val grouped = remember(categories) { categories.groupBy { it.section } }
+
     Column(Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = OniSkin.spacing.screenHorizontal)) {
         Spacer(Modifier.height(OniSkin.spacing.screenVertical))
         Text("Settings", style = OniSkin.typography.displayMedium, color = OniSkin.colors.textPrimary)
         Spacer(Modifier.height(OniSkin.spacing.xxs))
-        Text("Configure Oni Player to match your musical lifestyle", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
+        Text("Configure oniPlayer Default Skin, audio engine, and playback", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
         Spacer(Modifier.height(OniSkin.spacing.section))
-        LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm), contentPadding = PaddingValues(bottom = 96.dp)) {
-            items(categories, key = { it.id }) { category ->
-                OniSurface(
-                    variant = OniSurfaceVariant.Soft,
-                    shape = OniSkin.shapes.card,
-                    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) { role = Role.Button; contentDescription = "${category.title}. ${category.subtitle}" }.clickable { onCategoryClick(category.id) }.testTag("settings_card_${category.id}")
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                        OniSurface(OniSurfaceVariant.Flat, OniSkin.shapes.button, containerColor = OniSkin.colors.primary.copy(alpha = 0.12f), modifier = Modifier.size(42.dp)) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(category.icon, null, tint = OniSkin.colors.primary, modifier = Modifier.size(22.dp)) }
+
+        LazyColumn(
+            Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.md),
+            contentPadding = PaddingValues(bottom = 96.dp)
+        ) {
+            grouped.forEach { (sectionName, itemsList) ->
+                item {
+                    Text(
+                        text = sectionName.uppercase(),
+                        style = OniSkin.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.primary,
+                        modifier = Modifier.padding(horizontal = OniSkin.spacing.xs, vertical = OniSkin.spacing.xxs)
+                    )
+                }
+                items(itemsList, key = { it.id }) { category ->
+                    OniSurface(
+                        variant = OniSurfaceVariant.Soft,
+                        shape = OniSkin.shapes.card,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .semantics(mergeDescendants = true) {
+                                role = Role.Button
+                                contentDescription = "${category.title}, ${category.subtitle}"
+                            }
+                            .clickable { onCategoryClick(category.id) }
+                            .testTag("settings_card_${category.id}")
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OniSurface(
+                                variant = OniSurfaceVariant.Flat,
+                                shape = OniSkin.shapes.button,
+                                containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Icon(category.icon, null, tint = OniSkin.colors.primary, modifier = Modifier.size(22.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(OniSkin.spacing.md))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    category.title,
+                                    style = OniSkin.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = OniSkin.colors.textPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(OniSkin.spacing.xxs))
+                                Text(
+                                    category.subtitle,
+                                    style = OniSkin.typography.caption,
+                                    color = OniSkin.colors.textSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(Modifier.width(OniSkin.spacing.xs))
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OniSkin.colors.textTertiary, modifier = Modifier.size(20.dp))
                         }
-                        Spacer(Modifier.width(OniSkin.spacing.md))
-                        Column(Modifier.weight(1f)) {
-                            Text(category.title, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Spacer(Modifier.height(OniSkin.spacing.xxs))
-                            Text(category.subtitle, style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                        }
-                        Spacer(Modifier.width(OniSkin.spacing.xs))
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OniSkin.colors.textTertiary, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -128,8 +210,6 @@ fun SettingsDetailPlaceholder(category: SettingCategory, onBack: () -> Unit) {
                     Text(category.title, style = OniSkin.typography.titleMedium, color = OniSkin.colors.textPrimary)
                     Spacer(Modifier.height(OniSkin.spacing.xs))
                     Text(category.subtitle, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary)
-                    Spacer(Modifier.height(OniSkin.spacing.lg))
-                    Text("${category.title} configurations are structured and ready for implementation.", style = OniSkin.typography.caption, color = OniSkin.colors.textTertiary)
                 }
             }
         }

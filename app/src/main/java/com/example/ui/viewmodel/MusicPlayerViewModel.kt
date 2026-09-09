@@ -44,6 +44,7 @@ private val GLASS_EFFECT_KEY = booleanPreferencesKey("glass_effect_enabled")
 private val BLUR_STRENGTH_KEY = floatPreferencesKey("blur_strength")
 private val CORNER_RADIUS_KEY = floatPreferencesKey("corner_radius")
 private val BACKGROUND_TRANSPARENCY_KEY = floatPreferencesKey("background_transparency")
+private val REDUCE_MOTION_KEY = booleanPreferencesKey("reduce_motion_enabled")
 private val AUTO_SEARCH_ARTIST_DATA_KEY = booleanPreferencesKey("auto_search_artist_data")
 private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_only")
 private val PLAYBACK_DELAY_KEY = intPreferencesKey("playback_delay_seconds")
@@ -121,6 +122,10 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _cornerRadius = MutableStateFlow(16f)
     val cornerRadius: StateFlow<Float> = _cornerRadius.asStateFlow()
 
+    // Reduce Motion state (default false)
+    private val _reduceMotionEnabled = MutableStateFlow(false)
+    val reduceMotionEnabled: StateFlow<Boolean> = _reduceMotionEnabled.asStateFlow()
+
     private val _nextSongDelaySeconds = MutableStateFlow(0)
     val nextSongDelaySeconds: StateFlow<Int> = _nextSongDelaySeconds.asStateFlow()
 
@@ -196,7 +201,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             _activePlaylist.value = _playedActivePlaylist.value
             _activeSmartPlaylistType.value = _playedActiveSmartPlaylistType.value
         } else {
-            // Fallback: infer context from the current song
             inferAndSetLibraryContextForCurrentSong()
         }
         _currentTab.value = 0
@@ -204,30 +208,24 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun inferAndSetLibraryContextForCurrentSong() {
         val current = audioEngine.currentSong.value ?: return
-        
-        // If activeCategoryIndex is already set, don't override it (preserve user context)
         if (_activeCategoryIndex.value != null) return
 
-        // Otherwise, try to infer it.
-        // Let's default to setting the Artist or Folder context based on the current song!
         val artist = current.customArtist ?: current.artist
         if (artist.isNotBlank() && artist != "Unknown Artist" && artist != "<unknown>") {
-            _activeCategoryIndex.value = 3 // Artists category index is 3
+            _activeCategoryIndex.value = 3
             _selectedGroup.value = artist
             return
         }
 
-        // Fallback to Folder if artist is not set
         val filePath = current.filePath
         val file = File(filePath)
         val folderName = file.parentFile?.name ?: "Internal Storage"
         if (folderName.isNotBlank()) {
-            _activeCategoryIndex.value = 1 // Folders category index is 1
+            _activeCategoryIndex.value = 1
             _selectedGroup.value = folderName
             return
         }
 
-        // Ultimate fallback: All Songs (category 0)
         _activeCategoryIndex.value = 0
         _selectedGroup.value = null
     }
@@ -255,8 +253,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _currentPlaylist = EngineStateFlowDelegate(audioEngine.currentPlaylist) { audioEngine.setPlaylist(it) }
     val currentPlaylist: StateFlow<List<SongEntity>> = audioEngine.currentPlaylist
 
-    // Emits an IntentSender whenever the OS needs one-time user consent to delete a
-    // MediaStore-owned file we don't have direct write access to (rename cleanup).
     private val _pendingDeleteRequest = MutableSharedFlow<android.content.IntentSender>(extraBufferCapacity = 1)
     val pendingDeleteRequest: SharedFlow<android.content.IntentSender> = _pendingDeleteRequest.asSharedFlow()
 
@@ -267,9 +263,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _isRepeat = EngineStateFlowDelegate(audioEngine.isRepeat) { audioEngine.setRepeat(it) }
     val isRepeat: StateFlow<Boolean> = audioEngine.isRepeat
 
-    // Which algorithm _isShuffle uses when it's on. Independent of the on/off toggle so the
-    // existing Player screen shuffle button keeps working unchanged — it only flips _isShuffle,
-    // while this remembers which algorithm to use whenever shuffle is active.
     private val _shuffleMode = EngineStateFlowDelegate(audioEngine.shuffleMode) { audioEngine.setShuffleMode(it) }
     val shuffleMode: StateFlow<ShuffleMode> = audioEngine.shuffleMode
 
@@ -277,7 +270,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // Expose flows from Repository
     val allSongs: StateFlow<List<SongEntity>> = repository.allSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -293,7 +285,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val allArtistSummaries: StateFlow<List<ArtistSummaryEntity>> = repository.allArtistSummaries
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Direct playback state flows for clean presentation consumption
     val currentSong: StateFlow<SongEntity?> = audioEngine.currentSong
     val isPlaying: StateFlow<Boolean> = audioEngine.isPlaying
     val position: StateFlow<Long> = audioEngine.position
@@ -350,7 +341,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         audioEngine.resume()
     }
 
-    // Consolidated PlayerUiState for clean PlayerScreen presentation
     private data class EnginePlaybackState(
         val song: SongEntity?,
         val isPlaying: Boolean,
@@ -435,7 +425,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     init {
         scanAndLoad()
         
-        // Load saved theme option from DataStore
         viewModelScope.launch {
             try {
                 getApplication<Application>().dataStore.data
@@ -523,6 +512,18 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             try {
                 getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[REDUCE_MOTION_KEY] ?: false }
+                    .collect { savedReduceMotion ->
+                        _reduceMotionEnabled.value = savedReduceMotion
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading reduce motion preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
                     .map { preferences -> preferences[AUTO_SEARCH_ARTIST_DATA_KEY] ?: true }
                     .collect { saved ->
                         _autoSearchArtistData.value = saved
@@ -579,8 +580,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 Log.e(TAG, "Error loading crossfade duration preference: ${e.message}")
             }
         }
-        
-
     }
 
     private fun scanAndLoad() {
@@ -589,21 +588,17 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             repository.scanAndSyncMusic()
             _isScanning.value = false
 
-            // Set initial playlist as all songs if none loaded
             val initialSongs = repository.allSongs.first()
             if (initialSongs.isNotEmpty()) {
                 if (audioEngine.currentPlaylist.value.isEmpty()) {
                     _currentPlaylist.value = initialSongs
                     
-                    // Find last played song (highest lastPlayedTimestamp > 0)
                     val lastPlayedSong = initialSongs.filter { it.lastPlayedTimestamp > 0 }
                         .maxByOrNull { it.lastPlayedTimestamp } ?: initialSongs.first()
                     
-                    // Pre-load metadata into audioEngine without playing
                     audioEngine.setSongWithoutPlaying(lastPlayedSong)
                 }
 
-                // Trigger background artist info and artwork loading
                 viewModelScope.launch(Dispatchers.IO) {
                     try {
                         val uniqueArtists = initialSongs.map { it.displayArtist.ifBlank { "Unknown Artist" } }.distinct()
@@ -611,7 +606,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                             if (artistName != "Unknown Artist" && artistName.isNotBlank()) {
                                 val existing = repository.getArtistSummary(artistName)
                                 if (existing == null && _autoSearchArtistData.value) {
-                                    // Gentle throttle to avoid overloading network/APIs
                                     kotlinx.coroutines.delay(1200)
                                     try {
                                         val summary = GeminiMusicService.fetchArtistSummaryFromAudioDB(artistName)
@@ -643,8 +637,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         _currentTab.value = tab
     }
 
-    // Always resets Library back to its dashboard, regardless of what category or
-    // search state was left active — used specifically by the bottom nav's Library tab.
     fun goToLibraryDashboard() {
         _currentTab.value = 0
         _activeCategoryIndex.value = null
@@ -766,30 +758,48 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Media Playback Controls ---
+    fun setReduceMotionEnabled(enabled: Boolean) {
+        _reduceMotionEnabled.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[REDUCE_MOTION_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving reduce motion preference: ${e.message}")
+            }
+        }
+    }
+
+    fun resetAppearancePreferences() {
+        setThemeOption("Dark", false)
+        setCustomAccentColor("#3B73E3")
+        setMaterialYouEnabled(false)
+        setGlassEffectEnabled(true)
+        setBlurStrength(20f)
+        setCornerRadius(16f)
+        setBackgroundTransparency(50f)
+        setReduceMotionEnabled(false)
+    }
 
     fun playSong(song: SongEntity, playlist: List<SongEntity>) {
         cancelDelay()
-        _currentTab.value = 1 // Switch to Player tab immediately
+        _currentTab.value = 1
 
-        // Capture current library context when a song starts playing
         _playedCategoryIndex.value = _activeCategoryIndex.value
         _playedSelectedGroup.value = _selectedGroup.value
         _playedActivePlaylist.value = _activePlaylist.value
         _playedActiveSmartPlaylistType.value = _activeSmartPlaylistType.value
 
         viewModelScope.launch {
-            // 1. Fetch freshest database state to preserve manual tag/lyrics updates
             val dbSong = database.songDao().getSongById(song.id) ?: song
             
-            // 2. Update play tracking info
             val updated = dbSong.copy(
                 playCount = dbSong.playCount + 1,
                 lastPlayedTimestamp = System.currentTimeMillis()
             )
             repository.updateSong(updated)
             
-            // 3. Play the song immediately so playback starts instantly
             if (audioEngine.currentSong.value?.id == updated.id) {
                 audioEngine.resume()
             } else {
@@ -803,7 +813,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
             
-            // 4. Handle lyrics loading sequentially
             if (updated.lyrics.isNullOrBlank()) {
                 val localLrc = com.example.ui.lyrics.LyricsHelper.findLocalLrcFile(updated.filePath)
                 if (localLrc != null) {
@@ -870,16 +879,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // Public entry point for "Shuffle All"-style quick actions that don't have a "current song"
-    // to exclude — picks a starting song using the same weighting as pickShuffleIndex.
     fun pickShuffleStartSong(playlist: List<SongEntity>): SongEntity? {
         if (playlist.isEmpty()) return null
         val index = pickShuffleIndex(playlist, excludeIndex = -1)
         return playlist.getOrNull(index)
     }
 
-    // Picks a shuffle target according to the active ShuffleMode. Falls back to pure random
-    // whenever weights can't produce a meaningful bias (e.g. everyone has the same play count).
     private fun pickShuffleIndex(playlist: List<SongEntity>, excludeIndex: Int): Int {
         if (playlist.size <= 1) return 0
 
@@ -957,7 +962,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         _isShuffle.value = !_isShuffle.value
     }
 
-    // Picking a mode also turns shuffle on, since choosing an algorithm implies wanting it active.
     fun setShuffleMode(mode: ShuffleMode) {
         _shuffleMode.value = mode
         _isShuffle.value = true
@@ -973,8 +977,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Online Lyrics Search (Real-world Public Databases) ---
-
     fun setAutoDownloadEnabled(enabled: Boolean) {
         _isAutoDownloadEnabled.value = enabled
     }
@@ -986,12 +988,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     fun updateLyrics(songId: String, text: String?) {
         viewModelScope.launch {
             database.songDao().updateLyrics(songId, text)
-            // Refresh song state in audio engine if it is the active song
             val current = audioEngine.currentSong.value
             if (current != null && current.id == songId) {
                 val updated = database.songDao().getSongById(songId)
                 if (updated != null) {
-                    audioEngine.updateCurrentSongMetadata(updated) // reload updated lyrics without restarting playback
+                    audioEngine.updateCurrentSongMetadata(updated)
                 }
             }
         }
@@ -1028,17 +1029,14 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 artist = current.customArtist ?: current.artist
             )
             if (fetched != null) {
-                // Refresh the current song entity in player state
                 val updatedSong = database.songDao().getSongById(current.id)
                 if (updatedSong != null) {
-                    audioEngine.updateCurrentSongMetadata(updatedSong) // reload so lyrics is in state without restarting playback
+                    audioEngine.updateCurrentSongMetadata(updatedSong)
                 }
             }
             _isFetchingLyrics.value = false
         }
     }
-
-    // --- Online Metadata Tag Editor (AI powered by Gemini) ---
 
     fun optimizeMetadataWithGemini(song: SongEntity, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
@@ -1064,10 +1062,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     fun deleteSong(songId: String) {
         viewModelScope.launch {
             repository.deleteSong(songId)
-            // If the deleted song is currently playing, skip to next or stop playback
             if (audioEngine.currentSong.value?.id == songId) {
                 skipNext()
-                // If it is still the same (e.g. only 1 song was in playlist), stop it
                 if (audioEngine.currentSong.value?.id == songId) {
                     audioEngine.stop()
                 }
@@ -1131,16 +1127,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
 
-            // Always delete from local DB library
             deleteSong(songId)
         }
     }
 
-    // --- Equalizer Customization ---
-
     fun updateBand(bandIndex: Int, gainDb: Float) {
         audioEngine.setBandGain(bandIndex, gainDb)
-        // Update states
         when (bandIndex) {
             0 -> _eqBand60Hz.value = gainDb
             1 -> _eqBand230Hz.value = gainDb
@@ -1203,7 +1195,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Playlist CRUD ---
     fun createPlaylist(name: String) {
         viewModelScope.launch {
             val id = "playlist_" + System.currentTimeMillis()
@@ -1262,7 +1253,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             val song = database.songDao().getSongById(songId) ?: return@launch
             val updated = song.copy(rating = rating)
             repository.updateSong(updated)
-            // also refresh in audioEngine if needed
             val current = audioEngine.currentSong.value
             if (current != null && current.id == songId) {
                 audioEngine.updateCurrentSongMetadata(updated)
@@ -1270,7 +1260,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Standard Tag Editor Manual Update ---
     fun updateSongFullTags(
         songId: String,
         title: String,
@@ -1304,7 +1293,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             )
             repository.updateSong(updated)
             
-            // Sync with current playing song if edited without restarting audio
             val current = audioEngine.currentSong.value
             if (current != null && current.id == songId) {
                 audioEngine.updateCurrentSongMetadata(updated)
@@ -1312,7 +1300,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Rename File Feature ---
     fun renameSongFile(
         songId: String,
         newFileName: String,
@@ -1334,7 +1321,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 val parentDir = oldFile.parentFile ?: throw Exception("Parent directory not found")
                 val extension = oldFile.extension
                 
-                // Sanitize to prevent path traversal/invalid chars
                 var sanitizedName = newFileName.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
                 if (sanitizedName.isEmpty()) {
                     throw Exception("Filename cannot be empty")
@@ -1349,7 +1335,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     throw Exception("File with this name already exists")
                 }
 
-                // 1. Fully release player source & active audio handles just in case
                 activeSong = audioEngine.currentSong.value
                 isCurrent = activeSong != null && activeSong.id == songId
                 if (isCurrent) {
@@ -1357,17 +1342,14 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     currentPosition = audioEngine.position.value
                 }
                 
-                // Always pause, stop, and clear current source to release file descriptors held by MediaPlayer
                 audioEngine.stop()
                 audioEngine.clearCurrentSource()
                 
-                // Trigger garbage collection to release any unreferenced file descriptors in retriever or player
                 System.gc()
                 System.runFinalization()
                 kotlinx.coroutines.delay(400)
 
                 var success = false
-                // Attempt renameTo first
                 for (i in 1..5) {
                     success = oldFile.renameTo(newFile)
                     if (success) {
@@ -1380,7 +1362,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 }
 
                 if (!success) {
-                    Log.d("MusicPlayerViewModel", "renameTo failed, trying to update MediaStore DisplayName via ContentResolver")
                     try {
                         val contentResolver = getApplication<android.app.Application>().contentResolver
                         val songUri = android.content.ContentUris.withAppendedId(
@@ -1393,7 +1374,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         }
                         val updatedRows = contentResolver.update(songUri, values, null, null)
                         if (updatedRows > 0) {
-                            Log.d("MusicPlayerViewModel", "MediaStore update display_name & data succeeded")
                             if (newFile.exists()) {
                                 success = true
                                 if (oldFile.exists() && oldFile.absolutePath != newFile.absolutePath) {
@@ -1407,7 +1387,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 }
 
                 if (!success) {
-                    Log.d("MusicPlayerViewModel", "ContentResolver update failed, falling back to copy & delete")
                     try {
                         oldFile.copyTo(newFile, overwrite = true)
 
@@ -1430,22 +1409,10 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
                         if (deleteSuccess) {
                             success = true
-                            Log.d("MusicPlayerViewModel", "Successfully deleted original file after copying.")
                         } else {
-                            // The old file couldn't be removed — almost always because it's a
-                            // MediaStore-owned file on scoped storage and we lack write access to it.
-                            // The rename itself still succeeds (the song now points at newFile), but
-                            // we must never let the leftover old file silently reappear as a duplicate.
                             success = true
                             repository.markPendingCleanup(oldFile.absolutePath)
-                            Log.w(
-                                "MusicPlayerViewModel",
-                                "Could not delete original file (likely missing storage permission). " +
-                                "Tracking as pending cleanup: ${oldFile.absolutePath}"
-                            )
-
                             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                                // Ask the user for one-time consent to delete this specific file.
                                 try {
                                     val songUri = android.content.ContentUris.withAppendedId(
                                         android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -1460,9 +1427,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                                     Log.e("MusicPlayerViewModel", "Failed to build delete consent request: ${e.message}")
                                 }
                             } else {
-                                // Pre-Android 11: no consent API available. Truncate to reclaim disk
-                                // space if possible; the pending-cleanup filter in scanAndSyncMusic()
-                                // is what actually prevents the duplicate, whether or not this works.
                                 try {
                                     java.io.FileOutputStream(oldFile).use { fos ->
                                         fos.write(ByteArray(0))
@@ -1478,7 +1442,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                                         System.runFinalization()
                                         if (oldFile.delete()) {
                                             repository.clearPendingCleanup(oldFile.absolutePath)
-                                            Log.d("MusicPlayerViewModel", "Deleted locked original file on background attempt $attempt")
                                             break
                                         }
                                     }
@@ -1490,27 +1453,23 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     }
                 }
 
-                // Explicitly delete the old file entry from MediaStore database using ContentResolver to prevent duplicates
                 try {
                     val contentResolver = getApplication<android.app.Application>().contentResolver
-                    val deletedRows = contentResolver.delete(
+                    contentResolver.delete(
                         android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                         "${android.provider.MediaStore.Audio.Media.DATA} = ?",
                         arrayOf(oldFile.absolutePath)
                     )
-                    Log.d("MusicPlayerViewModel", "ContentResolver deleted old MediaStore row after successful rename: $deletedRows rows")
                 } catch (e: Exception) {
                     Log.e("MusicPlayerViewModel", "Failed to delete old MediaStore row: ${e.message}")
                 }
 
-                // Notify media scanner about both the old path (to remove it) and new path (to index it)
                 try {
                     android.media.MediaScannerConnection.scanFile(
                         getApplication(),
                         arrayOf(oldFile.absolutePath, newFile.absolutePath),
                         null
                     ) { path, uri ->
-                        Log.d("MusicPlayerViewModel", "Scanned path: $path, uri: $uri")
                         viewModelScope.launch {
                             repository.scanAndSyncMusic()
                         }
@@ -1522,7 +1481,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 val updatedSong = song.copy(filePath = newFile.absolutePath)
                 database.songDao().updateSong(updatedSong)
 
-                // Restore player state with updated file path
                 if (isCurrent) {
                     audioEngine.updateCurrentSongMetadata(updatedSong)
                     if (wasPlaying) {
@@ -1535,7 +1493,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         audioEngine.setSongWithoutPlaying(updatedSong)
                     }
                 } else if (activeSong != null) {
-                    // Reload the active song if it was some other song that we stopped
                     if (wasPlaying) {
                         audioEngine.play(activeSong)
                         if (currentPosition > 0) {
@@ -1551,7 +1508,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     onSuccess(newFile.name)
                 }
             } catch (e: java.lang.Exception) {
-                // Restore active player state if we stopped it
                 try {
                     val fallbackSong = database.songDao().getSongById(songId)
                     if (fallbackSong != null) {
@@ -1574,18 +1530,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    /**
-     * Called by MainActivity after the user approves or denies the MediaStore delete-consent
-     * prompt triggered from renameSongFile(). Re-syncs so the pending-cleanup filter re-checks
-     * whether the leftover file is actually gone now.
-     */
     fun onDeleteConsentResult() {
         viewModelScope.launch(Dispatchers.IO) {
             repository.scanAndSyncMusic()
         }
     }
 
-    // --- Batch Tag Editor Update ---
     fun batchUpdateTags(
         songIds: List<String>,
         artist: String?,
@@ -1621,7 +1571,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 )
                 repository.updateSong(updated)
                 
-                // Sync with current playing song if edited without restarting audio
                 val current = audioEngine.currentSong.value
                 if (current != null && current.id == id) {
                     audioEngine.updateCurrentSongMetadata(updated)
@@ -1630,7 +1579,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Artist Summary ---
     private val _autoSearchArtistData = MutableStateFlow(true)
     val autoSearchArtistData: StateFlow<Boolean> = _autoSearchArtistData.asStateFlow()
 
@@ -1766,7 +1714,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             } else {
                 _artistSummary.value = null
                 _artistArtworkUri.value = null
-                // Trigger auto-search if not exists
                 searchArtistSummaryOnline(artistName)
             }
         }
@@ -1774,13 +1721,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun searchArtistSummaryOnline(artistName: String) {
         viewModelScope.launch {
-            // Check if automatic search is enabled
             if (!_autoSearchArtistData.value) {
                 _artistSummary.value = "Automatic search is disabled. Enable in Settings to fetch biography and images."
                 return@launch
             }
 
-            // Check if Wi-Fi only is active
             if (_autoSearchWifiOnly.value && !isWifiConnected()) {
                 _artistSummary.value = "Automatic search is paused on mobile networks. Connect to Wi-Fi to fetch biography and images."
                 return@launch
@@ -1788,10 +1733,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
             _isSearchingArtistSummary.value = true
             try {
-                // Fetch biography
                 val summary = GeminiMusicService.fetchArtistSummaryFromAudioDB(artistName)
                 
-                // Automatically fetch and save image URL
                 var savedArtworkUri: String? = null
                 try {
                     val images = GeminiMusicService.fetchArtistImagesFromAudioDB(artistName)
@@ -1846,7 +1789,5 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     override fun onCleared() {
         super.onCleared()
         karaokeMicEngine.stopMic()
-        // Note: We don't call audioEngine.release() here because the player is a shared singleton
-        // and background playback is managed by the MusicPlaybackService.
     }
 }

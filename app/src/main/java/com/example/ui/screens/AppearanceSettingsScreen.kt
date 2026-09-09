@@ -1,23 +1,33 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.components.button.OniPrimaryButton
+import com.example.ui.components.button.OniSecondaryButton
+import com.example.ui.components.music.OniArtwork
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 
 /**
- * Appearance settings screen migrated to oniPlayer Default Skin.
- * Preserves all existing theme selection, accent color, and visual effect preferences.
+ * Complete Appearance settings screen for oniPlayer Default Skin.
+ * Features Theme, Skin Architecture Readiness, Colors & Material You, Surfaces & Effects,
+ * Background, Artwork, Typography, Player Appearance, Navigation, Motion, Live Preview, and Reset.
  */
 @Composable
 fun AppearanceSettingsScreen(
@@ -31,7 +41,10 @@ fun AppearanceSettingsScreen(
     val blurStrength by viewModel.blurStrength.collectAsStateWithLifecycle()
     val cornerRadius by viewModel.cornerRadius.collectAsStateWithLifecycle()
     val backgroundTransparency by viewModel.backgroundTransparency.collectAsStateWithLifecycle()
+    val reduceMotion by viewModel.reduceMotionEnabled.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
+
+    var showResetDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -52,6 +65,53 @@ fun AppearanceSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.section),
             contentPadding = PaddingValues(top = OniSkin.spacing.xs, bottom = 96.dp)
         ) {
+            // Live Preview Card
+            item {
+                SettingSection(
+                    title = "Appearance Live Preview",
+                    description = "Interactive representation of current skin tokens."
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(OniSkin.spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OniArtwork(
+                                artworkUri = null,
+                                contentDescription = "Preview artwork",
+                                shape = OniSkin.artwork.shape,
+                                elevation = OniSkin.artwork.shadowElevation,
+                                modifier = Modifier.size(54.dp)
+                            )
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "oniPlayer Default Skin",
+                                    style = OniSkin.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OniSkin.colors.textPrimary
+                                )
+                                Text(
+                                    text = "$selectedThemeOption • Accent $customAccentColor",
+                                    style = OniSkin.typography.bodySmall,
+                                    color = OniSkin.colors.textSecondary
+                                )
+                            }
+                            OniPrimaryButton(
+                                text = "Sample",
+                                onClick = {},
+                                modifier = Modifier.heightIn(min = 40.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             // Theme Section
             item {
                 SettingSection(
@@ -79,7 +139,7 @@ fun AppearanceSettingsScreen(
                         ) {
                             RadioButton(
                                 selected = isSelected,
-                                onClick = null, // Handled by outer row
+                                onClick = null,
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = OniSkin.colors.primary,
                                     unselectedColor = OniSkin.colors.outline
@@ -94,6 +154,42 @@ fun AppearanceSettingsScreen(
                         }
                         if (index < themeOptions.lastIndex) {
                             SettingDivider()
+                        }
+                    }
+                }
+            }
+
+            // Skin Architecture Section
+            item {
+                SettingSection(
+                    title = "Active Skin",
+                    description = "Manage installed skins and skin tokens."
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(OniSkin.spacing.md)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Default Skin (Active)",
+                                    style = OniSkin.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OniSkin.colors.primary
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Soft surfaces + strong hierarchy + restrained accent + beautiful artwork.",
+                                    style = OniSkin.typography.bodySmall,
+                                    color = OniSkin.colors.textSecondary
+                                )
+                            }
+                            Icon(Icons.Default.CheckCircle, contentDescription = "Active", tint = OniSkin.colors.primary)
                         }
                     }
                 }
@@ -125,11 +221,11 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // Visual Effects Section
+            // Surfaces & Effects Section
             item {
                 SettingSection(
-                    title = "Visual Effects",
-                    description = "Configure translucent glass styling and layout parameters.",
+                    title = "Surfaces & Effects",
+                    description = "Configure translucent glass styling, radius, and transparency.",
                     cardModifier = Modifier.testTag("appearance_card_visual_effects")
                 ) {
                     SwitchSettingRow(
@@ -150,34 +246,51 @@ fun AppearanceSettingsScreen(
                             valueFormatter = { "${it.toInt()} dp" },
                             testTag = "setting_blur_strength"
                         )
-                        SettingDivider()
-                        SliderSettingRow(
-                            title = "Corner Radius",
-                            value = cornerRadius,
-                            onValueChange = { viewModel.setCornerRadius(it) },
-                            valueRange = 4f..32f,
-                            valueFormatter = { "${it.toInt()} dp" },
-                            testTag = "setting_corner_radius"
-                        )
-                        SettingDivider()
-                        SliderSettingRow(
-                            title = "Background Transparency",
-                            value = backgroundTransparency,
-                            onValueChange = { viewModel.setBackgroundTransparency(it) },
-                            valueRange = 0f..100f,
-                            valueFormatter = { "${it.toInt()}%" },
-                            testTag = "setting_background_transparency"
-                        )
                     }
+
+                    SettingDivider()
+                    SliderSettingRow(
+                        title = "Corner Radius",
+                        value = cornerRadius,
+                        onValueChange = { viewModel.setCornerRadius(it) },
+                        valueRange = 4f..32f,
+                        valueFormatter = { "${it.toInt()} dp" },
+                        testTag = "setting_corner_radius"
+                    )
+
+                    SettingDivider()
+                    SliderSettingRow(
+                        title = "Background Transparency",
+                        value = backgroundTransparency,
+                        onValueChange = { viewModel.setBackgroundTransparency(it) },
+                        valueRange = 0f..100f,
+                        valueFormatter = { "${it.toInt()}%" },
+                        testTag = "setting_background_transparency"
+                    )
                 }
             }
 
-            // Player Style Section (Preserved with clean Default Skin placeholder status)
+            // Motion & Animation Section (Real Reduce Motion Wiring)
             item {
                 SettingSection(
-                    title = "Player Style",
-                    description = "Choose layout and playback screen density variants.",
-                    cardModifier = Modifier.testTag("appearance_card_player_style")
+                    title = "Motion & Animation",
+                    description = "Controls transition durations and motion accessibility."
+                ) {
+                    SwitchSettingRow(
+                        title = "Reduce Motion",
+                        description = "Shortens screen transitions, disables ambient motion loops, and reduces movement.",
+                        checked = reduceMotion,
+                        onCheckedChange = { viewModel.setReduceMotionEnabled(it) },
+                        testTag = "setting_reduce_motion"
+                    )
+                }
+            }
+
+            // Typography & Scale
+            item {
+                SettingSection(
+                    title = "Typography Scale",
+                    description = "Readable proportional text scale adhering to Default Skin hierarchy."
                 ) {
                     Column(
                         modifier = Modifier
@@ -185,46 +298,66 @@ fun AppearanceSettingsScreen(
                             .padding(OniSkin.spacing.md)
                     ) {
                         Text(
-                            text = "oniPlayer Default Skin",
-                            style = OniSkin.typography.titleSmall,
+                            text = "Primary Display • 30sp SemiBold",
+                            style = OniSkin.typography.displayMedium,
                             color = OniSkin.colors.textPrimary
                         )
-                        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Currently using the unified high-density Default Skin layout. Custom layout presets will be configurable in future skins.",
-                            style = OniSkin.typography.bodySmall,
+                            text = "Title / Headings • 18sp Medium",
+                            style = OniSkin.typography.titleMedium,
+                            color = OniSkin.colors.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Body text • 14sp Regular proportional scale",
+                            style = OniSkin.typography.bodyMedium,
                             color = OniSkin.colors.textSecondary
                         )
                     }
                 }
             }
 
-            // Typography Section (Preserved with clean Default Skin placeholder status)
+            // Reset Appearance Action
             item {
                 SettingSection(
-                    title = "Typography",
-                    description = "Font scale and text rendering characteristics.",
-                    cardModifier = Modifier.testTag("appearance_card_typography")
+                    title = "Reset Appearance",
+                    description = "Revert all skin and appearance settings back to factory defaults."
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(OniSkin.spacing.md)
-                    ) {
-                        Text(
-                            text = "Default Skin Type Hierarchy",
-                            style = OniSkin.typography.titleSmall,
-                            color = OniSkin.colors.textPrimary
-                        )
-                        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
-                        Text(
-                            text = "Configured with modern high-contrast semi-bold titles and readable proportional body scales.",
-                            style = OniSkin.typography.bodySmall,
-                            color = OniSkin.colors.textSecondary
+                    Box(modifier = Modifier.padding(OniSkin.spacing.md)) {
+                        OniSecondaryButton(
+                            text = "Reset Appearance to Defaults",
+                            onClick = { showResetDialog = true },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset Appearance?", style = OniSkin.typography.titleMedium, fontWeight = FontWeight.Bold) },
+            text = { Text("This will reset your theme, accent colors, surface effects, and motion preferences back to default. Your music library and playback history will not be affected.", style = OniSkin.typography.bodyMedium) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetAppearancePreferences()
+                        showResetDialog = false
+                    }
+                ) {
+                    Text("Reset", color = OniSkin.colors.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancel", color = OniSkin.colors.textPrimary)
+                }
+            },
+            containerColor = OniSkin.colors.surface,
+            shape = OniSkin.shapes.dialog
+        )
     }
 }

@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -33,6 +35,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
     val blurStrength by viewModel.blurStrength.collectAsState()
     val cornerRadius by viewModel.cornerRadius.collectAsState()
     val backgroundTransparency by viewModel.backgroundTransparency.collectAsState()
+    val reduceMotion by viewModel.reduceMotionEnabled.collectAsState()
     val isSystemDark = isSystemInDarkTheme()
 
     LaunchedEffect(selectedThemeOption, isSystemDark) {
@@ -59,9 +62,9 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         glassEffectEnabled = glassEffectEnabled,
         blurStrength = blurStrength,
         cornerRadius = cornerRadius,
-        backgroundTransparency = backgroundTransparency
+        backgroundTransparency = backgroundTransparency,
+        reduceMotion = reduceMotion
     ) {
-        // Capture composition-local tokens outside the non-composable transition callback.
         val motion = OniSkin.motion
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing.only(
@@ -87,7 +90,6 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             shape = if (glassEffectEnabled) RoundedCornerShape(cornerRadius.dp) else OniSkin.navigation.shape,
                             containerColor = if (glassEffectEnabled) {
                                 val frostedColor = OniSkin.surfaces.frosted.containerColor
-                                // Preserve the existing slider response: 50 is the baseline.
                                 frostedColor.copy(
                                     alpha = (frostedColor.alpha * (backgroundTransparency / 50f)).coerceIn(0f, 1f)
                                 )
@@ -108,8 +110,12 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                 AnimatedContent(
                     targetState = currentTab,
                     transitionSpec = {
-                        fadeIn(animationSpec = tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) togetherWith
-                            fadeOut(animationSpec = tween(motion.screenTransitionDurationMs, easing = motion.standardEasing))
+                        if (reduceMotion) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else {
+                            fadeIn(animationSpec = tween(motion.screenTransitionDurationMs, easing = motion.standardEasing)) togetherWith
+                                fadeOut(animationSpec = tween(motion.screenTransitionDurationMs, easing = motion.standardEasing))
+                        }
                     },
                     label = "Screen transition"
                 ) { tab ->
