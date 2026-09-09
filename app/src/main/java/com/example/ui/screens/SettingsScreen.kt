@@ -72,7 +72,7 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
                 "appearance" -> AppearanceSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "library_metadata" -> LibraryMetadataSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "playback" -> PlaybackSettingsScreen(viewModel, onBack = { activeSubScreen = null })
-                null -> if (category != null) SettingsDetailPlaceholder(category, onBack = { activeSubScreen = null }) else activeSubScreen = null
+                null -> activeSubScreen = null
                 else -> SettingsDetailPlaceholder(category, onBack = { activeSubScreen = null })
             }
         }
@@ -107,6 +107,29 @@ fun SettingsList(categories: List<SettingCategory>, onCategoryClick: (String) ->
                         Spacer(Modifier.width(OniSkin.spacing.xs))
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = OniSkin.colors.textTertiary, modifier = Modifier.size(20.dp))
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsDetailPlaceholder(category: SettingCategory, onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize().navigationBarsPadding()) {
+        SettingsSubscreenHeader(title = category.title, subtitle = "Settings category", onBack = onBack, backButtonTestTag = "settings_back_button")
+        Spacer(Modifier.height(OniSkin.spacing.section))
+        Box(Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.screenHorizontal)) {
+            OniSurface(OniSurfaceVariant.Soft, OniSkin.shapes.dialog, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(OniSkin.spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
+                    OniSurface(OniSurfaceVariant.Flat, OniSkin.shapes.card, containerColor = OniSkin.colors.primary.copy(alpha = 0.12f), modifier = Modifier.size(64.dp)) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(category.icon, null, tint = OniSkin.colors.primary, modifier = Modifier.size(32.dp)) }
+                    }
+                    Spacer(Modifier.height(OniSkin.spacing.lg))
+                    Text(category.title, style = OniSkin.typography.titleMedium, color = OniSkin.colors.textPrimary)
+                    Spacer(Modifier.height(OniSkin.spacing.xs))
+                    Text(category.subtitle, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary)
+                    Spacer(Modifier.height(OniSkin.spacing.lg))
+                    Text("${category.title} configurations are structured and ready for implementation.", style = OniSkin.typography.caption, color = OniSkin.colors.textTertiary)
                 }
             }
         }
