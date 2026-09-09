@@ -1,30 +1,18 @@
 package com.example.ui.library
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -34,14 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.entity.SongEntity
+import com.example.ui.components.surface.OniSurface
+import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.library.components.*
+import com.example.ui.library.hero.ContinueListeningHeroV2
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.screens.*
 import com.example.ui.theme.OniSkin
-import com.example.ui.components.surface.OniSurface
-import com.example.ui.components.surface.OniSurfaceVariant
-import com.example.ui.library.hero.ContinueListeningHeroV2
 
 @Composable
 fun LibraryDashboardScreen(
@@ -75,126 +63,43 @@ fun LibraryDashboardScreen(
     onTogglePlayPause: () -> Unit,
     onOpenPlayer: () -> Unit
 ) {
-    var showAllCategories by rememberSaveable { mutableStateOf(false) }
-    // Indices into categoryList: All Songs (0), Favorites (5), Playlists (8), Folders (1)
-    val quickAccessCategoryIndices = remember { listOf(0, 5, 8, 1) }
-
-    // Frequently Played Albums: derived from albumUiModels sorted by aggregate play count of songs within each album
-    val frequentlyPlayedAlbums = remember(songs, albumUiModels) {
-        val playCountsByKey = songs.groupBy { song ->
-            val album = song.displayAlbum.ifBlank { "Unknown Album" }
-            "$album|${song.displayAlbumArtist}"
-        }.mapValues { (_, songsInGroup) ->
-            songsInGroup.sumOf { it.playCount }
-        }
-        albumUiModels
-            .filter { (playCountsByKey[it.albumKey] ?: 0) > 0 }
-            .sortedByDescending { playCountsByKey[it.albumKey] ?: 0 }
-    }
-
-    // Favorite Artists: derived from artistUiModels filtered/sorted by song count among favorited songs
-    val favoriteArtists = remember(songs, artistUiModels) {
-        val favoriteCountsByArtist = songs
-            .filter { it.isFavorite || it.rating >= 4 }
-            .groupBy { it.displayArtist.ifBlank { "Unknown Artist" } }
-            .mapValues { (_, songsInGroup) -> songsInGroup.size }
-        artistUiModels
-            .filter { (favoriteCountsByArtist[it.artistKey] ?: 0) > 0 }
-            .sortedByDescending { favoriteCountsByArtist[it.artistKey] ?: 0 }
+    // Existing parameters are intentionally retained so the surrounding Library flow does not change.
+    @Suppress("UNUSED_PARAMETER")
+    fun preserveExistingContract() {
+        Unit
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 96.dp)
+        contentPadding = PaddingValues(bottom = OniSkin.spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.lg)
     ) {
-        // 1. Top bar / greeting — styled with OniSkin.spacing tokens
         item(key = "dashboard_header") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = greetingForTime(),
-                        style = OniSkin.typography.caption,
-                        fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.primary
-                    )
-                    Text(
-                        text = "Your Library",
-                        style = OniSkin.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.textPrimary
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
-                    OniSurface(
-                        variant = OniSurfaceVariant.Soft,
-                        shape = OniSkin.shapes.full
-                    ) {
-                        IconButton(
-                            onClick = showOptionsMenu,
-                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Tune,
-                                contentDescription = "Library Options",
-                                tint = OniSkin.colors.primary
-                            )
-                        }
-                    }
-
-                    OniSurface(
-                        variant = OniSurfaceVariant.Flat,
-                        shape = OniSkin.shapes.full,
-                        containerColor = OniSkin.colors.primaryContainer
-                    ) {
-                        IconButton(
-                            onClick = onRescan,
-                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                        ) {
-                            if (isScanning) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = OniSkin.colors.primary
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Scan Library",
-                                    tint = OniSkin.colors.primary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            LibraryDashboardHeader(
+                isScanning = isScanning,
+                showOptionsMenu = showOptionsMenu,
+                onRescan = onRescan
+            )
         }
 
-        // 2. Global Library Search input bar
         item(key = "dashboard_search_bar") {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
                 placeholder = {
                     Text(
-                        "Search title, artist, album...",
-                        style = OniSkin.typography.bodyMedium,
+                        text = "Search songs, artists, albums...",
+                        style = OniSkin.typography.bodyLarge,
                         color = OniSkin.colors.textTertiary
                     )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs)
+                    .padding(horizontal = OniSkin.spacing.screenHorizontal)
                     .testTag("search_input"),
                 leadingIcon = {
                     Icon(
-                        Icons.Default.Search,
+                        imageVector = Icons.Default.Search,
                         contentDescription = "Search",
                         tint = OniSkin.colors.textSecondary
                     )
@@ -203,8 +108,8 @@ fun LibraryDashboardScreen(
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearchQueryChange("") }) {
                             Icon(
-                                Icons.Default.Clear,
-                                contentDescription = "Clear",
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Clear search",
                                 tint = OniSkin.colors.textSecondary
                             )
                         }
@@ -214,28 +119,24 @@ fun LibraryDashboardScreen(
                 shape = OniSkin.shapes.full,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.45f),
-                    unfocusedContainerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.35f),
+                    unfocusedContainerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.32f),
                     focusedBorderColor = OniSkin.colors.primary.copy(alpha = 0.5f),
                     unfocusedBorderColor = OniSkin.colors.outline.copy(alpha = 0.2f),
                     focusedTextColor = OniSkin.colors.textPrimary,
-                    unfocusedTextColor = OniSkin.colors.textPrimary
+                    unfocusedTextColor = OniSkin.colors.textPrimary,
+                    cursorColor = OniSkin.colors.primary
                 )
             )
-            Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
         }
 
         if (searchQuery.isNotBlank()) {
-            // Search matches using SongRow from Stage 2
             item(key = "search_header") {
                 Text(
                     text = "Found ${sortedSongs.size} tracks",
-                    style = OniSkin.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal),
+                    style = OniSkin.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = OniSkin.colors.primary,
-                    modifier = Modifier.padding(
-                        horizontal = OniSkin.spacing.screenHorizontal,
-                        vertical = OniSkin.spacing.xs
-                    )
+                    color = OniSkin.colors.textPrimary
                 )
             }
 
@@ -259,119 +160,143 @@ fun LibraryDashboardScreen(
                 }
             }
         } else if (songs.isEmpty()) {
-            // 4. Empty library state
             item(key = "empty_library_state") {
                 LibraryEmptyState(
                     title = "Your Library is Empty",
-                    message = "No audio files were found. Tap below or use the refresh icon above to scan your local storage.",
+                    message = "No audio files were found. Scan your local storage to get started.",
                     icon = Icons.Default.LibraryMusic,
                     actionLabel = "Scan Local Storage",
                     onActionClick = onRescan
                 )
             }
         } else {
-            // 3. When searchQuery is blank and library not empty:
-            // Continue Listening hero v2 - Foundation Stage A
             val activeHeroSong = currentSong ?: lastPlayedSong
+
             if (activeHeroSong != null) {
                 item(key = "continue_listening_hero") {
                     val isSongActive = currentSong?.id == activeHeroSong.id
-                    val isHeroPlaying = isPlaying && isSongActive
                     ContinueListeningHeroV2(
                         song = activeHeroSong,
-                        isPlaying = isHeroPlaying,
+                        isPlaying = isPlaying && isSongActive,
                         position = if (isSongActive) position else 0L,
                         duration = if (isSongActive) duration else activeHeroSong.duration,
                         isPreparing = isPreparing && isSongActive,
                         onPlayPauseClick = {
-                            if (isSongActive) {
-                                onTogglePlayPause()
-                            } else {
-                                onPlaySong(activeHeroSong, songs)
-                            }
+                            if (isSongActive) onTogglePlayPause()
+                            else onPlaySong(activeHeroSong, songs)
                         },
                         onOpenNowPlaying = onOpenPlayer,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = OniSkin.spacing.screenHorizontal)
                     )
-                    Spacer(modifier = Modifier.height(OniSkin.spacing.md))
                 }
             }
 
-            // Quick stats strip
-            item(key = "quick_stats_strip") {
-                LibraryStatsStrip(
-                    songCount = songs.size,
-                    artistCount = uniqueArtistsCount,
-                    albumCount = uniqueAlbumsCount,
-                    favoriteCount = favoritesCount
-                )
-                Spacer(modifier = Modifier.height(OniSkin.spacing.md))
-            }
-
-            // Made For You section
-            item(key = "made_for_you_section") {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    OniSectionHeader(title = "Made For You")
+            item(key = "library_shortcuts") {
+                LibrarySection(
+                    title = "Browse your library",
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
                         horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                     ) {
-                        // Most Played -> index 6 in categoryList
-                        item(key = "mfy_most_played") {
-                            MadeForYouCard(
+                        item("songs") {
+                            LibraryShortcutCard("Songs", "${songs.size}", Icons.Default.MusicNote) {
+                                onSelectCategory(0)
+                            }
+                        }
+                        item("folders") {
+                            LibraryShortcutCard("Folders", "", Icons.Default.Folder) {
+                                onSelectCategory(1)
+                            }
+                        }
+                        item("albums") {
+                            LibraryShortcutCard("Albums", "$uniqueAlbumsCount", Icons.Default.Album) {
+                                onSelectCategory(2)
+                            }
+                        }
+                        item("artists") {
+                            LibraryShortcutCard("Artists", "$uniqueArtistsCount", Icons.Default.Person) {
+                                onSelectCategory(3)
+                            }
+                        }
+                        item("genres") {
+                            LibraryShortcutCard("Genres", "", Icons.Default.Category) {
+                                onSelectCategory(4)
+                            }
+                        }
+                        item("favorites") {
+                            LibraryShortcutCard("Favorites", "$favoritesCount", Icons.Default.Favorite) {
+                                onSelectCategory(5)
+                            }
+                        }
+                    }
+                }
+            }
+
+            item(key = "made_for_you") {
+                LibrarySection(
+                    title = "Made For You",
+                    subtitle = "Your listening, organized",
+                    trailing = {
+                        SectionAction(label = "View all") { onSelectCategory(6) }
+                    }
+                ) {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                    ) {
+                        item("most_played") {
+                            MadeForYouCompactCard(
                                 title = "Most Played",
-                                countText = "${mostPlayedSongs.size} tracks",
+                                count = "${mostPlayedSongs.size} tracks",
                                 icon = Icons.Default.Whatshot,
                                 onClick = { onSelectCategory(6) }
                             )
                         }
-                        // Recently Played -> index 9 (Smart Playlists where Recently Played dynamic playlist lives)
-                        item(key = "mfy_recently_played") {
-                            MadeForYouCard(
+                        item("recently_played") {
+                            MadeForYouCompactCard(
                                 title = "Recently Played",
-                                countText = "${recentlyPlayedSongs.size} tracks",
+                                count = "${recentlyPlayedSongs.size} tracks",
                                 icon = Icons.Default.Schedule,
                                 onClick = { onSelectCategory(9) }
                             )
                         }
-                        // Recently Added -> index 7 in categoryList
-                        item(key = "mfy_recently_added") {
-                            MadeForYouCard(
-                                title = "Recently Added",
-                                countText = "${recentlyAddedSongs.size} tracks",
-                                icon = Icons.AutoMirrored.Filled.QueueMusic,
-                                onClick = { onSelectCategory(7) }
+                        item("favorites") {
+                            MadeForYouCompactCard(
+                                title = "Favorites",
+                                count = "$favoritesCount songs",
+                                icon = Icons.Default.Favorite,
+                                onClick = { onSelectCategory(5) }
                             )
                         }
-                        // Favorites -> index 5 in categoryList
-                        item(key = "mfy_favorites") {
-                            MadeForYouCard(
-                                title = "Favorites",
-                                countText = "$favoritesCount tracks",
-                                icon = Icons.Filled.Favorite,
-                                onClick = { onSelectCategory(5) }
+                        item("playlists") {
+                            MadeForYouCompactCard(
+                                title = "Playlists",
+                                count = "Browse lists",
+                                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                                onClick = { onSelectCategory(8) }
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
             }
 
-            // Recently Played section — only rendered if recentlyPlayedSongs is not empty
             if (recentlyPlayedSongs.isNotEmpty()) {
-                item(key = "recently_played_section") {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        OniSectionHeader(
-                            title = "Recently Played",
-                            onViewAllClick = { onSelectCategory(9) }
-                        )
+                item(key = "recently_played") {
+                    LibrarySection(
+                        title = "Recently Played",
+                        trailing = {
+                            SectionAction(label = "View all") { onSelectCategory(9) }
+                        }
+                    ) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
-                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
                         ) {
-                            items(recentlyPlayedSongs.take(15), key = { "rp_${it.id}" }) { song ->
+                            items(recentlyPlayedSongs.take(12), key = { "recent_${it.id}" }) { song ->
                                 HorizontalSongCard(
                                     song = song,
                                     onClick = { onPlaySong(song, recentlyPlayedSongs) }
@@ -379,231 +304,26 @@ fun LibraryDashboardScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
                 }
             }
 
-            // Frequently Played Albums — only rendered if at least one album has playCount > 0
-            if (frequentlyPlayedAlbums.isNotEmpty()) {
-                item(key = "frequently_played_albums_section") {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        OniSectionHeader(
-                            title = "Frequently Played Albums",
-                            onViewAllClick = { onSelectCategory(2) }
-                        )
+            if (recentlyAddedSongs.isNotEmpty()) {
+                item(key = "recently_added") {
+                    LibrarySection(
+                        title = "Recently Added",
+                        trailing = {
+                            SectionAction(label = "View all") { onSelectCategory(7) }
+                        }
+                    ) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
-                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
                         ) {
-                            items(frequentlyPlayedAlbums.take(15), key = { "album_${it.albumKey}" }) { album ->
-                                AlbumCard(
-                                    album = album,
-                                    onClick = { onSearchQueryChange(album.title) }
+                            items(recentlyAddedSongs.take(12), key = { "added_${it.id}" }) { song ->
+                                HorizontalSongCard(
+                                    song = song,
+                                    onClick = { onPlaySong(song, recentlyAddedSongs) }
                                 )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
-                }
-            }
-
-            // Favorite Artists — only rendered if at least one artist has favorited songs
-            if (favoriteArtists.isNotEmpty()) {
-                item(key = "favorite_artists_section") {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        OniSectionHeader(
-                            title = "Favorite Artists",
-                            onViewAllClick = { onSelectCategory(3) }
-                        )
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
-                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
-                        ) {
-                            items(favoriteArtists.take(15), key = { "artist_${it.artistKey}" }) { artist ->
-                                Box(modifier = Modifier.width(240.dp)) {
-                                    ArtistRow(
-                                        artist = artist,
-                                        onClick = { onSearchQueryChange(artist.name) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(OniSkin.spacing.lg))
-                }
-            }
-
-            // Category preview — Quick Access / All Categories toggle and CategoryCard rendering
-            item(key = "category_preview_section") {
-                val motion = OniSkin.motion
-                AnimatedContent(
-                    targetState = showAllCategories,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing)) togetherWith
-                            fadeOut(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing))
-                    },
-                    label = "Categories section transition"
-                ) { isShowingAll ->
-                    if (!isShowingAll) {
-                        Column {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        horizontal = OniSkin.spacing.screenHorizontal,
-                                        vertical = OniSkin.spacing.sm
-                                    ),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Quick Access",
-                                    style = OniSkin.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = OniSkin.colors.textPrimary
-                                )
-                            }
-
-                            quickAccessCategoryIndices.chunked(2).forEach { rowIndices ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs),
-                                    horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
-                                ) {
-                                    val idx1 = rowIndices[0]
-                                    val cat1 = categoryList.getOrNull(idx1)
-                                    if (cat1 != null) {
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            CategoryCard(
-                                                category = cat1,
-                                                isGrid = true,
-                                                onClick = { onSelectCategory(idx1) }
-                                            )
-                                        }
-                                    }
-                                    if (rowIndices.size > 1) {
-                                        val idx2 = rowIndices[1]
-                                        val cat2 = categoryList.getOrNull(idx2)
-                                        if (cat2 != null) {
-                                            Box(modifier = Modifier.weight(1f)) {
-                                                CategoryCard(
-                                                    category = cat2,
-                                                    isGrid = true,
-                                                    onClick = { onSelectCategory(idx2) }
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs)
-                                    .clip(OniSkin.shapes.card)
-                                    .background(OniSkin.colors.primary.copy(alpha = 0.08f))
-                                    .clickable { showAllCategories = true }
-                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "See all categories",
-                                    style = OniSkin.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = OniSkin.colors.primary
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = OniSkin.colors.primary
-                                )
-                            }
-                        }
-                    } else {
-                        Column {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        horizontal = OniSkin.spacing.screenHorizontal,
-                                        vertical = OniSkin.spacing.sm
-                                    ),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "All Categories",
-                                    style = OniSkin.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = OniSkin.colors.textPrimary
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    TextButton(
-                                        onClick = { showAllCategories = false },
-                                        modifier = Modifier.padding(end = 4.dp)
-                                    ) {
-                                        Icon(Icons.Default.ExpandLess, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Show less", style = OniSkin.typography.labelMedium)
-                                    }
-                                    IconButton(onClick = onToggleLayoutMode) {
-                                        Icon(
-                                            imageVector = if (layoutMode == "grid") Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                                            contentDescription = "Toggle Layout",
-                                            tint = OniSkin.colors.primary
-                                        )
-                                    }
-                                }
-                            }
-
-                            if (layoutMode == "grid") {
-                                categoryList.chunked(2).forEach { rowPair ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs),
-                                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
-                                    ) {
-                                        val cat1 = rowPair[0]
-                                        val index1 = categoryList.indexOf(cat1)
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            CategoryCard(
-                                                category = cat1,
-                                                isGrid = true,
-                                                onClick = { onSelectCategory(index1) }
-                                            )
-                                        }
-                                        if (rowPair.size > 1) {
-                                            val cat2 = rowPair[1]
-                                            val index2 = categoryList.indexOf(cat2)
-                                            Box(modifier = Modifier.weight(1f)) {
-                                                CategoryCard(
-                                                    category = cat2,
-                                                    isGrid = true,
-                                                    onClick = { onSelectCategory(index2) }
-                                                )
-                                            }
-                                        } else {
-                                            Spacer(modifier = Modifier.weight(1f))
-                                        }
-                                    }
-                                }
-                            } else {
-                                categoryList.forEachIndexed { index, category ->
-                                    Box(modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xxs)) {
-                                        CategoryCard(
-                                            category = category,
-                                            isGrid = false,
-                                            onClick = { onSelectCategory(index) }
-                                        )
-                                    }
-                                }
                             }
                         }
                     }
@@ -614,22 +334,205 @@ fun LibraryDashboardScreen(
 }
 
 @Composable
-private fun MadeForYouCard(
+private fun LibraryDashboardHeader(
+    isScanning: Boolean,
+    showOptionsMenu: () -> Unit,
+    onRescan: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = OniSkin.spacing.screenHorizontal,
+                end = OniSkin.spacing.screenHorizontal,
+                top = OniSkin.spacing.lg,
+                bottom = OniSkin.spacing.xs
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = greetingForTime(),
+                style = OniSkin.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = OniSkin.colors.primary
+            )
+            Text(
+                text = "Your Library",
+                style = OniSkin.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = OniSkin.colors.textPrimary
+            )
+            Text(
+                text = "Music for every moment",
+                style = OniSkin.typography.bodyMedium,
+                color = OniSkin.colors.textSecondary
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+            OniSurface(variant = OniSurfaceVariant.Soft, shape = OniSkin.shapes.full) {
+                IconButton(onClick = showOptionsMenu, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Library options",
+                        tint = OniSkin.colors.primary
+                    )
+                }
+            }
+            OniSurface(variant = OniSurfaceVariant.Soft, shape = OniSkin.shapes.full) {
+                IconButton(onClick = onRescan, modifier = Modifier.size(48.dp)) {
+                    if (isScanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = OniSkin.colors.primary
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Scan library",
+                            tint = OniSkin.colors.primary
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibrarySection(
     title: String,
-    countText: String,
-    icon: ImageVector,
-    iconBgColor: Color = OniSkin.colors.primary.copy(alpha = 0.12f),
-    iconColor: Color = OniSkin.colors.primary,
+    subtitle: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = OniSkin.spacing.screenHorizontal),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = OniSkin.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = OniSkin.colors.textPrimary
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = OniSkin.typography.caption,
+                        color = OniSkin.colors.textSecondary
+                    )
+                }
+            }
+            trailing?.invoke()
+        }
+        content()
+    }
+}
+
+@Composable
+private fun SectionAction(label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text(
+            text = label,
+            style = OniSkin.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = OniSkin.colors.primary
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = OniSkin.colors.primary
+        )
+    }
+}
+
+@Composable
+private fun LibraryShortcutCard(
+    title: String,
+    count: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
     OniSurface(
         modifier = Modifier
-            .width(150.dp)
-            .height(100.dp)
-            .defaultMinSize(minHeight = 48.dp)
+            .width(112.dp)
+            .height(112.dp)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
-                contentDescription = "$title, $countText"
+                contentDescription = if (count.isBlank()) title else "$title, $count"
+            }
+            .clickable(onClick = onClick),
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.card
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(OniSkin.spacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            OniSurface(
+                variant = OniSurfaceVariant.Flat,
+                shape = OniSkin.shapes.full,
+                containerColor = OniSkin.colors.primaryContainer
+            ) {
+                Box(
+                    modifier = Modifier.size(44.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = OniSkin.colors.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
+            Text(
+                text = title,
+                style = OniSkin.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = OniSkin.colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (count.isNotBlank()) {
+                Text(
+                    text = count,
+                    style = OniSkin.typography.caption,
+                    color = OniSkin.colors.textSecondary,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MadeForYouCompactCard(
+    title: String,
+    count: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    OniSurface(
+        modifier = Modifier
+            .width(168.dp)
+            .height(112.dp)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = "$title, $count"
             }
             .clickable(onClick = onClick),
         variant = OniSurfaceVariant.Soft,
@@ -641,19 +544,22 @@ private fun MadeForYouCard(
                 .padding(OniSkin.spacing.md),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(iconBgColor),
-                contentAlignment = Alignment.Center
+            OniSurface(
+                variant = OniSurfaceVariant.Flat,
+                shape = OniSkin.shapes.full,
+                containerColor = OniSkin.colors.primaryContainer
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = OniSkin.colors.primary,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
             }
             Column {
                 Text(
@@ -664,9 +570,8 @@ private fun MadeForYouCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = countText,
+                    text = count,
                     style = OniSkin.typography.caption,
                     color = OniSkin.colors.textSecondary,
                     maxLines = 1,
