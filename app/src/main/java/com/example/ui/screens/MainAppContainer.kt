@@ -41,13 +41,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
 
     val currentTab by viewModel.currentTab.collectAsState()
     val currentSong by viewModel.audioEngine.currentSong.collectAsState()
-    val isPlaying by viewModel.audioEngine.isPlaying.collectAsState()
 
-    val position by viewModel.audioEngine.position.collectAsState()
-    val duration by viewModel.audioEngine.duration.collectAsState()
-    val progressFraction = remember(position, duration) {
-        if (duration > 0) position.toFloat() / duration.toFloat() else 0f
-    }
     val destinations = remember {
         listOf(
             OniNavigationDestination(0, "Library", Icons.Default.LibraryMusic, Icons.Outlined.LibraryMusic, "nav_library"),
@@ -70,8 +64,6 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         // Capture composition-local tokens outside the non-composable transition callback.
         val motion = OniSkin.motion
         Scaffold(
-            // The shell owns top/side protection. Player still owns its bottom system inset
-            // when the bottom chrome is absent. Applied padding is consumed below.
             contentWindowInsets = WindowInsets.safeDrawing.only(
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal
             ),
@@ -84,21 +76,6 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             )
                         )
                     ) {
-                        currentSong?.let { song ->
-                            MiniPlayerBar(
-                                title = song.customTitle ?: song.title,
-                                artist = song.customArtist ?: song.artist,
-                                artworkUri = song.albumArtUri,
-                                isPlaying = isPlaying,
-                                progressFraction = progressFraction,
-                                onPlayPauseToggle = { viewModel.togglePlayPause() },
-                                onBarClick = { viewModel.selectTab(1) }
-                            )
-                        }
-
-                        // Keep the supported appearance overrides, but render them through
-                        // the shared skin surface. No new blur or background effect is added.
-                        val frostedColor = OniSkin.surfaces.frosted.containerColor
                         OniFloatingNavigation(
                             destinations = destinations,
                             selectedId = currentTab,
@@ -109,6 +86,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft,
                             shape = if (glassEffectEnabled) RoundedCornerShape(cornerRadius.dp) else OniSkin.navigation.shape,
                             containerColor = if (glassEffectEnabled) {
+                                val frostedColor = OniSkin.surfaces.frosted.containerColor
                                 // Preserve the existing slider response: 50 is the baseline.
                                 frostedColor.copy(
                                     alpha = (frostedColor.alpha * (backgroundTransparency / 50f)).coerceIn(0f, 1f)
@@ -118,7 +96,6 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     }
                 }
             },
-            // ThemeProvider remains the background owner, including AMOLED compatibility.
             containerColor = Color.Transparent,
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
@@ -128,7 +105,6 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     .padding(innerPadding)
                     .consumeWindowInsets(innerPadding)
             ) {
-                // A direction-neutral crossfade preserves the existing navigation behavior.
                 AnimatedContent(
                     targetState = currentTab,
                     transitionSpec = {
@@ -147,25 +123,4 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
             }
         }
     }
-}
-
-@Composable
-fun MiniPlayerBar(
-    title: String,
-    artist: String,
-    artworkUri: String?,
-    isPlaying: Boolean,
-    progressFraction: Float,
-    onPlayPauseToggle: () -> Unit,
-    onBarClick: () -> Unit
-) {
-    com.example.ui.components.playback.OniMiniPlayer(
-        title = title,
-        artist = artist,
-        artworkUri = artworkUri,
-        isPlaying = isPlaying,
-        progressFraction = progressFraction,
-        onPlayPauseClick = onPlayPauseToggle,
-        onPlayerClick = onBarClick
-    )
 }
