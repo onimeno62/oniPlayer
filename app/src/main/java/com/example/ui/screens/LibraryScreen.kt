@@ -62,7 +62,9 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.SongEntity
+import com.example.ui.components.button.OniPrimaryButton
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
@@ -127,7 +129,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     // Poweramp Style Screen states backed by ViewModel
     val activeCategoryIndex by viewModel.activeCategoryIndex.collectAsStateWithLifecycle()
     val selectedGroup by viewModel.selectedGroup.collectAsStateWithLifecycle()
-    val shuffleMode by viewModel.shuffleMode.collectAsStateWithLifecycle()
     val activePlaylist by viewModel.activePlaylist.collectAsStateWithLifecycle()
     val activeSmartPlaylistType by viewModel.activeSmartPlaylistType.collectAsStateWithLifecycle()
 
@@ -151,7 +152,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     // State for Tag Editor dialog
     var songToEdit by remember { mutableStateOf<SongEntity?>(null) }
 
-    // State for Poweramp Track Bottom Sheet Dialogue
+    // State for Track Menu Bottom Sheet Dialogue
     var songForMenu by remember { mutableStateOf<SongEntity?>(null) }
 
     // Calculations of categories data counts
@@ -178,6 +179,12 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     }
     val recentlyPlayedSongs = remember(songs) {
         songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }
+    }
+    val highRatedSongs = remember(songs) {
+        songs.filter { it.rating >= 4 }.sortedByDescending { it.rating }
+    }
+    val neverPlayedSongs = remember(songs) {
+        songs.filter { it.playCount == 0 }
     }
 
     val albumUiModels = remember(songs) { songs.toAlbumUiModels() }
@@ -238,92 +245,74 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         }
     }
 
-    // Poweramp Categories Definitions
+    val sortedHighRated = remember(highRatedSongs, sortBy, isSortAscending, searchQuery) {
+        val filtered = if (searchQuery.isBlank()) {
+            highRatedSongs
+        } else {
+            highRatedSongs.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                it.artist.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        val result = when (sortBy) {
+            "artist" -> filtered.sortedBy { it.customArtist ?: it.artist }
+            "duration" -> filtered.sortedBy { it.duration }
+            "play_count" -> filtered.sortedByDescending { it.playCount }
+            else -> filtered.sortedBy { it.customTitle ?: it.title }
+        }
+
+        if (!isSortAscending && sortBy != "play_count") {
+            result.reversed()
+        } else if (isSortAscending && sortBy == "play_count") {
+            result.reversed()
+        } else {
+            result
+        }
+    }
+
+    val sortedNeverPlayed = remember(neverPlayedSongs, sortBy, isSortAscending, searchQuery) {
+        val filtered = if (searchQuery.isBlank()) {
+            neverPlayedSongs
+        } else {
+            neverPlayedSongs.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                it.artist.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        val result = when (sortBy) {
+            "artist" -> filtered.sortedBy { it.customArtist ?: it.artist }
+            "duration" -> filtered.sortedBy { it.duration }
+            "play_count" -> filtered.sortedByDescending { it.playCount }
+            else -> filtered.sortedBy { it.customTitle ?: it.title }
+        }
+
+        if (!isSortAscending && sortBy != "play_count") {
+            result.reversed()
+        } else if (isSortAscending && sortBy == "play_count") {
+            result.reversed()
+        } else {
+            result
+        }
+    }
+
+    // Poweramp Categories Definitions (IDs 0–13)
     val categoryList = listOf(
-        CategoryInfo(
-            title = "All Songs",
-            countText = "${songs.size} songs",
-            icon = Icons.Default.MusicNote,
-            iconBgColor = Color(0x1F9C27B0), // Purple Tint
-            iconColor = Color(0xFF9C27B0)
-        ),
-        CategoryInfo(
-            title = "Folders",
-            countText = "${uniqueFolders.size} folders",
-            icon = Icons.Default.Folder,
-            iconBgColor = Color(0x1F2196F3), // Blue Tint
-            iconColor = Color(0xFF2196F3)
-        ),
-        CategoryInfo(
-            title = "Albums",
-            countText = "${uniqueAlbums.size} albums",
-            icon = Icons.Default.Album,
-            iconBgColor = Color(0x1FE91E63), // Pink Tint
-            iconColor = Color(0xFFE91E63)
-        ),
-        CategoryInfo(
-            title = "Artists",
-            countText = "${uniqueArtists.size} artists",
-            icon = Icons.Default.Person,
-            iconBgColor = Color(0x1F009688), // Teal Tint
-            iconColor = Color(0xFF009688)
-        ),
-        CategoryInfo(
-            title = "Genres",
-            countText = "${uniqueGenres.size} genres",
-            icon = Icons.Default.Category,
-            iconBgColor = Color(0x1FFF9800), // Orange Tint
-            iconColor = Color(0xFFFF9800)
-        ),
-        CategoryInfo(
-            title = "Favorites",
-            countText = "${favorites.size} favorite songs",
-            icon = Icons.Filled.Favorite,
-            iconBgColor = Color(0x1FF44336), // Red Tint
-            iconColor = Color(0xFFF44336)
-        ),
-        CategoryInfo(
-            title = "Most Played",
-            countText = "${mostPlayedSongs.size} played",
-            icon = Icons.Default.Whatshot,
-            iconBgColor = Color(0x1FFFC107), // Amber Tint
-            iconColor = Color(0xFFFFB300)
-        ),
-        CategoryInfo(
-            title = "Recently Added",
-            countText = "${recentlyAddedSongs.size} added",
-            icon = Icons.Default.Schedule,
-            iconBgColor = Color(0x1F4CAF50), // Green Tint
-            iconColor = Color(0xFF4CAF50)
-        ),
-        CategoryInfo(
-            title = "Playlists",
-            countText = "${playlists.size} playlists",
-            icon = Icons.AutoMirrored.Filled.QueueMusic,
-            iconBgColor = Color(0x1F03A9F4), // Light Blue Tint
-            iconColor = Color(0xFF03A9F4)
-        ),
-        CategoryInfo(
-            title = "Smart Playlists",
-            countText = "4 dynamic lists",
-            icon = Icons.Default.AutoAwesome,
-            iconBgColor = Color(0x1F673AB7), // Deep Purple Tint
-            iconColor = Color(0xFF673AB7)
-        ),
-        CategoryInfo(
-            title = "Batch Tag Editor",
-            countText = "Multi-edit tags",
-            icon = Icons.Default.EditNote,
-            iconBgColor = Color(0x1F3F51B5), // Indigo Tint
-            iconColor = Color(0xFF3F51B5)
-        ),
-        CategoryInfo(
-            title = "Advanced Search",
-            countText = "Filters & fields",
-            icon = Icons.Default.ManageSearch,
-            iconBgColor = Color(0x1F607D8B), // Blue Grey Tint
-            iconColor = Color(0xFF607D8B)
-        )
+        CategoryInfo(title = "All Songs", countText = "${songs.size} songs", icon = Icons.Default.MusicNote, iconBgColor = Color(0x1F9C27B0), iconColor = Color(0xFF9C27B0)),
+        CategoryInfo(title = "Folders", countText = "${uniqueFolders.size} folders", icon = Icons.Default.Folder, iconBgColor = Color(0x1F2196F3), iconColor = Color(0xFF2196F3)),
+        CategoryInfo(title = "Albums", countText = "${uniqueAlbums.size} albums", icon = Icons.Default.Album, iconBgColor = Color(0x1FE91E63), iconColor = Color(0xFFE91E63)),
+        CategoryInfo(title = "Artists", countText = "${uniqueArtists.size} artists", icon = Icons.Default.Person, iconBgColor = Color(0x1F009688), iconColor = Color(0xFF009688)),
+        CategoryInfo(title = "Genres", countText = "${uniqueGenres.size} genres", icon = Icons.Default.Category, iconBgColor = Color(0x1FFF9800), iconColor = Color(0xFFFF9800)),
+        CategoryInfo(title = "Favorites", countText = "${favorites.size} favorite songs", icon = Icons.Filled.Favorite, iconBgColor = Color(0x1FF44336), iconColor = Color(0xFFF44336)),
+        CategoryInfo(title = "Most Played", countText = "${mostPlayedSongs.size} played", icon = Icons.Default.Whatshot, iconBgColor = Color(0x1FFFC107), iconColor = Color(0xFFFFB300)),
+        CategoryInfo(title = "Recently Added", countText = "${recentlyAddedSongs.size} added", icon = Icons.Default.Schedule, iconBgColor = Color(0x1F4CAF50), iconColor = Color(0xFF4CAF50)),
+        CategoryInfo(title = "Playlists", countText = "${playlists.size} playlists", icon = Icons.AutoMirrored.Filled.QueueMusic, iconBgColor = Color(0x1F03A9F4), iconColor = Color(0xFF03A9F4)),
+        CategoryInfo(title = "Smart Playlists", countText = "4 dynamic lists", icon = Icons.Default.AutoAwesome, iconBgColor = Color(0x1F673AB7), iconColor = Color(0xFF673AB7)),
+        CategoryInfo(title = "Batch Tag Editor", countText = "Multi-edit tags", icon = Icons.Default.EditNote, iconBgColor = Color(0x1F3F51B5), iconColor = Color(0xFF3F51B5)),
+        CategoryInfo(title = "Advanced Search", countText = "Filters & fields", icon = Icons.Default.ManageSearch, iconBgColor = Color(0x1F607D8B), iconColor = Color(0xFF607D8B)),
+        CategoryInfo(title = "High Rated", countText = "${highRatedSongs.size} tracks", icon = Icons.Default.Star, iconBgColor = Color(0x1FFFC107), iconColor = Color(0xFFFFB300)),
+        CategoryInfo(title = "Never Played", countText = "${neverPlayedSongs.size} tracks", icon = Icons.Default.Explore, iconBgColor = Color(0x1F009688), iconColor = Color(0xFF009688))
     )
 
     if (activeCategoryIndex == null) {
@@ -366,9 +355,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 .fillMaxSize()
                 .background(Color.Transparent)
         ) {
-            // Sub-category Header with Back Navigation
             val isSubHierarchical = selectedGroup != null || activePlaylist != null || activeSmartPlaylistType != null
-            val displayCategoryTitle = categoryList[activeCategoryIndex!!].title
+            val displayCategoryTitle = categoryList.getOrNull(activeCategoryIndex!!)?.title ?: "Category"
             val displaySubTitle = when {
                 selectedGroup != null -> {
                     when (activeCategoryIndex) {
@@ -382,96 +370,68 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 else -> ""
             }
 
-                Row(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        if (selectedGroup != null) {
+                            viewModel.setSelectedGroup(null)
+                        } else if (activePlaylist != null) {
+                            viewModel.setActivePlaylist(null)
+                        } else if (activeSmartPlaylistType != null) {
+                            viewModel.setActiveSmartPlaylistType(null)
+                        } else {
+                            viewModel.setActiveCategoryIndex(null)
+                        }
+                    },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
                 ) {
-                    IconButton(
-                        onClick = {
-                            if (selectedGroup != null) {
-                                viewModel.setSelectedGroup(null)
-                            } else if (activePlaylist != null) {
-                                viewModel.setActivePlaylist(null)
-                            } else if (activeSmartPlaylistType != null) {
-                                viewModel.setActiveSmartPlaylistType(null)
-                            } else {
-                                viewModel.setActiveCategoryIndex(null)
-                            }
-                        },
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (isSubHierarchical) displayCategoryTitle.uppercase() else "LIBRARY CATEGORY",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
-                            text = if (isSubHierarchical) displaySubTitle else displayCategoryTitle,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    // Filter icon inside deep library to show settings
-                    IconButton(
-                        onClick = { showOptionsMenu = true },
-                        modifier = Modifier.background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Tune, contentDescription = "Sort Settings", tint = MaterialTheme.colorScheme.primary)
-                    }
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
 
-                // Local Search inside active category (hidden on detail sub-screens)
-                val isDetailActive = selectedGroup != null && (activeCategoryIndex == 3 || activeCategoryIndex == 2)
-                if (!isDetailActive) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.updateSearchQuery(it) },
-                        placeholder = { Text("Filter current list...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                        )
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isSubHierarchical) displayCategoryTitle.uppercase() else "LIBRARY CATEGORY",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = if (isSubHierarchical) displaySubTitle else displayCategoryTitle,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
-            // --- 2. Screen Body Content ---
+                IconButton(
+                    onClick = { showOptionsMenu = true },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), CircleShape)
+                ) {
+                    Icon(Icons.Default.SettingsSuggest, contentDescription = "Library Settings", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            // Screen Body Content
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
             ) {
                 if (searchQuery.isNotBlank()) {
-                    // If searching, directly display matching songs
                     SongsListView(
                         songs = sortedSongs,
                         viewModel = viewModel,
@@ -481,225 +441,75 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         layoutMode = layoutMode
                     )
                 } else {
-                    // RENDER DETAILED CATEGORY VIEW
                     when (activeCategoryIndex) {
-                    0 -> { // All Songs
-                        SongsListView(
-                            songs = sortedSongs,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
-                    }
-                    1 -> { // Folders
-                        GroupedListView(
-                            groupedData = uniqueFolders,
-                            icon = Icons.Default.Folder,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            selectedGroup = selectedGroup,
-                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
-                    }
-                    2 -> { // Albums
-                        if (selectedGroup != null) {
-                            val album = albumUiModels.find { it.albumKey == selectedGroup }
-                            if (album != null) {
-                                val songsInAlbum = remember(songs, selectedGroup) {
-                                    songs.filter { "${it.displayAlbum.ifBlank { "Unknown Album" }}|${it.displayAlbumArtist}" == selectedGroup }
-                                }
-                                AlbumDetailScreen(
-                                    album = album,
-                                    songsInAlbum = songsInAlbum,
-                                    currentSong = currentSong,
-                                    isPlaying = isPlaying,
-                                    onPlayAll = { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.first(), songsInAlbum) },
-                                    onShufflePlay = { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.random(), songsInAlbum) },
-                                    onSongClick = { viewModel.playSong(it, songsInAlbum) },
-                                    onShowTrackMenu = { songForMenu = it }
-                                )
+                        0 -> SongsListView(sortedSongs, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
+                        1 -> GroupedListView(uniqueFolders, Icons.Default.Folder, viewModel, sortBy, isSortAscending, selectedGroup, { viewModel.setSelectedGroup(it) }, { songForMenu = it }, layoutMode)
+                        2 -> {
+                            if (selectedGroup != null) {
+                                val album = albumUiModels.find { it.albumKey == selectedGroup }
+                                if (album != null) {
+                                    val songsInAlbum = remember(songs, selectedGroup) {
+                                        songs.filter { "${it.displayAlbum.ifBlank { "Unknown Album" }}|${it.displayAlbumArtist}" == selectedGroup }
+                                    }
+                                    AlbumDetailScreen(album, songsInAlbum, currentSong, isPlaying, { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.first(), songsInAlbum) }, { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.random(), songsInAlbum) }, { viewModel.playSong(it, songsInAlbum) }, { songForMenu = it })
+                                } else viewModel.setSelectedGroup(null)
                             } else {
-                                viewModel.setSelectedGroup(null) // stale key, bail out safely
+                                AlbumsScreen(albumUiModels, layoutMode, { viewModel.setSelectedGroup(it.albumKey) }, viewModel.albumsGridIndex, viewModel.albumsGridOffset, { i, o -> viewModel.albumsGridIndex = i; viewModel.albumsGridOffset = o }, viewModel.albumsListIndex, viewModel.albumsListOffset, { i, o -> viewModel.albumsListIndex = i; viewModel.albumsListOffset = o })
                             }
-                        } else {
-                            AlbumsScreen(
-                                albums = albumUiModels,
-                                layoutMode = layoutMode,
-                                onAlbumClick = { viewModel.setSelectedGroup(it.albumKey) },
-                                gridIndex = viewModel.albumsGridIndex,
-                                gridOffset = viewModel.albumsGridOffset,
-                                onGridScroll = { index, offset ->
-                                    viewModel.albumsGridIndex = index
-                                    viewModel.albumsGridOffset = offset
-                                },
-                                listIndex = viewModel.albumsListIndex,
-                                listOffset = viewModel.albumsListOffset,
-                                onListScroll = { index, offset ->
-                                    viewModel.albumsListIndex = index
-                                    viewModel.albumsListOffset = offset
-                                }
-                            )
                         }
-                    }
-                    3 -> { // Artists
-                        if (selectedGroup != null) {
-                            val artist = artistUiModels.find { it.artistKey == selectedGroup }
-                            if (artist != null) {
-                                val songsByArtist = remember(songs, selectedGroup) {
-                                    songs.filter { it.displayArtist.ifBlank { "Unknown Artist" } == selectedGroup }
-                                }
-                                val albumsByArtist = remember(albumUiModels, songsByArtist) {
-                                    val artistAlbumKeys = songsByArtist.map { song ->
-                                        "${song.displayAlbum.ifBlank { "Unknown Album" }}|${song.displayAlbumArtist}"
-                                    }.toSet()
-                                    albumUiModels.filter { it.albumKey in artistAlbumKeys }
-                                }
-                                ArtistDetailScreen(
-                                    artist = artist,
-                                    albumsByArtist = albumsByArtist,
-                                    songsByArtist = songsByArtist,
-                                    currentSong = currentSong,
-                                    isPlaying = isPlaying,
-                                    onPlayAll = { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.first(), songsByArtist) },
-                                    onShufflePlay = { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.random(), songsByArtist) },
-                                    onSongClick = { viewModel.playSong(it, songsByArtist) },
-                                    onShowTrackMenu = { songForMenu = it },
-                                    layoutMode = layoutMode,
-                                    viewModel = viewModel
-                                )
+                        3 -> {
+                            if (selectedGroup != null) {
+                                val artist = artistUiModels.find { it.artistKey == selectedGroup }
+                                if (artist != null) {
+                                    val songsByArtist = remember(songs, selectedGroup) {
+                                        songs.filter { it.displayArtist.ifBlank { "Unknown Artist" } == selectedGroup }
+                                    }
+                                    val albumsByArtist = remember(albumUiModels, songsByArtist) {
+                                        val artistAlbumKeys = songsByArtist.map { "${it.displayAlbum.ifBlank { "Unknown Album" }}|${it.displayAlbumArtist}" }.toSet()
+                                        albumUiModels.filter { it.albumKey in artistAlbumKeys }
+                                    }
+                                    ArtistDetailScreen(artist, albumsByArtist, songsByArtist, currentSong, isPlaying, { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.first(), songsByArtist) }, { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.random(), songsByArtist) }, { viewModel.playSong(it, songsByArtist) }, { songForMenu = it }, layoutMode, viewModel)
+                                } else viewModel.setSelectedGroup(null)
                             } else {
-                                viewModel.setSelectedGroup(null) // stale key, bail out safely
-                            }
-                        } else {
-                            ArtistsScreen(
-                                artists = artistUiModels,
-                                layoutMode = layoutMode,
-                                onArtistClick = { viewModel.setSelectedGroup(it.artistKey) },
-                                gridIndex = viewModel.artistsGridIndex,
-                                gridOffset = viewModel.artistsGridOffset,
-                                onGridScroll = { index, offset ->
-                                    viewModel.artistsGridIndex = index
-                                    viewModel.artistsGridOffset = offset
-                                },
-                                listIndex = viewModel.artistsListIndex,
-                                listOffset = viewModel.artistsListOffset,
-                                onListScroll = { index, offset ->
-                                    viewModel.artistsListIndex = index
-                                    viewModel.artistsListOffset = offset
-                                }
-                            )
-                        }
-                    }
-                    4 -> { // Genres
-                        GroupedListView(
-                            groupedData = uniqueGenres,
-                            icon = Icons.Default.Category,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            selectedGroup = selectedGroup,
-                            onSelectedGroupChange = { viewModel.setSelectedGroup(it) },
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
-                    }
-                    5 -> { // Favorites
-                        SongsListView(
-                            songs = sortedFavorites,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
-                    }
-                    6 -> { // Most Played
-                        val filteredMostPlayed = remember(mostPlayedSongs, searchQuery) {
-                            if (searchQuery.isBlank()) mostPlayedSongs else mostPlayedSongs.filter {
-                                it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true)
+                                ArtistsScreen(artistUiModels, layoutMode, { viewModel.setSelectedGroup(it.artistKey) }, viewModel.artistsGridIndex, viewModel.artistsGridOffset, { i, o -> viewModel.artistsGridIndex = i; viewModel.artistsGridOffset = o }, viewModel.artistsListIndex, viewModel.artistsListOffset, { i, o -> viewModel.artistsListIndex = i; viewModel.artistsListOffset = o })
                             }
                         }
-                        SongsListView(
-                            songs = filteredMostPlayed,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
-                    }
-                    7 -> { // Recently Added
-                        val filteredRecentlyAdded = remember(recentlyAddedSongs, searchQuery) {
-                            if (searchQuery.isBlank()) recentlyAddedSongs else recentlyAddedSongs.filter {
-                                it.title.contains(searchQuery, ignoreCase = true) || it.artist.contains(searchQuery, ignoreCase = true)
+                        4 -> GroupedListView(uniqueGenres, Icons.Default.Category, viewModel, sortBy, isSortAscending, selectedGroup, { viewModel.setSelectedGroup(it) }, { songForMenu = it }, layoutMode)
+                        5 -> SongsListView(sortedFavorites, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
+                        6 -> {
+                            val filtered = remember(mostPlayedSongs, searchQuery) {
+                                if (searchQuery.isBlank()) mostPlayedSongs else mostPlayedSongs.filter { it.title.contains(searchQuery, true) || it.artist.contains(searchQuery, true) }
                             }
+                            SongsListView(filtered, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
                         }
-                        SongsListView(
-                            songs = filteredRecentlyAdded,
-                            viewModel = viewModel,
-                            sortBy = sortBy,
-                            isSortAscending = isSortAscending,
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
-                    }
-                    8 -> { // Playlists
-                        PlaylistsView(
-                            songs = songs,
-                            playlists = playlists,
-                            viewModel = viewModel,
-                            activePlaylist = activePlaylist,
-                            onActivePlaylistChange = { viewModel.setActivePlaylist(it) },
-                            onShowTrackMenu = { songForMenu = it },
-                            layoutMode = layoutMode
-                        )
-                    }
-                    9 -> { // Smart Playlists
-                        SmartPlaylistsView(
-                            songs = songs,
-                            favorites = favorites,
-                            viewModel = viewModel,
-                            activeSmartPlaylistType = activeSmartPlaylistType,
-                            onActiveSmartPlaylistTypeChange = { viewModel.setActiveSmartPlaylistType(it) },
-                            onShowTrackMenu = { songForMenu = it }
-                        )
-                    }
-                    10 -> { // Batch Tag Editor
-                        BatchTagEditorView(
-                            songs = songs,
-                            viewModel = viewModel
-                        )
-                    }
-                    11 -> { // Advanced Search
-                        AdvancedSearchView(
-                            songs = songs,
-                            viewModel = viewModel,
-                            layoutMode = layoutMode,
-                            onShowTrackMenu = { songForMenu = it }
-                        )
+                        7 -> {
+                            val filtered = remember(recentlyAddedSongs, searchQuery) {
+                                if (searchQuery.isBlank()) recentlyAddedSongs else recentlyAddedSongs.filter { it.title.contains(searchQuery, true) || it.artist.contains(searchQuery, true) }
+                            }
+                            SongsListView(filtered, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
+                        }
+                        8 -> PlaylistsView(songs, playlists, viewModel, activePlaylist, { viewModel.setActivePlaylist(it) }, { songForMenu = it }, layoutMode)
+                        9 -> SmartPlaylistsView(songs, favorites, viewModel, activeSmartPlaylistType, { viewModel.setActiveSmartPlaylistType(it) }, { songForMenu = it })
+                        10 -> BatchTagEditorView(songs, viewModel)
+                        11 -> AdvancedSearchView(songs, viewModel, layoutMode, { songForMenu = it })
+                        12 -> SongsListView(sortedHighRated, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
+                        13 -> SongsListView(sortedNeverPlayed, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
                     }
                 }
             }
         }
     }
-}
 
-    // Poweramp Style Options Menu Dialog
     if (showOptionsMenu) {
         LibraryOptionsMenu(
+            searchQuery = searchQuery,
+            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
             layoutMode = layoutMode,
             onLayoutChange = { layoutMode = it },
             sortBy = sortBy,
             onSortByChange = { sortBy = it },
             isSortAscending = isSortAscending,
             onSortAscendingChange = { isSortAscending = it },
-            shuffleMode = shuffleMode,
-            onShuffleModeChange = { viewModel.setShuffleMode(it) },
             onRescan = triggerScanWithPermission,
             onPlayAll = {
                 if (songs.isNotEmpty()) {
@@ -725,16 +535,10 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
         )
     }
 
-    // Tag Editor Dialog Integration
     songToEdit?.let { song ->
-        AdvancedTagEditorDialog(
-            song = song,
-            viewModel = viewModel,
-            onDismiss = { songToEdit = null }
-        )
+        AdvancedTagEditorDialog(song = song, viewModel = viewModel, onDismiss = { songToEdit = null })
     }
 
-    // Poweramp Track Menu Bottom Overlay Dialog
     songForMenu?.let { song ->
         TrackMenuBottomSheetDialog(
             song = song,
@@ -746,7 +550,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     }
 }
 
-// Category Information Data Class
 data class CategoryInfo(
     val title: String,
     val countText: String,
@@ -1345,774 +1148,334 @@ fun TagEditorDialog(
     AdvancedTagEditorDialog(song, viewModel, onDismiss)
 }
 
-// Library Settings — modern bottom sheet
+// Library Settings — modern bottom sheet (No Shuffle Mode configuration)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryOptionsMenu(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     layoutMode: String,
     onLayoutChange: (String) -> Unit,
     sortBy: String,
     onSortByChange: (String) -> Unit,
     isSortAscending: Boolean,
     onSortAscendingChange: (Boolean) -> Unit,
-    shuffleMode: ShuffleMode,
-    onShuffleModeChange: (ShuffleMode) -> Unit,
     onRescan: () -> Unit,
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val accent = LocalAccentColor.current
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = OniSkin.colors.surface,
+        shape = OniSkin.shapes.bottomSheet,
         dragHandle = {
             Box(
                 modifier = Modifier
-                    .padding(top = 12.dp, bottom = 4.dp)
-                    .width(36.dp)
+                    .padding(top = OniSkin.spacing.xs, bottom = OniSkin.spacing.xxs)
+                    .width(40.dp)
                     .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                    .clip(OniSkin.shapes.full)
+                    .background(OniSkin.colors.outline.copy(alpha = 0.4f))
             )
         }
     ) {
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp)
+                .padding(horizontal = OniSkin.spacing.screenHorizontal)
+                .padding(bottom = OniSkin.spacing.screenVertical),
+            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.section)
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Library Settings",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Text(
-                        text = "Customize how your library looks and plays",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f), CircleShape)
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // LAYOUT STYLE
-            Text(
-                text = "LAYOUT STYLE",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = accent,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(
-                    Triple("grid", "Grid" to "Category tiles & song art grids", Icons.Default.GridView),
-                    Triple("list", "List" to "Rows everywhere", Icons.AutoMirrored.Filled.ViewList)
-                ).forEach { (mode, labels, icon) ->
-                    val (label, description) = labels
-                    val isSelected = layoutMode == mode
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                            .background(if (isSelected) accent.copy(alpha = 0.12f) else Color.Transparent)
-                            .clickable { onLayoutChange(mode) }
-                            .padding(vertical = 10.dp, horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) accent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (isSelected) accent else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                label,
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                description,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (isSelected) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accent)
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // SHUFFLE MODE
-            Text(
-                text = "SHUFFLE MODE",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = accent,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(
-                    Triple(ShuffleMode.RANDOM, "Random" to "Pure random pick", Icons.Default.Shuffle),
-                    Triple(ShuffleMode.DISCOVER, "Discover" to "Favors songs you rarely play", Icons.Default.Explore),
-                    Triple(ShuffleMode.FAVORITES_BOOST, "Favorites Boost" to "Favors your favorited songs", Icons.Default.Favorite)
-                ).forEach { (mode, labels, icon) ->
-                    val (label, description) = labels
-                    val isSelected = shuffleMode == mode
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                            .background(if (isSelected) accent.copy(alpha = 0.12f) else Color.Transparent)
-                            .clickable { onShuffleModeChange(mode) }
-                            .padding(vertical = 10.dp, horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) accent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (isSelected) accent else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                label,
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                description,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (isSelected) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accent)
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // SORT SONGS BY
-            Text(
-                text = "SORT SONGS BY",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = accent,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val options = listOf(
-                    Triple("title", "Song Title", Icons.Default.SortByAlpha),
-                    Triple("artist", "Artist Name", Icons.Default.Person),
-                    Triple("duration", "Duration Length", Icons.Default.Timer),
-                    Triple("play_count", "Times Played", Icons.Default.Whatshot)
-                )
-                options.forEach { (option, label, icon) ->
-                    val isSelected = sortBy == option
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                            .background(if (isSelected) accent.copy(alpha = 0.12f) else Color.Transparent)
-                            .clickable { onSortByChange(option) }
-                            .padding(vertical = 10.dp, horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) accent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (isSelected) accent else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            label,
-                            fontSize = 14.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (isSelected) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = accent
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                    .clickable { onSortAscendingChange(!isSortAscending) }
-                    .padding(vertical = 10.dp, horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (isSortAscending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Ascending Order (A-Z)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                }
-                Switch(
-                    checked = isSortAscending,
-                    onCheckedChange = { onSortAscendingChange(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = accent
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // QUICK ACTIONS
-            Text(
-                text = "QUICK ACTIONS",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = accent,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            item {
                 Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                        .background(accent)
-                        .clickable(onClick = onPlayAll)
-                        .padding(vertical = 14.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Play All", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                        .background(MaterialTheme.colorScheme.secondary)
-                        .clickable(onClick = onShuffleAll)
-                        .padding(vertical = 14.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Shuffle, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Shuffle", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondary)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)), RoundedCornerShape(dashboardRadiusMedium()))
-                    .clickable(onClick = onRescan)
-                    .padding(vertical = 14.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Rescan Music Library", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-            }
-        }
-    }
-}
-
-@Composable
-fun borderStrokeDefault(): BorderStroke {
-    return BorderStroke(
-        width = 1.dp,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-    )
-}
-
-// Shared, theme-driven corner radius tiers for the dashboard. All three scale together
-// whenever the user's corner-radius setting (LocalCornerRadius) changes, instead of each
-// card picking its own hardcoded value.
-@Composable
-fun dashboardRadiusLarge(): Dp = (LocalCornerRadius.current * 1.5f).dp
-
-@Composable
-fun dashboardRadiusMedium(): Dp = LocalCornerRadius.current.dp
-
-@Composable
-fun dashboardRadiusSmall(): Dp = (LocalCornerRadius.current * 0.75f).dp
-
-fun formatDuration(ms: Long): String {
-    val sec = (ms / 1000) % 60
-    val min = (ms / (1000 * 60)) % 60
-    val hr = (ms / (1000 * 60 * 60)) % 24
-    return if (hr > 0) {
-        String.format("%d:%02d:%02d", hr, min, sec)
-    } else {
-        String.format("%d:%02d", min, sec)
-    }
-}
-
-fun greetingForTime(): String {
-    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    return when {
-        hour < 5 -> "LATE NIGHT TUNES"
-        hour < 12 -> "GOOD MORNING"
-        hour < 17 -> "GOOD AFTERNOON"
-        hour < 21 -> "GOOD EVENING"
-        else -> "GOOD NIGHT"
-    }
-}
-
-@Composable
-fun MainLibraryDashboard(
-    songs: List<SongEntity>,
-    sortedSongs: List<SongEntity>,
-    currentSong: SongEntity?,
-    isPlaying: Boolean,
-    lastPlayedSong: SongEntity?,
-    recentlyPlayedSongs: List<SongEntity>,
-    mostPlayedSongs: List<SongEntity>,
-    recentlyAddedSongs: List<SongEntity>,
-    uniqueArtistsCount: Int,
-    uniqueAlbumsCount: Int,
-    favoritesCount: Int,
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    isScanning: Boolean,
-    showOptionsMenu: () -> Unit,
-    onRescan: () -> Unit,
-    layoutMode: String,
-    onToggleLayoutMode: () -> Unit,
-    categoryList: List<CategoryInfo>,
-    onSelectCategory: (Int) -> Unit,
-    onPlaySong: (SongEntity, List<SongEntity>) -> Unit,
-    onShowTrackMenu: (SongEntity) -> Unit
-) {
-    var showAllCategories by rememberSaveable { mutableStateOf(false) }
-    // Indices into categoryList: All Songs (0), Favorites (5), Playlists (8), Folders (1)
-    val quickAccessCategoryIndices = remember { listOf(0, 5, 8, 1) }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 96.dp)
-    ) {
-        // 1. Dashboard greeting header
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = greetingForTime(),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = "Your Library",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Poweramp Options Menu Button
-                    IconButton(
-                        onClick = showOptionsMenu,
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), CircleShape)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Tune, contentDescription = "Library Options", tint = MaterialTheme.colorScheme.primary)
-                    }
-
-                    // Rescan Library Shortcut
-                    IconButton(
-                        onClick = onRescan,
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        if (isScanning) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Scan Library", tint = MaterialTheme.colorScheme.primary)
+                        OniSurface(
+                            variant = OniSurfaceVariant.Flat,
+                            shape = OniSkin.shapes.full,
+                            containerColor = OniSkin.colors.primaryContainer,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.SettingsSuggest,
+                                    contentDescription = null,
+                                    tint = OniSkin.colors.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                        Column {
+                            Text(
+                                text = "Library Settings",
+                                style = OniSkin.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = OniSkin.colors.textPrimary
+                            )
+                            Text(
+                                text = "Search, scan, layout, and playback preferences",
+                                style = OniSkin.typography.caption,
+                                color = OniSkin.colors.textSecondary
+                            )
                         }
                     }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close settings",
+                            tint = OniSkin.colors.textSecondary
+                        )
+                    }
                 }
             }
-        }
 
-        // 2. Global Library Search input bar
-        item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = onSearchQueryChange,
-                placeholder = { Text("Search title, artist, album...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .testTag("search_input"),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { onSearchQueryChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                )
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        if (searchQuery.isNotBlank()) {
+            // B. Search Box
             item {
-                Text(
-                    text = "Found ${sortedSongs.size} tracks",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xxs)) {
+                    Text(
+                        text = "SEARCH LIBRARY",
+                        style = OniSkin.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.primary
+                    )
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        placeholder = {
+                            Text("Search songs, artists, albums...", color = OniSkin.colors.textSecondary)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = OniSkin.colors.primary)
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { onSearchQueryChange("") }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = OniSkin.colors.textSecondary)
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = OniSkin.shapes.full,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OniSkin.colors.primary,
+                            unfocusedBorderColor = OniSkin.colors.outline,
+                            focusedTextColor = OniSkin.colors.textPrimary,
+                            unfocusedTextColor = OniSkin.colors.textPrimary
+                        )
+                    )
+                }
             }
 
-            if (sortedSongs.isEmpty()) {
-                item {
-                    Box(
+            // C. Scan Local Music
+            item {
+                OniSurface(
+                    variant = OniSurfaceVariant.Soft,
+                    shape = OniSkin.shapes.card,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
+                            .clickable(onClick = onRescan)
+                            .padding(OniSkin.spacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "No tracks found matching \"$searchQuery\"",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else {
-                items(sortedSongs, key = { it.id }) { song ->
-                    Box(modifier = Modifier.padding(horizontal = 12.dp)) {
-                        SongItemRow(
-                            song = song,
-                            isCurrent = song.id == currentSong?.id,
-                            isPlaying = isPlaying,
-                            onClick = { onPlaySong(song, sortedSongs) },
-                            onShowTrackMenu = { onShowTrackMenu(song) }
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OniSurface(
+                                variant = OniSurfaceVariant.Flat,
+                                shape = OniSkin.shapes.full,
+                                containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = OniSkin.colors.primary)
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+                            Column {
+                                Text(
+                                    text = "Scan Music Library",
+                                    style = OniSkin.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = OniSkin.colors.textPrimary
+                                )
+                                Text(
+                                    text = "Index newly added songs and update tags",
+                                    style = OniSkin.typography.caption,
+                                    color = OniSkin.colors.textSecondary
+                                )
+                            }
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = OniSkin.colors.textTertiary)
                     }
                 }
             }
-        } else {
-            // 3. Continue Listening hero card — only shown once a song has actually been played
-            if (lastPlayedSong != null) {
-                item {
-                    ContinueListeningHero(
-                        song = lastPlayedSong,
-                        onPlayClick = { onPlaySong(lastPlayedSong, songs) }
+
+            // D. Layout Style
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+                    Text(
+                        text = "LAYOUT STYLE",
+                        style = OniSkin.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.primary
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                    ) {
+                        listOf("grid" to ("Grid" to Icons.Default.GridView), "list" to ("List" to Icons.AutoMirrored.Filled.ViewList)).forEach { (mode, pair) ->
+                            val isSelected = layoutMode == mode
+                            OniSurface(
+                                variant = if (isSelected) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft,
+                                shape = OniSkin.shapes.button,
+                                containerColor = if (isSelected) OniSkin.colors.primaryContainer else null,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .clickable { onLayoutChange(mode) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(pair.second, contentDescription = null, tint = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textSecondary, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                                    Text(
+                                        text = pair.first,
+                                        style = OniSkin.typography.labelLarge,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            // 4. Quick stats strip
+            // E. Sort Options
             item {
-                LibraryStatsStrip(
-                    songCount = songs.size,
-                    artistCount = uniqueArtistsCount,
-                    albumCount = uniqueAlbumsCount,
-                    favoriteCount = favoritesCount
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-        // 5. Horizontal song rows
-        if (recentlyPlayedSongs.isNotEmpty()) {
-            item {
-                HorizontalSongRow(
-                    title = "Recently Played",
-                    songs = recentlyPlayedSongs,
-                    onSongClick = { onPlaySong(it, recentlyPlayedSongs) }
-                )
-            }
-        }
-
-        if (mostPlayedSongs.isNotEmpty()) {
-            item {
-                HorizontalSongRow(
-                    title = "Most Played",
-                    songs = mostPlayedSongs,
-                    onSongClick = { onPlaySong(it, mostPlayedSongs) }
-                )
-            }
-        }
-
-        if (recentlyAddedSongs.isNotEmpty()) {
-            item {
-                HorizontalSongRow(
-                    title = "Recently Added",
-                    songs = recentlyAddedSongs,
-                    onSongClick = { onPlaySong(it, recentlyAddedSongs) }
-                )
-            }
-        }
-
-        // 6. Categories / Quick Access Section — single animated item so toggling between
-        // Quick Access and All Categories crossfades instead of snapping instantly.
-        item {
-            AnimatedContent(
-                targetState = showAllCategories,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(260)) togetherWith fadeOut(animationSpec = tween(260))
-                },
-                label = "Categories section transition"
-            ) { isShowingAll ->
-                if (!isShowingAll) {
-                    Column {
-                        Row(
+                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+                    Text(
+                        text = "SORT SONGS BY",
+                        style = OniSkin.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.primary
+                    )
+                    val sortOptions = listOf("title" to "Title", "artist" to "Artist", "duration" to "Duration", "play_count" to "Most Played")
+                    sortOptions.forEach { (key, label) ->
+                        val isSelected = sortBy == key
+                        OniSurface(
+                            variant = if (isSelected) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft,
+                            shape = OniSkin.shapes.small,
+                            containerColor = if (isSelected) OniSkin.colors.primaryContainer.copy(alpha = 0.5f) else null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .defaultMinSize(minHeight = 48.dp)
+                                .clickable { onSortByChange(key) }
                         ) {
-                            Text(
-                                text = "Quick Access",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
-
-                        // Quick Access Cards (2x2 Grid)
-                        quickAccessCategoryIndices.chunked(2).forEach { rowIndices ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val idx1 = rowIndices[0]
-                                val cat1 = categoryList.getOrNull(idx1)
-                                if (cat1 != null) {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        CategoryCard(
-                                            category = cat1,
-                                            isGrid = true,
-                                            onClick = { onSelectCategory(idx1) }
-                                        )
-                                    }
-                                }
-                                if (rowIndices.size > 1) {
-                                    val idx2 = rowIndices[1]
-                                    val cat2 = categoryList.getOrNull(idx2)
-                                    if (cat2 != null) {
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            CategoryCard(
-                                                category = cat2,
-                                                isGrid = true,
-                                                onClick = { onSelectCategory(idx2) }
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Spacer(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = label,
+                                    style = OniSkin.typography.bodyMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textPrimary
+                                )
+                                if (isSelected) {
+                                    Icon(Icons.Default.Check, contentDescription = "Selected", tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
                                 }
                             }
-                        }
-
-                        // See all categories button
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                                .clickable { showAllCategories = true }
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "See all categories",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
                         }
                     }
-                } else {
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "All Categories",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
+                    Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clickable { onSortAscendingChange(!isSortAscending) }
+                            .padding(horizontal = OniSkin.spacing.xxs),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Sort in ascending order (A-Z)",
+                            style = OniSkin.typography.bodyMedium,
+                            color = OniSkin.colors.textPrimary
+                        )
+                        Switch(
+                            checked = isSortAscending,
+                            onCheckedChange = onSortAscendingChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = OniSkin.colors.onPrimary,
+                                checkedTrackColor = OniSkin.colors.primary
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(
-                                    onClick = { showAllCategories = false },
-                                    modifier = Modifier.padding(end = 4.dp)
-                                ) {
-                                    Icon(Icons.Default.ExpandLess, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Show less")
-                                }
-                                IconButton(onClick = onToggleLayoutMode) {
-                                    Icon(
-                                        imageVector = if (layoutMode == "grid") Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                                        contentDescription = "Toggle Layout",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
+                        )
+                    }
+                }
+            }
 
-                        // All Category Cards (Grid or List)
-                        if (layoutMode == "grid") {
-                            categoryList.chunked(2).forEach { rowPair ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    val cat1 = rowPair[0]
-                                    val index1 = categoryList.indexOf(cat1)
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        CategoryCard(
-                                            category = cat1,
-                                            isGrid = true,
-                                            onClick = { onSelectCategory(index1) }
-                                        )
-                                    }
-                                    if (rowPair.size > 1) {
-                                        val cat2 = rowPair[1]
-                                        val index2 = categoryList.indexOf(cat2)
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            CategoryCard(
-                                                category = cat2,
-                                                isGrid = true,
-                                                onClick = { onSelectCategory(index2) }
-                                            )
-                                        }
-                                    } else {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
-                            }
-                        } else {
-                            categoryList.forEachIndexed { index, category ->
-                                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                                    CategoryCard(
-                                        category = category,
-                                        isGrid = false,
-                                        onClick = { onSelectCategory(index) }
-                                    )
-                                }
-                            }
+            // F. Quick Actions (Play All, Shuffle All)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+                    Text(
+                        text = "QUICK ACTIONS",
+                        style = OniSkin.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.primary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                    ) {
+                        Button(
+                            onClick = {
+                                onPlayAll()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = OniSkin.shapes.button,
+                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                            Text("Play All", style = OniSkin.typography.labelLarge)
+                        }
+                        Button(
+                            onClick = {
+                                onShuffleAll()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = OniSkin.shapes.button,
+                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.surfaceElevated, contentColor = OniSkin.colors.textPrimary)
+                        ) {
+                            Icon(Icons.Default.Shuffle, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                            Text("Shuffle", style = OniSkin.typography.labelLarge)
                         }
                     }
                 }
@@ -2120,196 +1483,9 @@ fun MainLibraryDashboard(
         }
     }
 }
-}
 
-@Composable
-fun ContinueListeningHero(
-    song: SongEntity,
-    onPlayClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(180.dp)
-            .clip(RoundedCornerShape(dashboardRadiusLarge()))
-    ) {
-        // Full-bleed blurred album art background
-        AsyncImage(
-            model = song.albumArtUri,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(30.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-            contentScale = ContentScale.Crop
-        )
-
-        // Subtle diagonal wash using the app's dynamic accent palette (theme- or
-        // currently-playing-song-driven), so the hero ties into the same color
-        // language as the rest of the app instead of sitting on flat black.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            LocalAccentColor.current.copy(alpha = 0.30f),
-                            LocalAccentGlowColor.current.copy(alpha = 0.15f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
-        // Gradient scrim so text stays readable regardless of the artwork or accent wash above
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.20f),
-                            Color.Black.copy(alpha = 0.75f)
-                        )
-                    )
-                )
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            AsyncImage(
-                model = song.albumArtUri,
-                contentDescription = "Cover art",
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(dashboardRadiusSmall()))
-                    .background(Color.White.copy(alpha = 0.15f)),
-                contentScale = ContentScale.Crop,
-                error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
-            )
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "CONTINUE LISTENING",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.75f),
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = song.customTitle ?: song.title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = song.customArtist ?: song.artist,
-                    fontSize = 13.sp,
-                    color = Color.White.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            IconButton(
-                onClick = onPlayClick,
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color.White, CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Play",
-                    tint = Color.Black,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StatChip(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    label: String,
-    tint: Color
-) {
-    OniSurface(
-        variant = OniSurfaceVariant.Soft,
-        shape = OniSkin.shapes.chip
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(tint.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
-            }
-            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-            Column {
-                Text(
-                    text = value,
-                    style = OniSkin.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = OniSkin.colors.textPrimary
-                )
-                Text(
-                    text = label,
-                    style = OniSkin.typography.caption,
-                    color = OniSkin.colors.textSecondary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun HorizontalSongRow(
-    title: String,
-    songs: List<SongEntity>,
-    onSongClick: (SongEntity) -> Unit
-) {
-    if (songs.isEmpty()) return
-
-    Column(modifier = Modifier.padding(top = OniSkin.spacing.xs)) {
-        Text(
-            text = title,
-            style = OniSkin.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = OniSkin.colors.textPrimary,
-            modifier = Modifier.padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = OniSkin.spacing.xs)
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
-            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
-        ) {
-            items(songs.take(15)) { song ->
-                HorizontalSongCard(song = song, onClick = { onSongClick(song) })
-            }
-        }
-    }
-}
-
+// Redesigned Song Menu & Playlist Picker
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackMenuBottomSheetDialog(
     song: SongEntity,
@@ -2319,512 +1495,166 @@ fun TrackMenuBottomSheetDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var isFavorite by remember(song.isFavorite) { mutableStateOf(song.isFavorite) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showPlaylistSelect by remember { mutableStateOf(false) }
-    var isOptimizing by remember { mutableStateOf(false) }
-
-    if (showDeleteConfirm) {
-        var deleteMode by remember { mutableStateOf("library") }
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Track Options") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Choose how you want to delete \"${song.customTitle ?: song.title}\":",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    Card(
-                        onClick = { deleteMode = "library" },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (deleteMode == "library") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-                        ),
-                        border = BorderStroke(
-                            width = if (deleteMode == "library") 1.5.dp else 1.dp,
-                            color = if (deleteMode == "library") MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = (deleteMode == "library"), onClick = { deleteMode = "library" })
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Delete from Library Only", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("Removes DB record but keeps physical audio file.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-
-                    Card(
-                        onClick = { deleteMode = "physical" },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (deleteMode == "physical") MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                                             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-                        ),
-                        border = BorderStroke(
-                            width = if (deleteMode == "physical") 1.5.dp else 1.dp,
-                            color = if (deleteMode == "physical") MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = (deleteMode == "physical"),
-                                onClick = { deleteMode = "physical" },
-                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.error)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Delete Physically from Storage", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
-                                Text("Permanently deletes physical file and library DB record.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (deleteMode == "physical") {
-                            viewModel.deleteSongPhysically(song.id)
-                            Toast.makeText(context, "Deleted song physically", Toast.LENGTH_SHORT).show()
-                        } else {
-                            viewModel.deleteSong(song.id)
-                            Toast.makeText(context, "Deleted song from library", Toast.LENGTH_SHORT).show()
-                        }
-                        showDeleteConfirm = false
-                        onDismiss()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (deleteMode == "physical") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        contentColor = if (deleteMode == "physical") MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text(if (deleteMode == "physical") "Delete File" else "Remove Track")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
     val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
+    var showPlaylistPicker by remember { mutableStateOf(false) }
 
-    if (showPlaylistSelect) {
-        AlertDialog(
-            onDismissRequest = { showPlaylistSelect = false },
-            title = { Text("Add to Playlist") },
-            text = {
-                Column {
-                    if (playlists.isEmpty()) {
-                        Text("No playlists created yet. Go to Library -> Playlists to create one.", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        playlists.forEach { pl ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        viewModel.addSongToPlaylist(song.id, pl.id)
-                                        Toast.makeText(context, "Added to playlist: ${pl.name}", Toast.LENGTH_SHORT).show()
-                                        showPlaylistSelect = false
-                                    }
-                                    .padding(vertical = 12.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(pl.name, fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showPlaylistSelect = false }) {
-                    Text("Cancel")
-                }
+    if (showPlaylistPicker) {
+        PlaylistPickerBottomSheet(
+            song = song,
+            playlists = playlists,
+            viewModel = viewModel,
+            onDismiss = {
+                showPlaylistPicker = false
+                onDismiss()
             }
         )
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable { onDismiss() }
-                .background(Color.Black.copy(alpha = 0.55f)),
-            contentAlignment = Alignment.BottomCenter
+    } else {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            containerColor = OniSkin.colors.surface,
+            shape = OniSkin.shapes.bottomSheet,
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(top = OniSkin.spacing.xs, bottom = OniSkin.spacing.xxs)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(OniSkin.shapes.full)
+                        .background(OniSkin.colors.outline.copy(alpha = 0.4f))
+                )
+            }
         ) {
-            Card(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = false) {} // Prevent click-through
-                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                border = borderStrokeDefault()
+                    .padding(horizontal = OniSkin.spacing.screenHorizontal)
+                    .padding(bottom = OniSkin.spacing.screenVertical),
+                verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
             ) {
-                Column(
+                // Header: Artwork, Title, Artist, Album
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(bottom = 16.dp)
+                        .padding(bottom = OniSkin.spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Drawer Handle Pill
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(top = 10.dp, bottom = 10.dp)
-                            .size(width = 40.dp, height = 4.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+                    OniArtwork(
+                        artworkUri = song.albumArtUri,
+                        contentDescription = "Cover art",
+                        shape = OniSkin.shapes.small,
+                        elevation = OniSkin.elevation.flat,
+                        modifier = Modifier.size(54.dp)
                     )
-
-                    // Track Header Information
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = song.albumArtUri,
-                            contentDescription = "Cover art",
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
-                            contentScale = ContentScale.Crop,
-                            error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
+                    Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = song.displayTitle,
+                            style = OniSkin.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = OniSkin.colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = song.customTitle ?: song.title,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = (song.customArtist ?: song.artist) + " • " + (song.customAlbum ?: song.album),
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    // Poweramp Style Audio Tech Details Overlay Card
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 6.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        border = borderStrokeDefault()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp)
-                        ) {
-                            Text(
-                                text = "AUDIO TECHNICAL DETAILS",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            val fileFormat = if (song.filePath.endsWith(".flac", ignoreCase = true)) "FLAC Lossless" else if (song.filePath.endsWith(".m4a", ignoreCase = true)) "AAC Audio" else "MPEG Layer-3 (MP3)"
-                            val calculatedSizeMB = String.format("%.1f", (song.duration / 1000.0 * 320.0) / 8192.0)
-                            val bitrateVal = if (song.filePath.endsWith(".flac", ignoreCase = true)) "1042 kbps" else "320 kbps (CBR)"
-                            val freq = "44,100 Hz • 16-Bit Stereo"
-
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                TechDetailLabelValue("Format", fileFormat, Modifier.weight(1.2f))
-                                TechDetailLabelValue("Size", "$calculatedSizeMB MB", Modifier.weight(0.8f))
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                TechDetailLabelValue("Bitrate", bitrateVal, Modifier.weight(1.2f))
-                                TechDetailLabelValue("Decoder", "OniEngine v2.4 (OpenSL ES)", Modifier.weight(0.8f))
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            TechDetailLabelValue("Source Path", song.filePath, modifier = Modifier.fillMaxWidth())
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Circular Action Button Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularTrackAction(
-                            icon = Icons.Default.PlayArrow,
-                            label = "Play Now",
-                            color = MaterialTheme.colorScheme.primary,
-                            onClick = {
-                                viewModel.playSong(song, songs)
-                                onDismiss()
-                            }
+                        Text(
+                            text = song.displayArtist.ifBlank { "Unknown Artist" },
+                            style = OniSkin.typography.bodySmall,
+                            color = OniSkin.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-
-                        CircularTrackAction(
-                            icon = Icons.Default.SkipNext,
-                            label = "Play Next",
-                            color = MaterialTheme.colorScheme.secondary,
-                            onClick = {
-                                viewModel.playNext(song)
-                                Toast.makeText(context, "Queued to play next", Toast.LENGTH_SHORT).show()
-                                onDismiss()
-                            }
-                        )
-
-                        CircularTrackAction(
-                            icon = Icons.AutoMirrored.Filled.QueueMusic,
-                            label = "Add Queue",
-                            color = MaterialTheme.colorScheme.tertiary,
-                            onClick = {
-                                viewModel.addToQueue(song)
-                                Toast.makeText(context, "Added to end of queue", Toast.LENGTH_SHORT).show()
-                                onDismiss()
-                            }
-                        )
-
-                        CircularTrackAction(
-                            icon = if (isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
-                            label = if (isFavorite) "Liked" else "Favorite",
-                            color = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
-                            onClick = {
-                                viewModel.toggleFavorite(song.id)
-                                isFavorite = !isFavorite
-                                Toast.makeText(
-                                    context,
-                                    if (isFavorite) "Added to Favorites" else "Removed from Favorites",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                        Text(
+                            text = song.displayAlbum.ifBlank { "Unknown Album" },
+                            style = OniSkin.typography.caption,
+                            color = OniSkin.colors.textTertiary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = OniSkin.colors.outline.copy(alpha = 0.25f), modifier = Modifier.padding(horizontal = 20.dp))
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Options List Items
-                    TrackMenuItemOption(
-                        icon = Icons.Default.Edit,
-                        label = "Online Tag Search & Editor",
-                        onClick = {
-                            onManualEdit()
-                            onDismiss()
-                        }
-                    )
-
-                    TrackMenuItemOption(
-                        icon = Icons.AutoMirrored.Filled.PlaylistAdd,
-                        label = "Add to Playlist...",
-                        onClick = {
-                            showPlaylistSelect = true
-                        }
-                    )
-
-                    TrackMenuItemOption(
-                        icon = Icons.Default.Share,
-                        label = "Share Track",
-                        onClick = {
-                            Toast.makeText(context, "Shared: ${song.customTitle ?: song.title}", Toast.LENGTH_SHORT).show()
-                        }
-                    )
-
-                    TrackMenuItemOption(
-                        icon = Icons.Default.Notifications,
-                        label = "Set as Ringtone",
-                        onClick = {
-                            Toast.makeText(context, "Successfully set as current Ringtone", Toast.LENGTH_SHORT).show()
-                        }
-                    )
-
-                    TrackMenuItemOption(
-                        icon = Icons.Default.Delete,
-                        label = "Delete Track...",
-                        isError = true,
-                        onClick = {
-                            showDeleteConfirm = true
-                        }
-                    )
                 }
-            }
-        }
-    }
-}
 
-@Composable
-fun TechDetailLabelValue(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Text(
-            text = label.uppercase(),
-            fontSize = 8.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        )
-        Text(
-            text = value,
-            fontSize = 11.sp,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
+                SettingDivider()
 
-@Composable
-fun CircularTrackAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    color: Color,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(68.dp)
-            .clickable { onClick() }
-            .padding(vertical = 4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .background(color.copy(alpha = 0.12f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = color,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
-        )
-    }
-}
+                // Playback Actions
+                TrackMenuActionRow(
+                    icon = Icons.Default.PlayArrow,
+                    title = "Play Now",
+                    subtitle = "Start playback immediately",
+                    onClick = {
+                        viewModel.playSong(song, songs)
+                        onDismiss()
+                    }
+                )
 
-@Composable
-fun TrackMenuItemOption(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    isGlow: Boolean = false,
-    isError: Boolean = false,
-    isLoading: Boolean = false,
-    onClick: () -> Unit
-) {
-    val contentColor = if (isError) {
-        MaterialTheme.colorScheme.error
-    } else if (isGlow) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
+                TrackMenuActionRow(
+                    icon = Icons.Default.SkipNext,
+                    title = "Play Next",
+                    subtitle = "Insert after the currently playing song",
+                    onClick = {
+                        viewModel.playNext(song)
+                        Toast.makeText(context, "Playing next: ${song.displayTitle}", Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    }
+                )
 
-    val backgroundBrush = if (isGlow) {
-        Brush.horizontalGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                MaterialTheme.colorScheme.secondary.copy(alpha = 0.04f)
-            )
-        )
-    } else {
-        null
-    }
+                TrackMenuActionRow(
+                    icon = Icons.AutoMirrored.Filled.QueueMusic,
+                    title = "Add to Queue",
+                    subtitle = "Append to the end of the current queue",
+                    onClick = {
+                        viewModel.addToQueue(song)
+                        Toast.makeText(context, "Added to queue: ${song.displayTitle}", Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    }
+                )
 
-    val itemModifier = Modifier
-        .fillMaxWidth()
-        .clickable(enabled = !isLoading) { onClick() }
-        .then(
-            if (backgroundBrush != null) Modifier.background(backgroundBrush) else Modifier
-        )
-        .padding(horizontal = 20.dp, vertical = 12.dp)
+                SettingDivider()
 
-    Row(
-        modifier = itemModifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary
-            )
-        } else {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = if (isGlow) FontWeight.Bold else FontWeight.Medium,
-            color = contentColor,
-            modifier = Modifier.weight(1f)
-        )
-        if (isGlow) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    "AI",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                // Library Actions
+                TrackMenuActionRow(
+                    icon = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    title = if (song.isFavorite) "Remove from Favorites" else "Add to Favorites",
+                    subtitle = if (song.isFavorite) "Remove track from favorite library" else "Mark track as a personal favorite",
+                    iconTint = if (song.isFavorite) OniSkin.colors.primary else null,
+                    onClick = {
+                        viewModel.toggleFavorite(song.id)
+                        val msg = if (song.isFavorite) "Removed from favorites" else "Added to favorites"
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    }
+                )
+
+                TrackMenuActionRow(
+                    icon = Icons.Default.PlaylistAdd,
+                    title = "Add to Playlist...",
+                    subtitle = "Select an existing playlist or create a new one",
+                    onClick = {
+                        showPlaylistPicker = true
+                    }
+                )
+
+                SettingDivider()
+
+                // Organization Actions
+                TrackMenuActionRow(
+                    icon = Icons.Default.Edit,
+                    title = "Edit Tags",
+                    subtitle = "Update title, artist, album, and artwork",
+                    onClick = {
+                        onManualEdit()
+                        onDismiss()
+                    }
+                )
+
+                TrackMenuActionRow(
+                    icon = Icons.Default.DeleteOutline,
+                    title = "Delete Track",
+                    subtitle = "Remove track from library",
+                    iconTint = OniSkin.colors.error,
+                    onClick = {
+                        viewModel.deleteSong(song.id)
+                        Toast.makeText(context, "Removed from library", Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    }
                 )
             }
         }
@@ -2832,57 +1662,286 @@ fun TrackMenuItemOption(
 }
 
 @Composable
-fun PlayingEqualizerWave(
-    color: Color,
-    modifier: Modifier = Modifier
+fun TrackMenuActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    iconTint: Color? = null,
+    onClick: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "wave")
-    
-    val heightScale1 by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(420, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar1"
-    )
-    val heightScale2 by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(310, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar2"
-    )
-    val heightScale3 by infiniteTransition.animateFloat(
-        initialValue = 0.15f,
-        targetValue = 0.75f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(520, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar3"
-    )
-    val heightScale4 by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.95f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(380, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar4"
-    )
-
-    Row(
-        modifier = modifier.height(18.dp).width(20.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.Bottom
+    OniSurface(
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.small,
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
+            .clickable(onClick = onClick)
     ) {
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale1).clip(RoundedCornerShape(1.dp)).background(color))
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale2).clip(RoundedCornerShape(1.dp)).background(color))
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale3).clip(RoundedCornerShape(1.dp)).background(color))
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale4).clip(RoundedCornerShape(1.dp)).background(color))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint ?: OniSkin.colors.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = OniSkin.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = OniSkin.colors.textPrimary
+                )
+                Text(
+                    text = subtitle,
+                    style = OniSkin.typography.caption,
+                    color = OniSkin.colors.textSecondary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dedicated Playlist Picker Bottom Sheet allowing song addition or creating a new playlist on the fly.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlaylistPickerBottomSheet(
+    song: SongEntity,
+    playlists: List<PlaylistEntity>,
+    viewModel: MusicPlayerViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var showCreateDialog by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = OniSkin.colors.surface,
+        shape = OniSkin.shapes.bottomSheet,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = OniSkin.spacing.xs, bottom = OniSkin.spacing.xxs)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .clip(OniSkin.shapes.full)
+                    .background(OniSkin.colors.outline.copy(alpha = 0.4f))
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = OniSkin.spacing.screenHorizontal)
+                .padding(bottom = OniSkin.spacing.screenVertical),
+            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Add to Playlist",
+                        style = OniSkin.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.textPrimary
+                    )
+                    Text(
+                        text = "Choose target playlist for \"${song.displayTitle}\"",
+                        style = OniSkin.typography.caption,
+                        color = OniSkin.colors.textSecondary
+                    )
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = OniSkin.colors.textSecondary)
+                }
+            }
+
+            // Create New Playlist option
+            OniSurface(
+                variant = OniSurfaceVariant.Elevated,
+                shape = OniSkin.shapes.small,
+                containerColor = OniSkin.colors.primaryContainer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
+                    .clickable { showCreateDialog = true }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = OniSkin.colors.primary)
+                    Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+                    Text(
+                        text = "Create New Playlist",
+                        style = OniSkin.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.primary
+                    )
+                }
+            }
+
+            SettingDivider()
+
+            if (playlists.isEmpty()) {
+                Text(
+                    text = "No custom playlists found. Tap above to create your first playlist.",
+                    style = OniSkin.typography.bodySmall,
+                    color = OniSkin.colors.textSecondary,
+                    modifier = Modifier.padding(vertical = OniSkin.spacing.md)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
+                ) {
+                    items(playlists, key = { it.id }) { playlist ->
+                        val containsSong = remember(playlist.songIdsJson, song.id) {
+                            try {
+                                val arr = org.json.JSONArray(playlist.songIdsJson)
+                                (0 until arr.length()).any { arr.getString(it) == song.id }
+                            } catch (e: Exception) {
+                                false
+                            }
+                        }
+
+                        OniSurface(
+                            variant = OniSurfaceVariant.Soft,
+                            shape = OniSkin.shapes.small,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .clickable {
+                                    if (containsSong) {
+                                        Toast.makeText(context, "Song is already in \"${playlist.name}\"", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        viewModel.addSongToPlaylist(song.id, playlist.id)
+                                        Toast.makeText(context, "Added to \"${playlist.name}\"", Toast.LENGTH_SHORT).show()
+                                        onDismiss()
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = OniSkin.colors.primary)
+                                    Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+                                    Text(
+                                        text = playlist.name,
+                                        style = OniSkin.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        color = OniSkin.colors.textPrimary
+                                    )
+                                }
+                                if (containsSong) {
+                                    Text(
+                                        text = "Added",
+                                        style = OniSkin.typography.caption,
+                                        color = OniSkin.colors.textTertiary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCreateDialog) {
+        var playlistName by remember { mutableStateOf("") }
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = {
+                Text(
+                    text = "New Playlist",
+                    style = OniSkin.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = OniSkin.colors.textPrimary
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+                    Text(
+                        text = "Enter a name for the new playlist. \"${song.displayTitle}\" will be added automatically.",
+                        style = OniSkin.typography.bodySmall,
+                        color = OniSkin.colors.textSecondary
+                    )
+                    OutlinedTextField(
+                        value = playlistName,
+                        onValueChange = {
+                            playlistName = it
+                            errorMessage = null
+                        },
+                        placeholder = { Text("Playlist name", color = OniSkin.colors.textSecondary) },
+                        singleLine = true,
+                        isError = errorMessage != null,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = OniSkin.shapes.button,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OniSkin.colors.primary,
+                            unfocusedBorderColor = OniSkin.colors.outline,
+                            focusedTextColor = OniSkin.colors.textPrimary,
+                            unfocusedTextColor = OniSkin.colors.textPrimary
+                        )
+                    )
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage!!,
+                            style = OniSkin.typography.caption,
+                            color = OniSkin.colors.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val trimmed = playlistName.trim()
+                        if (trimmed.isEmpty()) {
+                            errorMessage = "Playlist name cannot be empty."
+                        } else {
+                            val newId = "playlist_" + System.currentTimeMillis()
+                            viewModel.createPlaylist(trimmed)
+                            // Add song directly to the newly created playlist
+                            viewModel.addSongToPlaylist(song.id, newId)
+                            Toast.makeText(context, "Created \"$trimmed\" and added song!", Toast.LENGTH_SHORT).show()
+                            showCreateDialog = false
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                ) {
+                    Text("Create", color = OniSkin.colors.primary, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showCreateDialog = false },
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                ) {
+                    Text("Cancel", color = OniSkin.colors.textSecondary)
+                }
+            },
+            containerColor = OniSkin.colors.surface,
+            shape = OniSkin.shapes.dialog
+        )
     }
 }

@@ -67,7 +67,7 @@ fun LibraryDashboardScreen(
         contentPadding = PaddingValues(bottom = OniSkin.spacing.lg),
         verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.lg)
     ) {
-        // 1. Dashboard Header (with SettingsSuggest trigger, scan icon removed)
+        // 1. Dashboard Header (with SettingsSuggest trigger)
         item(key = "dashboard_header") {
             LibraryDashboardHeader(showOptionsMenu = showOptionsMenu)
         }
@@ -234,28 +234,7 @@ fun LibraryDashboardScreen(
                 }
             }
 
-            // 6. Recently Played separate section
-            if (recentlyPlayedSongs.isNotEmpty()) {
-                item(key = "recently_played") {
-                    LibrarySection(
-                        title = "Recently Played",
-                        trailing = {
-                            SectionAction(label = "View all") { onSelectCategory(9) }
-                        }
-                    ) {
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
-                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
-                        ) {
-                            items(recentlyPlayedSongs.take(12), key = { "recent_${it.id}" }) { song ->
-                                HorizontalSongCard(song) { onPlaySong(song, recentlyPlayedSongs) }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 7. Recently Added separate section
+            // 6. Recently Added (before Recently Played)
             if (recentlyAddedSongs.isNotEmpty()) {
                 item(key = "recently_added") {
                     LibrarySection(
@@ -270,6 +249,27 @@ fun LibraryDashboardScreen(
                         ) {
                             items(recentlyAddedSongs.take(12), key = { "added_${it.id}" }) { song ->
                                 HorizontalSongCard(song) { onPlaySong(song, recentlyAddedSongs) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 7. Recently Played (at the END of dashboard, after Recently Added)
+            if (recentlyPlayedSongs.isNotEmpty()) {
+                item(key = "recently_played") {
+                    LibrarySection(
+                        title = "Recently Played",
+                        trailing = {
+                            SectionAction(label = "View all") { onSelectCategory(9) }
+                        }
+                    ) {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
+                        ) {
+                            items(recentlyPlayedSongs.take(12), key = { "recent_${it.id}" }) { song ->
+                                HorizontalSongCard(song) { onPlaySong(song, recentlyPlayedSongs) }
                             }
                         }
                     }
