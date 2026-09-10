@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -26,8 +25,8 @@ import com.example.ui.viewmodel.MusicPlayerViewModel
 
 /**
  * Complete Appearance settings screen for oniPlayer Default Skin.
- * Features Theme, Skin Architecture Readiness, Colors & Material You, Surfaces & Effects,
- * Background, Artwork, Typography, Player Appearance, Navigation, Motion, Live Preview, and Reset.
+ * Features Theme, Active Skin architecture readiness, Accent Color, Surfaces & Effects,
+ * Live Preview, Typography design system scale, and Reset Appearance.
  */
 @Composable
 fun AppearanceSettingsScreen(
@@ -41,7 +40,6 @@ fun AppearanceSettingsScreen(
     val blurStrength by viewModel.blurStrength.collectAsStateWithLifecycle()
     val cornerRadius by viewModel.cornerRadius.collectAsStateWithLifecycle()
     val backgroundTransparency by viewModel.backgroundTransparency.collectAsStateWithLifecycle()
-    val reduceMotion by viewModel.reduceMotionEnabled.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
 
     var showResetDialog by remember { mutableStateOf(false) }
@@ -65,11 +63,11 @@ fun AppearanceSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.section),
             contentPadding = PaddingValues(top = OniSkin.spacing.xs, bottom = 96.dp)
         ) {
-            // Live Preview Card
+            // Live Preview Section
             item {
                 SettingSection(
-                    title = "Appearance Live Preview",
-                    description = "Interactive representation of current skin tokens."
+                    title = "Live Token Preview",
+                    description = "Demonstrates active theme, surface, and typography tokens."
                 ) {
                     Column(
                         modifier = Modifier
@@ -103,7 +101,7 @@ fun AppearanceSettingsScreen(
                                 )
                             }
                             OniPrimaryButton(
-                                text = "Sample",
+                                text = "Preview",
                                 onClick = {},
                                 modifier = Modifier.heightIn(min = 40.dp)
                             )
@@ -116,7 +114,7 @@ fun AppearanceSettingsScreen(
             item {
                 SettingSection(
                     title = "Theme Option",
-                    description = "Choose between light, dark, or automatic system appearance.",
+                    description = "Choose between light, dark, AMOLED, or system appearance.",
                     cardModifier = Modifier.testTag("appearance_card_theme")
                 ) {
                     val themeOptions = listOf("Light", "Dark", "AMOLED", "Follow System")
@@ -163,7 +161,7 @@ fun AppearanceSettingsScreen(
             item {
                 SettingSection(
                     title = "Active Skin",
-                    description = "Manage installed skins and skin tokens."
+                    description = "Installed skin runtime architecture."
                 ) {
                     Column(
                         modifier = Modifier
@@ -270,47 +268,30 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // Motion & Animation Section (Real Reduce Motion Wiring)
+            // Typography Scale (Design-system token scale preview)
             item {
                 SettingSection(
-                    title = "Motion & Animation",
-                    description = "Controls transition durations and motion accessibility."
-                ) {
-                    SwitchSettingRow(
-                        title = "Reduce Motion",
-                        description = "Shortens screen transitions, disables ambient motion loops, and reduces movement.",
-                        checked = reduceMotion,
-                        onCheckedChange = { viewModel.setReduceMotionEnabled(it) },
-                        testTag = "setting_reduce_motion"
-                    )
-                }
-            }
-
-            // Typography & Scale
-            item {
-                SettingSection(
-                    title = "Typography Scale",
-                    description = "Readable proportional text scale adhering to Default Skin hierarchy."
+                    title = "Typography Hierarchy",
+                    description = "Default Skin typography scale adhering to Section 10 tokens."
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(OniSkin.spacing.md)
+                            .padding(OniSkin.spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Primary Display • 30sp SemiBold",
+                            text = "Display • 30sp SemiBold",
                             style = OniSkin.typography.displayMedium,
                             color = OniSkin.colors.textPrimary
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Title / Headings • 18sp Medium",
+                            text = "Title • 18sp Medium",
                             style = OniSkin.typography.titleMedium,
                             color = OniSkin.colors.primary
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Body text • 14sp Regular proportional scale",
+                            text = "Body • 14sp Regular proportional scale",
                             style = OniSkin.typography.bodyMedium,
                             color = OniSkin.colors.textSecondary
                         )

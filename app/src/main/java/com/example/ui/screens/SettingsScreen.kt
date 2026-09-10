@@ -36,7 +36,7 @@ data class SettingCategory(
     val title: String,
     val subtitle: String,
     val icon: ImageVector,
-    val section: String = "General"
+    val section: String
 )
 
 @Composable
@@ -50,33 +50,36 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
     val autoSearchArtistData by viewModel.autoSearchArtistData.collectAsStateWithLifecycle()
     val floatingLyricsEnabled by viewModel.floatingLyricsEnabled.collectAsStateWithLifecycle()
     val isAutoDownloadLyrics by viewModel.isAutoDownloadEnabled.collectAsStateWithLifecycle()
+    val reduceMotion by viewModel.reduceMotionEnabled.collectAsStateWithLifecycle()
 
     val appearanceValue = "$selectedThemeOption • Default Skin"
-    val playbackValue = if (crossfadeEnabled) "Crossfade • ${crossfadeDurationSeconds}s" else if (nextSongDelaySeconds > 0) "Delay • ${nextSongDelaySeconds}s" else "Standard Gapless"
-    val lyricsValue = if (floatingLyricsEnabled) "Floating Overlay Active" else if (isAutoDownloadLyrics) "Auto-download enabled" else "Manual sync"
-    val libraryValue = if (autoSearchArtistData) "Auto-sync metadata enabled" else "Local indexing only"
+    val playbackValue = if (crossfadeEnabled) "Crossfade • ${crossfadeDurationSeconds}s" else if (nextSongDelaySeconds > 0) "Delay • ${nextSongDelaySeconds}s" else "Gapless playback"
+    val lyricsValue = if (floatingLyricsEnabled) "Floating lyrics active" else if (isAutoDownloadLyrics) "Auto-download enabled" else "Manual lyrics"
+    val libraryValue = if (autoSearchArtistData) "Automatic metadata" else "Local library only"
+    val interactionValue = if (reduceMotion) "Reduced motion active" else "Gesture controls enabled"
 
-    val categories = remember(appearanceValue, playbackValue, lyricsValue, libraryValue) {
+    val categories = remember(appearanceValue, playbackValue, lyricsValue, libraryValue, interactionValue) {
         listOf(
-            SettingCategory("appearance", "Appearance", appearanceValue, Icons.Default.Palette, "Interface & Playback"),
-            SettingCategory("playback", "Playback", playbackValue, Icons.Default.PlayCircle, "Interface & Playback"),
-            SettingCategory("audio_eq", "Audio & Equalizer", "Parametric 5-band EQ & spatializer", Icons.Default.Tune, "Interface & Playback"),
-            SettingCategory("lyrics", "Lyrics", lyricsValue, Icons.Default.Description, "Interface & Playback"),
-            SettingCategory("library_metadata", "Library & Metadata", libraryValue, Icons.Default.LibraryMusic, "Library & Storage"),
-            SettingCategory("storage", "Storage & Cache", "Manage offline tracks & metadata storage", Icons.Default.Storage, "Library & Storage"),
-            SettingCategory("about", "About & Legal", "oniPlayer v1.0 • Modern Material Skin", Icons.Default.Info, "Application"),
-            SettingCategory("help", "Help & Guidance", "FAQ, gestures, and audio engine guide", Icons.Default.Help, "Application")
+            SettingCategory("appearance", "Appearance", appearanceValue, Icons.Default.Palette, "Appearance"),
+            SettingCategory("playback", "Playback", playbackValue, Icons.Default.PlayCircle, "Playback"),
+            SettingCategory("audio_eq", "Audio & Equalizer", "5-band parametric EQ & spatializer", Icons.Default.Tune, "Playback"),
+            SettingCategory("lyrics", "Lyrics", lyricsValue, Icons.Default.Description, "Lyrics"),
+            SettingCategory("library_metadata", "Library & Metadata", libraryValue, Icons.Default.LibraryMusic, "Library"),
+            SettingCategory("storage", "Storage & Cache", "Library storage & database stats", Icons.Default.Storage, "Library"),
+            SettingCategory("interaction", "Interaction & Accessibility", interactionValue, Icons.Default.TouchApp, "Interaction & Accessibility"),
+            SettingCategory("about", "About & Legal", "oniPlayer v1.0 • Default Skin", Icons.Default.Info, "Application"),
+            SettingCategory("help", "Help & Guidance", "FAQ, gestures, & audio guide", Icons.Default.Help, "Application")
         )
     }
 
     val layoutDirection = LocalLayoutDirection.current
     val motion = OniSkin.motion
-    val reduceMotion = LocalReduceMotion.current
+    val localReduceMotion = LocalReduceMotion.current
 
     AnimatedContent(
         targetState = activeSubScreen,
         transitionSpec = {
-            if (reduceMotion) {
+            if (localReduceMotion) {
                 EnterTransition.None togetherWith ExitTransition.None
             } else {
                 val sign = if (layoutDirection == LayoutDirection.Ltr) 1 else -1
@@ -101,10 +104,11 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
                 "lyrics" -> LyricsSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "audio_eq" -> AudioEqualizerSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "storage" -> StorageSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                "interaction" -> InteractionSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "about" -> AboutSettingsScreen(onBack = { activeSubScreen = null })
                 "help" -> HelpSettingsScreen(onBack = { activeSubScreen = null })
                 else -> SettingsDetailPlaceholder(
-                    category = categories.find { it.id == subScreen } ?: SettingCategory("unknown", "Settings", "", Icons.Default.Settings),
+                    category = categories.find { it.id == subScreen } ?: SettingCategory("unknown", "Settings", "", Icons.Default.Settings, "General"),
                     onBack = { activeSubScreen = null }
                 )
             }

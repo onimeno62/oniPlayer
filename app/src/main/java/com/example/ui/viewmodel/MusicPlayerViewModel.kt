@@ -47,6 +47,7 @@ private val BACKGROUND_TRANSPARENCY_KEY = floatPreferencesKey("background_transp
 private val REDUCE_MOTION_KEY = booleanPreferencesKey("reduce_motion_enabled")
 private val AUTO_SEARCH_ARTIST_DATA_KEY = booleanPreferencesKey("auto_search_artist_data")
 private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_only")
+private val AUTO_DOWNLOAD_LYRICS_KEY = booleanPreferencesKey("auto_download_lyrics")
 private val PLAYBACK_DELAY_KEY = intPreferencesKey("playback_delay_seconds")
 private val CROSSFADE_ENABLED_KEY = booleanPreferencesKey("crossfade_enabled")
 private val CROSSFADE_DURATION_KEY = intPreferencesKey("crossfade_duration_seconds")
@@ -548,6 +549,18 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             try {
                 getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[AUTO_DOWNLOAD_LYRICS_KEY] ?: true }
+                    .collect { saved ->
+                        _isAutoDownloadEnabled.value = saved
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading auto download lyrics preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
                     .map { preferences -> preferences[PLAYBACK_DELAY_KEY] ?: 0 }
                     .collect { savedDelay ->
                         _nextSongDelaySeconds.value = savedDelay
@@ -979,6 +992,15 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun setAutoDownloadEnabled(enabled: Boolean) {
         _isAutoDownloadEnabled.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[AUTO_DOWNLOAD_LYRICS_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving auto download lyrics preference: ${e.message}")
+            }
+        }
     }
 
     fun setFloatingLyricsEnabled(enabled: Boolean) {
