@@ -64,9 +64,8 @@ class SettingsArchitectureTest {
     }
 
     @Test
-    fun corner_radius_scales_shape_tokens_proportionally() {
+    fun corner_radius_default_shape_tokens() {
         var defaultArtworkRadius = 0f
-        var customArtworkRadius = 0f
 
         composeTestRule.setContent {
             OniPlayerTheme(cornerRadius = 16f) {
@@ -74,12 +73,19 @@ class SettingsArchitectureTest {
             }
         }
 
+        assertEquals(18f, defaultArtworkRadius, 0.1f)
+    }
+
+    @Test
+    fun corner_radius_scales_shape_tokens_proportionally() {
+        var customArtworkRadius = 0f
+
         composeTestRule.setContent {
             OniPlayerTheme(cornerRadius = 24f) {
                 customArtworkRadius = OniSkin.artwork.cornerRadius.value
             }
         }
 
-        assertEquals(18f, defaultArtworkRadius, 0.1f)
+        assertEquals(18f, customArtworkRadius, 0.1f)
     }
 }

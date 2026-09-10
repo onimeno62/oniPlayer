@@ -205,9 +205,18 @@ fun SettingsDetailPlaceholder(category: SettingCategory, onBack: () -> Unit) {
         SettingsSubscreenHeader(title = category.title, subtitle = "Settings category", onBack = onBack, backButtonTestTag = "settings_back_button")
         Spacer(Modifier.height(OniSkin.spacing.section))
         Box(Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.screenHorizontal)) {
-            OniSurface(OniSurfaceVariant.Soft, OniSkin.shapes.dialog, modifier = Modifier.fillMaxWidth()) {
+            OniSurface(
+                modifier = Modifier.fillMaxWidth(),
+                variant = OniSurfaceVariant.Soft,
+                shape = OniSkin.shapes.dialog
+            ) {
                 Column(Modifier.fillMaxWidth().padding(OniSkin.spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
-                    OniSurface(OniSurfaceVariant.Flat, OniSkin.shapes.card, containerColor = OniSkin.colors.primary.copy(alpha = 0.12f), modifier = Modifier.size(64.dp)) {
+                    OniSurface(
+                        modifier = Modifier.size(64.dp),
+                        variant = OniSurfaceVariant.Flat,
+                        shape = OniSkin.shapes.card,
+                        containerColor = OniSkin.colors.primary.copy(alpha = 0.12f)
+                    ) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(category.icon, null, tint = OniSkin.colors.primary, modifier = Modifier.size(32.dp)) }
                     }
                     Spacer(Modifier.height(OniSkin.spacing.lg))

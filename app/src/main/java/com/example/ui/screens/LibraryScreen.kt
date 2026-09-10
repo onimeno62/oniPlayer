@@ -454,7 +454,17 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                     AlbumDetailScreen(album, songsInAlbum, currentSong, isPlaying, { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.first(), songsInAlbum) }, { if (songsInAlbum.isNotEmpty()) viewModel.playSong(songsInAlbum.random(), songsInAlbum) }, { viewModel.playSong(it, songsInAlbum) }, { songForMenu = it })
                                 } else viewModel.setSelectedGroup(null)
                             } else {
-                                AlbumsScreen(albumUiModels, layoutMode, { viewModel.setSelectedGroup(it.albumKey) }, viewModel.albumsGridIndex, viewModel.albumsGridOffset, { i, o -> viewModel.albumsGridIndex = i; viewModel.albumsGridOffset = o }, viewModel.albumsListIndex, viewModel.albumsListOffset, { i, o -> viewModel.albumsListIndex = i; viewModel.albumsListOffset = o })
+                                AlbumsScreen(
+                                    albums = albumUiModels,
+                                    layoutMode = layoutMode,
+                                    onAlbumClick = { viewModel.setSelectedGroup(it.albumKey) },
+                                    gridIndex = viewModel.albumsGridIndex,
+                                    gridOffset = viewModel.albumsGridOffset,
+                                    onGridScroll = { i, o -> viewModel.albumsGridIndex = i; viewModel.albumsGridOffset = o },
+                                    listIndex = viewModel.albumsListIndex,
+                                    listOffset = viewModel.albumsListOffset,
+                                    onListScroll = { i, o -> viewModel.albumsListIndex = i; viewModel.albumsListOffset = o }
+                                )
                             }
                         }
                         3 -> {
@@ -471,7 +481,17 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                     ArtistDetailScreen(artist, albumsByArtist, songsByArtist, currentSong, isPlaying, { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.first(), songsByArtist) }, { if (songsByArtist.isNotEmpty()) viewModel.playSong(songsByArtist.random(), songsByArtist) }, { viewModel.playSong(it, songsByArtist) }, { songForMenu = it }, layoutMode, viewModel)
                                 } else viewModel.setSelectedGroup(null)
                             } else {
-                                ArtistsScreen(artistUiModels, layoutMode, { viewModel.setSelectedGroup(it.artistKey) }, viewModel.artistsGridIndex, viewModel.artistsGridOffset, { i, o -> viewModel.artistsGridIndex = i; viewModel.artistsGridOffset = o }, viewModel.artistsListIndex, viewModel.artistsListOffset, { i, o -> viewModel.artistsListIndex = i; viewModel.artistsListOffset = o })
+                                ArtistsScreen(
+                                    artists = artistUiModels,
+                                    layoutMode = layoutMode,
+                                    onArtistClick = { viewModel.setSelectedGroup(it.artistKey) },
+                                    gridIndex = viewModel.artistsGridIndex,
+                                    gridOffset = viewModel.artistsGridOffset,
+                                    onGridScroll = { i, o -> viewModel.artistsGridIndex = i; viewModel.artistsGridOffset = o },
+                                    listIndex = viewModel.artistsListIndex,
+                                    listOffset = viewModel.artistsListOffset,
+                                    onListScroll = { i, o -> viewModel.artistsListIndex = i; viewModel.artistsListOffset = o }
+                                )
                             }
                         }
                         4 -> GroupedListView(uniqueGenres, Icons.Default.Category, viewModel, sortBy, isSortAscending, selectedGroup, { viewModel.setSelectedGroup(it) }, { songForMenu = it }, layoutMode)
@@ -1945,3 +1965,102 @@ fun PlaylistPickerBottomSheet(
         )
     }
 }
+
+@Composable
+fun borderStrokeDefault(): BorderStroke {
+    return BorderStroke(
+        width = 1.dp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    )
+}
+
+// Shared, theme-driven corner radius tiers for the dashboard. All three scale together
+// whenever the user's corner-radius setting (LocalCornerRadius) changes, instead of each
+// card picking its own hardcoded value.
+@Composable
+fun dashboardRadiusLarge(): Dp = (LocalCornerRadius.current * 1.5f).dp
+
+@Composable
+fun dashboardRadiusMedium(): Dp = LocalCornerRadius.current.dp
+
+@Composable
+fun dashboardRadiusSmall(): Dp = (LocalCornerRadius.current * 0.75f).dp
+
+fun formatDuration(ms: Long): String {
+    val sec = (ms / 1000) % 60
+    val min = (ms / (1000 * 60)) % 60
+    val hr = (ms / (1000 * 60 * 60)) % 24
+    return if (hr > 0) {
+        String.format("%d:%02d:%02d", hr, min, sec)
+    } else {
+        String.format("%d:%02d", min, sec)
+    }
+}
+
+fun greetingForTime(): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when {
+        hour < 5 -> "LATE NIGHT TUNES"
+        hour < 12 -> "GOOD MORNING"
+        hour < 17 -> "GOOD AFTERNOON"
+        hour < 21 -> "GOOD EVENING"
+        else -> "GOOD NIGHT"
+    }
+}
+
+@Composable
+fun PlayingEqualizerWave(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "wave")
+    
+    val heightScale1 by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(420, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar1"
+    )
+    val heightScale2 by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(310, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar2"
+    )
+    val heightScale3 by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(520, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar3"
+    )
+    val heightScale4 by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(380, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar4"
+    )
+
+    Row(
+        modifier = modifier.height(18.dp).width(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale1).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale2).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale3).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale4).clip(RoundedCornerShape(1.dp)).background(color))
+    }
+}
+

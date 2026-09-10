@@ -248,7 +248,10 @@ fun LibraryDashboardScreen(
                             horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
                         ) {
                             items(recentlyAddedSongs.take(12), key = { "added_${it.id}" }) { song ->
-                                HorizontalSongCard(song) { onPlaySong(song, recentlyAddedSongs) }
+                                HorizontalSongCard(
+                                    song = song,
+                                    onClick = { onPlaySong(song, recentlyAddedSongs) }
+                                )
                             }
                         }
                     }
@@ -269,7 +272,10 @@ fun LibraryDashboardScreen(
                             horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
                         ) {
                             items(recentlyPlayedSongs.take(12), key = { "recent_${it.id}" }) { song ->
-                                HorizontalSongCard(song) { onPlaySong(song, recentlyPlayedSongs) }
+                                HorizontalSongCard(
+                                    song = song,
+                                    onClick = { onPlaySong(song, recentlyPlayedSongs) }
+                                )
                             }
                         }
                     }
