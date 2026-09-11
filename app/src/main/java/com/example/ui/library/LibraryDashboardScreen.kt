@@ -185,7 +185,32 @@ fun LibraryDashboardScreen(
                 }
             }
 
-            // 5. Made For You: EXACTLY Most Played, Favorites, High Rated, Never Played
+            // 5. Recently Played (above Made For You)
+            val displayRecentSongs = if (recentlyPlayedSongs.isNotEmpty()) recentlyPlayedSongs else songs
+            if (displayRecentSongs.isNotEmpty()) {
+                item(key = "recently_played") {
+                    LibrarySection(
+                        title = "Recently Played",
+                        trailing = {
+                            SectionAction(label = "View all") { onSelectCategory(9) }
+                        }
+                    ) {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
+                        ) {
+                            items(displayRecentSongs.take(12), key = { "recent_${it.id}" }) { song ->
+                                HorizontalSongCard(
+                                    song = song,
+                                    onClick = { onPlaySong(song, displayRecentSongs) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. Made For You: EXACTLY Most Played, Favorites, High Rated, Never Played
             item(key = "made_for_you") {
                 LibrarySection(
                     title = "Made For You",
@@ -234,7 +259,7 @@ fun LibraryDashboardScreen(
                 }
             }
 
-            // 6. Recently Added (before Recently Played)
+            // 7. Recently Added
             if (recentlyAddedSongs.isNotEmpty()) {
                 item(key = "recently_added") {
                     LibrarySection(
@@ -251,30 +276,6 @@ fun LibraryDashboardScreen(
                                 HorizontalSongCard(
                                     song = song,
                                     onClick = { onPlaySong(song, recentlyAddedSongs) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 7. Recently Played (at the END of dashboard, after Recently Added)
-            if (recentlyPlayedSongs.isNotEmpty()) {
-                item(key = "recently_played") {
-                    LibrarySection(
-                        title = "Recently Played",
-                        trailing = {
-                            SectionAction(label = "View all") { onSelectCategory(9) }
-                        }
-                    ) {
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.screenHorizontal),
-                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
-                        ) {
-                            items(recentlyPlayedSongs.take(12), key = { "recent_${it.id}" }) { song ->
-                                HorizontalSongCard(
-                                    song = song,
-                                    onClick = { onPlaySong(song, recentlyPlayedSongs) }
                                 )
                             }
                         }

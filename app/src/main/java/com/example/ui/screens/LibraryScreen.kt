@@ -80,6 +80,7 @@ import com.example.ui.library.components.HorizontalSongCard
 import com.example.ui.library.components.LibraryStatsStrip
 import com.example.ui.library.model.toAlbumUiModels
 import com.example.ui.library.model.toArtistUiModels
+import com.example.ui.player.components.PlayerDeleteDialog
 import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -177,8 +178,16 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
     val lastPlayedSong = remember(songs) {
         songs.filter { it.lastPlayedTimestamp > 0 }.maxByOrNull { it.lastPlayedTimestamp }
     }
-    val recentlyPlayedSongs = remember(songs) {
-        songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }
+    val recentlyPlayedSongs = remember(songs, currentSong) {
+        val played = songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }
+        val current = currentSong
+        if (played.isNotEmpty()) {
+            played
+        } else if (current != null) {
+            listOf(current) + songs.filter { it.id != current.id }
+        } else {
+            songs
+        }
     }
     val highRatedSongs = remember(songs) {
         songs.filter { it.rating >= 4 }.sortedByDescending { it.rating }
@@ -1172,8 +1181,8 @@ fun TagEditorDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryOptionsMenu(
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {},
     layoutMode: String,
     onLayoutChange: (String) -> Unit,
     sortBy: String,
@@ -1244,7 +1253,7 @@ fun LibraryOptionsMenu(
                                 color = OniSkin.colors.textPrimary
                             )
                             Text(
-                                text = "Search, scan, layout, and playback preferences",
+                                text = "Scan, layout, and playback preferences",
                                 style = OniSkin.typography.caption,
                                 color = OniSkin.colors.textSecondary
                             )
@@ -1263,91 +1272,63 @@ fun LibraryOptionsMenu(
                 }
             }
 
-            // B. Search Box
+            // Quick Actions (Play All, Shuffle All, Scan Library)
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xxs)) {
+                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                     Text(
-                        text = "SEARCH LIBRARY",
+                        text = "QUICK ACTIONS",
                         style = OniSkin.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = OniSkin.colors.primary
                     )
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = onSearchQueryChange,
-                        placeholder = {
-                            Text("Search songs, artists, albums...", color = OniSkin.colors.textSecondary)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = OniSkin.colors.primary)
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { onSearchQueryChange("") }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = OniSkin.colors.textSecondary)
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = OniSkin.shapes.full,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OniSkin.colors.primary,
-                            unfocusedBorderColor = OniSkin.colors.outline,
-                            focusedTextColor = OniSkin.colors.textPrimary,
-                            unfocusedTextColor = OniSkin.colors.textPrimary
-                        )
-                    )
-                }
-            }
-
-            // C. Scan Local Music
-            item {
-                OniSurface(
-                    variant = OniSurfaceVariant.Soft,
-                    shape = OniSkin.shapes.card,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onRescan)
-                            .padding(OniSkin.spacing.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OniSurface(
-                                variant = OniSurfaceVariant.Flat,
-                                shape = OniSkin.shapes.full,
-                                containerColor = OniSkin.colors.primary.copy(alpha = 0.12f),
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = OniSkin.colors.primary)
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-                            Column {
-                                Text(
-                                    text = "Scan Music Library",
-                                    style = OniSkin.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = OniSkin.colors.textPrimary
-                                )
-                                Text(
-                                    text = "Index newly added songs and update tags",
-                                    style = OniSkin.typography.caption,
-                                    color = OniSkin.colors.textSecondary
-                                )
-                            }
+                        Button(
+                            onClick = {
+                                onPlayAll()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = OniSkin.shapes.button,
+                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                            Text("Play All", style = OniSkin.typography.labelMedium, maxLines = 1)
                         }
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = OniSkin.colors.textTertiary)
+                        Button(
+                            onClick = {
+                                onShuffleAll()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = OniSkin.shapes.button,
+                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.surfaceElevated, contentColor = OniSkin.colors.textPrimary)
+                        ) {
+                            Icon(Icons.Default.Shuffle, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                            Text("Shuffle", style = OniSkin.typography.labelMedium, maxLines = 1)
+                        }
+                        Button(
+                            onClick = {
+                                onRescan()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = OniSkin.shapes.button,
+                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.surfaceElevated, contentColor = OniSkin.colors.textPrimary)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                            Text("Scan", style = OniSkin.typography.labelMedium, maxLines = 1)
+                        }
                     }
                 }
             }
 
-            // D. Layout Style
+            // Layout Style
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                     Text(
@@ -1391,7 +1372,7 @@ fun LibraryOptionsMenu(
                 }
             }
 
-            // E. Sort Options
+            // Sort Options
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                     Text(
@@ -1457,49 +1438,6 @@ fun LibraryOptionsMenu(
                     }
                 }
             }
-
-            // F. Quick Actions (Play All, Shuffle All)
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
-                    Text(
-                        text = "QUICK ACTIONS",
-                        style = OniSkin.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.primary
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
-                    ) {
-                        Button(
-                            onClick = {
-                                onPlayAll()
-                                onDismiss()
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            shape = OniSkin.shapes.button,
-                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Text("Play All", style = OniSkin.typography.labelLarge)
-                        }
-                        Button(
-                            onClick = {
-                                onShuffleAll()
-                                onDismiss()
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            shape = OniSkin.shapes.button,
-                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.surfaceElevated, contentColor = OniSkin.colors.textPrimary)
-                        ) {
-                            Icon(Icons.Default.Shuffle, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Text("Shuffle", style = OniSkin.typography.labelLarge)
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -1517,6 +1455,23 @@ fun TrackMenuBottomSheetDialog(
     val context = LocalContext.current
     val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
     var showPlaylistPicker by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        PlayerDeleteDialog(
+            song = song,
+            onConfirmDelete = { physical ->
+                if (physical) {
+                    viewModel.deleteSongPhysically(song.id)
+                } else {
+                    viewModel.deleteSong(song.id)
+                }
+                showDeleteDialog = false
+                onDismiss()
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
+    }
 
     if (showPlaylistPicker) {
         PlaylistPickerBottomSheet(
@@ -1544,139 +1499,535 @@ fun TrackMenuBottomSheetDialog(
                 )
             }
         ) {
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = OniSkin.spacing.screenHorizontal)
                     .padding(bottom = OniSkin.spacing.screenVertical),
-                verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
             ) {
                 // Header: Artwork, Title, Artist, Album
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = OniSkin.spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OniArtwork(
-                        artworkUri = song.albumArtUri,
-                        contentDescription = "Cover art",
-                        shape = OniSkin.shapes.small,
-                        elevation = OniSkin.elevation.flat,
-                        modifier = Modifier.size(54.dp)
-                    )
-                    Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = song.displayTitle,
-                            style = OniSkin.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = OniSkin.colors.textPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OniArtwork(
+                            artworkUri = song.albumArtUri,
+                            contentDescription = "Cover art",
+                            shape = OniSkin.shapes.small,
+                            elevation = OniSkin.elevation.flat,
+                            modifier = Modifier.size(54.dp)
                         )
-                        Text(
-                            text = song.displayArtist.ifBlank { "Unknown Artist" },
-                            style = OniSkin.typography.bodySmall,
-                            color = OniSkin.colors.textSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = song.displayAlbum.ifBlank { "Unknown Album" },
-                            style = OniSkin.typography.caption,
-                            color = OniSkin.colors.textTertiary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.md))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = song.displayTitle,
+                                style = OniSkin.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = OniSkin.colors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = song.displayArtist.ifBlank { "Unknown Artist" },
+                                style = OniSkin.typography.bodySmall,
+                                color = OniSkin.colors.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = song.displayAlbum.ifBlank { "Unknown Album" },
+                                style = OniSkin.typography.caption,
+                                color = OniSkin.colors.textTertiary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
 
+                // Songs Static Data
+                item {
+                    SongStaticDataCard(song = song)
+                }
+
+                // Action Icon Tiles
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                    ) {
+                        // Row 1: Play Now, Play Next, Add to Queue
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                        ) {
+                            TrackMenuActionTile(
+                                icon = Icons.Default.PlayArrow,
+                                title = "Play Now",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    viewModel.playSong(song, songs)
+                                    onDismiss()
+                                }
+                            )
+                            TrackMenuActionTile(
+                                icon = Icons.Default.SkipNext,
+                                title = "Play Next",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    viewModel.playNext(song)
+                                    Toast.makeText(context, "Playing next: ${song.displayTitle}", Toast.LENGTH_SHORT).show()
+                                    onDismiss()
+                                }
+                            )
+                            TrackMenuActionTile(
+                                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                                title = "Add to Queue",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    viewModel.addToQueue(song)
+                                    Toast.makeText(context, "Added to queue: ${song.displayTitle}", Toast.LENGTH_SHORT).show()
+                                    onDismiss()
+                                }
+                            )
+                        }
+
+                        // Row 2: Favorite, Add to Playlist, Edit Tags
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                        ) {
+                            TrackMenuActionTile(
+                                icon = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                title = if (song.isFavorite) "Favorited" else "Favorite",
+                                iconTint = if (song.isFavorite) OniSkin.colors.primary else null,
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    viewModel.toggleFavorite(song.id)
+                                    val msg = if (song.isFavorite) "Removed from favorites" else "Added to favorites"
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                    onDismiss()
+                                }
+                            )
+                            TrackMenuActionTile(
+                                icon = Icons.Default.PlaylistAdd,
+                                title = "Playlist",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    showPlaylistPicker = true
+                                }
+                            )
+                            TrackMenuActionTile(
+                                icon = Icons.Default.Edit,
+                                title = "Edit Tags",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    onManualEdit()
+                                    onDismiss()
+                                }
+                            )
+                        }
+
+                        // Row 3: View Album, View Artist, Open File Location (Created after Edit Tags)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                        ) {
+                            TrackMenuActionTile(
+                                icon = Icons.Default.Album,
+                                title = "View Album",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    val albumKey = "${song.displayAlbum.ifBlank { "Unknown Album" }}|${song.displayAlbumArtist}"
+                                    viewModel.setActiveCategoryIndex(2)
+                                    viewModel.setSelectedGroup(albumKey)
+                                    onDismiss()
+                                }
+                            )
+                            TrackMenuActionTile(
+                                icon = Icons.Default.Person,
+                                title = "View Artist",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    val artistKey = song.displayArtist.ifBlank { "Unknown Artist" }
+                                    viewModel.setActiveCategoryIndex(3)
+                                    viewModel.setSelectedGroup(artistKey)
+                                    onDismiss()
+                                }
+                            )
+                            TrackMenuActionTile(
+                                icon = Icons.Default.FolderOpen,
+                                title = "File Location",
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    val file = File(song.filePath)
+                                    val folderName = file.parentFile?.name ?: "Internal"
+                                    viewModel.setActiveCategoryIndex(1)
+                                    viewModel.setSelectedGroup(folderName)
+                                    Toast.makeText(context, "Location: ${file.parent ?: song.filePath}", Toast.LENGTH_LONG).show()
+                                    onDismiss()
+                                }
+                            )
+                        }
+
+                        // Row 4: Delete Track (opens modal like player screen)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
+                        ) {
+                            TrackMenuActionTile(
+                                icon = Icons.Default.DeleteOutline,
+                                title = "Delete Track",
+                                iconTint = OniSkin.colors.error,
+                                textColor = OniSkin.colors.error,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    showDeleteDialog = true
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SongStaticDataCard(song: SongEntity) {
+    val file = remember(song.filePath) { File(song.filePath) }
+    val fileSizeStr = remember(file) {
+        if (file.exists() && file.length() > 0) {
+            val bytes = file.length()
+            val mb = bytes / (1024.0 * 1024.0)
+            if (mb >= 1.0) String.format(java.util.Locale.US, "%.1f MB", mb)
+            else String.format(java.util.Locale.US, "%d KB", bytes / 1024)
+        } else null
+    }
+
+    val audioDetails = remember(song.filePath) {
+        try {
+            val retriever = android.media.MediaMetadataRetriever()
+            retriever.setDataSource(song.filePath)
+            val sr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
+            val bitr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE)
+            retriever.release()
+
+            val sampleRateStr = sr?.toIntOrNull()?.let { hz ->
+                String.format(java.util.Locale.US, "%.1f kHz", hz / 1000.0)
+            }
+            val detectedBitrate = bitr?.toIntOrNull()?.let { b ->
+                "${b / 1000} kbps"
+            }
+            Pair(sampleRateStr, detectedBitrate)
+        } catch (_: Throwable) {
+            Pair(null, null)
+        }
+    }
+
+    val formatBadge = remember(song) {
+        val path = song.filePath.lowercase()
+        val ext = path.substringAfterLast('.', "")
+        when {
+            ext == "flac" || song.format.equals("FLAC", ignoreCase = true) -> "FLAC"
+            ext == "wav" -> "WAV"
+            ext == "m4a" || ext == "aac" -> "AAC"
+            ext == "ogg" || ext == "opus" -> "OPUS"
+            ext.isNotBlank() -> ext.uppercase()
+            song.format.isNotBlank() -> song.format.uppercase()
+            else -> "MP3"
+        }
+    }
+
+    val bitrateStr = when {
+        song.bitrate > 0 -> "${song.bitrate} kbps"
+        audioDetails.second != null -> audioDetails.second
+        else -> null
+    }
+    val durationStr = formatDuration(song.duration)
+    val sampleRateStr = audioDetails.first
+
+    val dateFormat = remember { java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.getDefault()) }
+    val dateTimeFormat = remember { java.text.SimpleDateFormat("MMM d, yyyy • h:mm a", java.util.Locale.getDefault()) }
+
+    val dateAddedStr = remember(song.dateAdded) {
+        if (song.dateAdded > 0) dateFormat.format(java.util.Date(song.dateAdded)) else null
+    }
+
+    val lastPlayedStr = remember(song.lastPlayedTimestamp) {
+        if (song.lastPlayedTimestamp > 0) {
+            val now = System.currentTimeMillis()
+            val diff = now - song.lastPlayedTimestamp
+            when {
+                diff < 60_000 -> "Just now"
+                diff < 3600_000 -> "${diff / 60_000}m ago"
+                diff < 86400_000 -> "${diff / 3600_000}h ago"
+                diff < 7 * 86400_000 -> "${diff / 86400_000}d ago"
+                else -> dateFormat.format(java.util.Date(song.lastPlayedTimestamp))
+            }
+        } else "Never"
+    }
+
+    val fileName = remember(file) { file.name.ifBlank { song.displayTitle } }
+    val lastModifiedStr = remember(file) {
+        if (file.exists() && file.lastModified() > 0) {
+            dateTimeFormat.format(java.util.Date(file.lastModified()))
+        } else null
+    }
+
+    val trackDiscStr = buildString {
+        if (song.displayTrack.isNotBlank()) append("Track ${song.displayTrack}")
+        if (song.displayDisc.isNotBlank()) {
+            if (isNotEmpty()) append(" • ")
+            append("Disc ${song.displayDisc}")
+        }
+    }
+
+    val ratingStr = if (song.rating > 0) {
+        val filled = "★".repeat(song.rating.coerceIn(1, 5))
+        val empty = "☆".repeat((5 - song.rating).coerceAtLeast(0))
+        "$filled$empty (${song.rating}/5)"
+    } else null
+
+    var isExpanded by remember { mutableStateOf(false) }
+
+    OniSurface(
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.card,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
+        ) {
+            // 1. Audio Specs Badges Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StaticDataChip(text = formatBadge, isHighlight = true)
+                StaticDataChip(text = durationStr, icon = Icons.Default.Schedule)
+                if (bitrateStr != null) {
+                    StaticDataChip(text = bitrateStr, icon = Icons.Default.Speed)
+                }
+                if (sampleRateStr != null) {
+                    StaticDataChip(text = sampleRateStr)
+                }
+                if (fileSizeStr != null) {
+                    StaticDataChip(text = fileSizeStr, icon = Icons.Default.Save)
+                }
+            }
+
+            // 2. Primary Metadata Grid (2 Columns)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md)
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (song.displayGenre.isNotBlank() && song.displayGenre != "Unknown") {
+                        MetadataKeyValue(label = "Genre", value = song.displayGenre)
+                    }
+                    if (trackDiscStr.isNotBlank()) {
+                        MetadataKeyValue(label = "Track", value = trackDiscStr)
+                    }
+                    if (song.displayAlbumArtist.isNotBlank() && song.displayAlbumArtist != song.displayArtist) {
+                        MetadataKeyValue(label = "Album Artist", value = song.displayAlbumArtist)
+                    }
+                    MetadataKeyValue(
+                        label = "Plays",
+                        value = if (song.playCount > 0) "${song.playCount} times" else "Unplayed"
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (song.displayYear.isNotBlank()) {
+                        MetadataKeyValue(label = "Year", value = song.displayYear)
+                    }
+                    if (song.displayBpm.isNotBlank()) {
+                        MetadataKeyValue(label = "BPM", value = "${song.displayBpm} BPM")
+                    }
+                    if (song.displayComposer.isNotBlank()) {
+                        MetadataKeyValue(label = "Composer", value = song.displayComposer)
+                    }
+                    if (lastPlayedStr != "Never") {
+                        MetadataKeyValue(label = "Last Played", value = lastPlayedStr)
+                    } else if (dateAddedStr != null) {
+                        MetadataKeyValue(label = "Added", value = dateAddedStr)
+                    }
+                }
+            }
+
+            // 3. Extended Details (Rating, Comments, Date Added, Last Modified)
+            if (isExpanded) {
                 SettingDivider()
 
-                // Playback Actions
-                TrackMenuActionRow(
-                    icon = Icons.Default.PlayArrow,
-                    title = "Play Now",
-                    subtitle = "Start playback immediately",
-                    onClick = {
-                        viewModel.playSong(song, songs)
-                        onDismiss()
-                    }
-                )
+                if (ratingStr != null) {
+                    MetadataKeyValue(label = "Rating", value = ratingStr)
+                }
 
-                TrackMenuActionRow(
-                    icon = Icons.Default.SkipNext,
-                    title = "Play Next",
-                    subtitle = "Insert after the currently playing song",
-                    onClick = {
-                        viewModel.playNext(song)
-                        Toast.makeText(context, "Playing next: ${song.displayTitle}", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    }
-                )
+                if (song.displayComment.isNotBlank()) {
+                    MetadataKeyValue(label = "Comment", value = song.displayComment)
+                }
 
-                TrackMenuActionRow(
-                    icon = Icons.AutoMirrored.Filled.QueueMusic,
-                    title = "Add to Queue",
-                    subtitle = "Append to the end of the current queue",
-                    onClick = {
-                        viewModel.addToQueue(song)
-                        Toast.makeText(context, "Added to queue: ${song.displayTitle}", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    }
-                )
+                if (dateAddedStr != null && lastPlayedStr != "Never") {
+                    MetadataKeyValue(label = "Date Added", value = dateAddedStr)
+                }
 
-                SettingDivider()
+                if (lastModifiedStr != null) {
+                    MetadataKeyValue(label = "File Modified", value = lastModifiedStr)
+                }
 
-                // Library Actions
-                TrackMenuActionRow(
-                    icon = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    title = if (song.isFavorite) "Remove from Favorites" else "Add to Favorites",
-                    subtitle = if (song.isFavorite) "Remove track from favorite library" else "Mark track as a personal favorite",
-                    iconTint = if (song.isFavorite) OniSkin.colors.primary else null,
-                    onClick = {
-                        viewModel.toggleFavorite(song.id)
-                        val msg = if (song.isFavorite) "Removed from favorites" else "Added to favorites"
-                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    }
-                )
+                MetadataKeyValue(label = "File Name", value = fileName)
+            }
 
-                TrackMenuActionRow(
-                    icon = Icons.Default.PlaylistAdd,
-                    title = "Add to Playlist...",
-                    subtitle = "Select an existing playlist or create a new one",
-                    onClick = {
-                        showPlaylistPicker = true
-                    }
-                )
-
-                SettingDivider()
-
-                // Organization Actions
-                TrackMenuActionRow(
-                    icon = Icons.Default.Edit,
-                    title = "Edit Tags",
-                    subtitle = "Update title, artist, album, and artwork",
-                    onClick = {
-                        onManualEdit()
-                        onDismiss()
-                    }
-                )
-
-                TrackMenuActionRow(
-                    icon = Icons.Default.DeleteOutline,
-                    title = "Delete Track",
-                    subtitle = "Remove track from library",
-                    iconTint = OniSkin.colors.error,
-                    onClick = {
-                        viewModel.deleteSong(song.id)
-                        Toast.makeText(context, "Removed from library", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    }
+            // 4. File Path row with toggle button
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = OniSkin.colors.textTertiary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                    Text(
+                        text = song.filePath,
+                        style = OniSkin.typography.caption,
+                        color = OniSkin.colors.textTertiary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                Text(
+                    text = if (isExpanded) "Less" else "More",
+                    style = OniSkin.typography.caption,
+                    fontWeight = FontWeight.Bold,
+                    color = OniSkin.colors.primary,
+                    modifier = Modifier
+                        .clickable { isExpanded = !isExpanded }
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun MetadataKeyValue(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$label: ",
+            style = OniSkin.typography.caption,
+            fontWeight = FontWeight.Bold,
+            color = OniSkin.colors.textSecondary
+        )
+        Text(
+            text = value,
+            style = OniSkin.typography.caption,
+            color = OniSkin.colors.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun StaticDataChip(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    isHighlight: Boolean = false
+) {
+    OniSurface(
+        variant = OniSurfaceVariant.Flat,
+        shape = OniSkin.shapes.full,
+        containerColor = if (isHighlight) OniSkin.colors.primary.copy(alpha = 0.15f) else OniSkin.colors.surfaceElevated,
+        modifier = Modifier.height(26.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isHighlight) OniSkin.colors.primary else OniSkin.colors.textSecondary,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Text(
+                text = text,
+                style = OniSkin.typography.caption,
+                fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Medium,
+                color = if (isHighlight) OniSkin.colors.primary else OniSkin.colors.textPrimary
+            )
+        }
+    }
+}
+
+@Composable
+fun TrackMenuActionTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    modifier: Modifier = Modifier,
+    iconTint: Color? = null,
+    containerColor: Color? = null,
+    textColor: Color? = null,
+    onClick: () -> Unit
+) {
+    OniSurface(
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.card,
+        containerColor = containerColor,
+        modifier = modifier
+            .defaultMinSize(minHeight = 68.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = OniSkin.spacing.sm, horizontal = OniSkin.spacing.xxs),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint ?: OniSkin.colors.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
+            Text(
+                text = title,
+                style = OniSkin.typography.caption,
+                fontWeight = FontWeight.Medium,
+                color = textColor ?: OniSkin.colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
