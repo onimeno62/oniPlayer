@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,7 @@ import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.library.components.AlbumCard
+import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.screens.formatDuration
@@ -50,6 +52,9 @@ fun AlbumsScreen(
             modifier = modifier.fillMaxSize()
         )
     } else {
+        val heroArtwork = albums.firstOrNull()?.artworkUri
+        val heroSubtitle = if (albums.size == 1) "1 album" else "${albums.size} albums"
+
         if (layoutMode == "grid") {
             val gridState = rememberLazyGridState(
                 initialFirstVisibleItemIndex = gridIndex,
@@ -61,11 +66,25 @@ fun AlbumsScreen(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 state = gridState,
-                contentPadding = PaddingValues(OniSkin.spacing.screenHorizontal),
+                contentPadding = PaddingValues(
+                    start = OniSkin.spacing.screenHorizontal,
+                    end = OniSkin.spacing.screenHorizontal,
+                    top = OniSkin.spacing.sm,
+                    bottom = OniSkin.spacing.lg
+                ),
                 horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.md),
                 modifier = modifier.fillMaxSize()
             ) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    LibraryCategoryHero(
+                        title = "Albums",
+                        subtitle = heroSubtitle,
+                        artworkUri = heroArtwork,
+                        icon = androidx.compose.material.icons.Icons.Default.Album,
+                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
+                    )
+                }
                 items(albums, key = { it.albumKey }) { album ->
                     AlbumCard(
                         album = album,
@@ -84,14 +103,27 @@ fun AlbumsScreen(
             }
             LazyColumn(
                 state = listState,
-                contentPadding = PaddingValues(OniSkin.spacing.screenHorizontal),
+                contentPadding = PaddingValues(
+                    horizontal = OniSkin.spacing.screenHorizontal,
+                    vertical = OniSkin.spacing.sm
+                ),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
             ) {
+                item(key = "albums_hero") {
+                    LibraryCategoryHero(
+                        title = "Albums",
+                        subtitle = heroSubtitle,
+                        artworkUri = heroArtwork,
+                        icon = androidx.compose.material.icons.Icons.Default.Album,
+                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
+                    )
+                }
                 items(albums, key = { it.albumKey }) { album ->
                     OniSurface(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .defaultMinSize(minHeight = 64.dp)
                             .semantics(mergeDescendants = true) {
                                 role = Role.Button
                                 contentDescription = "${album.title} by ${album.artist}, ${album.songCount} songs"
@@ -108,27 +140,23 @@ fun AlbumsScreen(
                         ) {
                             OniArtwork(
                                 artworkUri = album.artworkUri,
-                                size = 56.dp,
+                                size = 64.dp,
                                 shape = OniSkin.artwork.shape,
                                 contentDescription = null
                             )
 
                             Spacer(modifier = Modifier.width(OniSkin.spacing.md))
 
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = album.title,
-                                    style = OniSkin.typography.bodyLarge,
+                                    style = OniSkin.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = OniSkin.colors.textPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
+                                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                                 Text(
                                     text = album.artist,
                                     style = OniSkin.typography.bodyMedium,
@@ -136,9 +164,7 @@ fun AlbumsScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
+                                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                                 Text(
                                     text = "${album.songCount} songs • ${formatDuration(album.totalDurationMs)}",
                                     style = OniSkin.typography.caption,
@@ -147,6 +173,12 @@ fun AlbumsScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
+
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = OniSkin.colors.textTertiary
+                            )
                         }
                     }
                 }
