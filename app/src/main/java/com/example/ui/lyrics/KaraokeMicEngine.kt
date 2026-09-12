@@ -19,6 +19,17 @@ import kotlin.math.log2
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+/**
+ * Microphone pitch detection states for clear, non-jittery UI feedback.
+ */
+sealed class PitchStatus {
+    data object Idle : PitchStatus()
+    data object Listening : PitchStatus()
+    data object Detecting : PitchStatus()
+    data object NoClearPitch : PitchStatus()
+    data class Detected(val note: String, val frequencyHz: Float) : PitchStatus()
+}
+
 class KaraokeMicEngine {
     private val TAG = "KaraokeMicEngine"
 
@@ -37,10 +48,18 @@ class KaraokeMicEngine {
     private val _vocalPitchNote = MutableStateFlow("")
     val vocalPitchNote: StateFlow<String> = _vocalPitchNote.asStateFlow()
 
+    private val _pitchStatus = MutableStateFlow<PitchStatus>(PitchStatus.Idle)
+    val pitchStatus: StateFlow<PitchStatus> = _pitchStatus.asStateFlow()
+
     private var audioRecord: AudioRecord? = null
     private var audioTrack: AudioTrack? = null
     private var recordJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
+
+    // Pitch smoothing state
+    private var recentPitchHistory = mutableListOf<Float>()
+    private var lastStableNote = ""
+    private var consecutiveSilenceFrames = 0
 
     fun setMicGain(gain: Float) {
         _micGain.value = gain.coerceIn(0.1f, 3.0f)
@@ -61,6 +80,10 @@ class KaraokeMicEngine {
     fun startMic() {
         if (_isMicEnabled.value) return
         _isMicEnabled.value = true
+        _pitchStatus.value = PitchStatus.Listening
+        recentPitchHistory.clear()
+        lastStableNote = ""
+        consecutiveSilenceFrames = 0
 
         recordJob = scope.launch {
             val sampleRate = 44100
@@ -71,6 +94,7 @@ class KaraokeMicEngine {
             if (bufferSize == AudioRecord.ERROR || bufferSize == AudioRecord.ERROR_BAD_VALUE) {
                 Log.e(TAG, "Invalid buffer size")
                 _isMicEnabled.value = false
+                _pitchStatus.value = PitchStatus.Idle
                 return@launch
             }
 
@@ -86,6 +110,7 @@ class KaraokeMicEngine {
                 if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
                     Log.e(TAG, "AudioRecord could not be initialized")
                     _isMicEnabled.value = false
+                    _pitchStatus.value = PitchStatus.Idle
                     return@launch
                 }
 
@@ -105,16 +130,46 @@ class KaraokeMicEngine {
                         val level = (rms / 32767.0 * 350f).coerceIn(0.0, 100.0).toFloat()
                         _amplitude.value = level
 
-                        // Real-time pitch estimation when vocal amplitude is singing-level
-                        if (level > 8f) {
+                        // Noise-gated pitch estimation: require minimum RMS level ~10f to reject room noise
+                        if (level > 10f) {
+                            consecutiveSilenceFrames = 0
                             val estimatedHz = estimatePitchHz(buffer, readSize, sampleRate)
-                            _vocalPitchNote.value = if (estimatedHz > 50f && estimatedHz < 1200f) {
-                                hzToMusicalNote(estimatedHz)
+                            
+                            if (estimatedHz in 65f..1100f) {
+                                // Add to sliding history for pitch stability
+                                recentPitchHistory.add(estimatedHz)
+                                if (recentPitchHistory.size > 5) {
+                                    recentPitchHistory.removeAt(0)
+                                }
+
+                                val medianHz = getMedianFrequency(recentPitchHistory)
+                                val candidateNote = hzToMusicalNote(medianHz)
+
+                                if (candidateNote.isNotEmpty()) {
+                                    lastStableNote = candidateNote
+                                    _vocalPitchNote.value = candidateNote
+                                    _pitchStatus.value = PitchStatus.Detected(candidateNote, medianHz)
+                                } else {
+                                    _pitchStatus.value = PitchStatus.Detecting
+                                }
                             } else {
-                                ""
+                                if (recentPitchHistory.isNotEmpty()) {
+                                    recentPitchHistory.removeAt(0)
+                                }
+                                if (recentPitchHistory.isEmpty()) {
+                                    _vocalPitchNote.value = ""
+                                    _pitchStatus.value = PitchStatus.NoClearPitch
+                                }
                             }
                         } else {
-                            _vocalPitchNote.value = ""
+                            // Silence / ambient noise
+                            consecutiveSilenceFrames++
+                            if (consecutiveSilenceFrames >= 3) {
+                                recentPitchHistory.clear()
+                                lastStableNote = ""
+                                _vocalPitchNote.value = ""
+                                _pitchStatus.value = PitchStatus.Listening
+                            }
                         }
 
                         // Low-latency Headphone Vocal Monitor Passthrough
@@ -135,9 +190,11 @@ class KaraokeMicEngine {
             } catch (e: SecurityException) {
                 Log.e(TAG, "Permission RECORD_AUDIO not granted: ${e.message}")
                 _isMicEnabled.value = false
+                _pitchStatus.value = PitchStatus.Idle
             } catch (e: Exception) {
                 Log.e(TAG, "Error recording audio: ${e.message}", e)
                 _isMicEnabled.value = false
+                _pitchStatus.value = PitchStatus.Idle
             } finally {
                 stopInternal()
             }
@@ -205,34 +262,62 @@ class KaraokeMicEngine {
             audioRecord = null
             _amplitude.value = 0f
             _vocalPitchNote.value = ""
+            _pitchStatus.value = PitchStatus.Idle
+            recentPitchHistory.clear()
+            lastStableNote = ""
+            consecutiveSilenceFrames = 0
         }
         stopAudioTrack()
     }
 
     /**
-     * Estimates fundamental frequency (Hz) using autocorrelation over zero-mean window.
+     * Normalized autocorrelation pitch detection with confidence checking.
      */
     private fun estimatePitchHz(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val maxLag = sampleRate / 60  // ~60 Hz lowest male vocal pitch
-        val minLag = sampleRate / 1000 // ~1000 Hz highest vocal fundamental pitch
+        val maxLag = sampleRate / 65   // ~65 Hz lowest male vocal pitch (C2)
+        val minLag = sampleRate / 1100 // ~1100 Hz highest vocal fundamental pitch (C6)
         if (size <= maxLag * 2) return 0f
 
         var bestLag = -1
         var maxCorr = 0.0
+        val windowLen = minOf(size - maxLag, 512)
+
+        // Calculate zero-lag energy
+        var zeroLagEnergy = 0.0
+        for (i in 0 until windowLen) {
+            zeroLagEnergy += buffer[i].toDouble() * buffer[i].toDouble()
+        }
+        if (zeroLagEnergy < 1e-4) return 0f
 
         for (lag in minLag..maxLag) {
             var corr = 0.0
-            val len = minOf(size - lag, 512)
-            for (i in 0 until len) {
-                corr += buffer[i].toDouble() * buffer[i + lag].toDouble()
+            var lagEnergy = 0.0
+            for (i in 0 until windowLen) {
+                val s0 = buffer[i].toDouble()
+                val sLag = buffer[i + lag].toDouble()
+                corr += s0 * sLag
+                lagEnergy += sLag * sLag
             }
-            if (corr > maxCorr) {
-                maxCorr = corr
+            // Normalized cross-correlation coefficient
+            val normCorr = if (lagEnergy > 0) corr / sqrt(zeroLagEnergy * lagEnergy) else 0.0
+            if (normCorr > maxCorr) {
+                maxCorr = normCorr
                 bestLag = lag
             }
         }
 
-        return if (bestLag > 0) sampleRate.toFloat() / bestLag else 0f
+        // Require normalized correlation confidence >= 0.55 to avoid octave errors or noise
+        return if (bestLag > 0 && maxCorr >= 0.55) {
+            sampleRate.toFloat() / bestLag
+        } else {
+            0f
+        }
+    }
+
+    private fun getMedianFrequency(frequencies: List<Float>): Float {
+        if (frequencies.isEmpty()) return 0f
+        val sorted = frequencies.sorted()
+        return sorted[sorted.size / 2]
     }
 
     /**
@@ -242,7 +327,7 @@ class KaraokeMicEngine {
         if (hz <= 20f) return ""
         val noteNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
         val midiNumber = (12 * (log2(hz / 440.0) / log2(2.0)) + 69).roundToInt()
-        if (midiNumber < 12 || midiNumber > 120) return ""
+        if (midiNumber < 24 || midiNumber > 108) return ""
         val noteName = noteNames[midiNumber % 12]
         val octave = (midiNumber / 12) - 1
         return "$noteName$octave"
