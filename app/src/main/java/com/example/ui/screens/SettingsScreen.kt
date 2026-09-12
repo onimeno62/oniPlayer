@@ -30,6 +30,7 @@ import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.LocalReduceMotion
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
+import com.example.ui.widgets.manager.WidgetsSettingsScreen
 
 data class SettingCategory(
     val id: String,
@@ -61,6 +62,7 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
     val categories = remember(appearanceValue, playbackValue, lyricsValue, libraryValue, interactionValue) {
         listOf(
             SettingCategory("appearance", "Appearance", appearanceValue, Icons.Default.Palette, "Appearance"),
+            SettingCategory("widgets", "Widgets", "Now Playing, Compact, & Lyrics packs", Icons.Default.Widgets, "Appearance"),
             SettingCategory("playback", "Playback", playbackValue, Icons.Default.PlayCircle, "Playback"),
             SettingCategory("audio_eq", "Audio & Equalizer", "5-band parametric EQ & spatializer", Icons.Default.Tune, "Playback"),
             SettingCategory("lyrics", "Lyrics", lyricsValue, Icons.Default.Description, "Lyrics"),
@@ -99,6 +101,7 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
         } else {
             when (subScreen) {
                 "appearance" -> AppearanceSettingsScreen(viewModel, onBack = { activeSubScreen = null })
+                "widgets" -> WidgetsSettingsScreen(onBack = { activeSubScreen = null })
                 "library_metadata" -> LibraryMetadataSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "playback" -> PlaybackSettingsScreen(viewModel, onBack = { activeSubScreen = null })
                 "lyrics" -> LyricsSettingsScreen(viewModel, onBack = { activeSubScreen = null })
