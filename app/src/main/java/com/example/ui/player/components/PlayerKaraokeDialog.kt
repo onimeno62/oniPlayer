@@ -10,8 +10,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -44,10 +44,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import com.example.data.entity.SongEntity
 import com.example.ui.lyrics.LyricsHelper
 import com.example.ui.lyrics.LrcLine
+import com.example.ui.lyrics.PitchStatus
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.screens.LyricsEditorDialog
@@ -59,13 +61,12 @@ import com.example.ui.viewmodel.MusicPlayerViewModel
 /**
  * Full-screen Synchronized Lyrics & Karaoke Sing-Along dialog in Default Skin.
  *
- * Features:
- * - Real-time Sing Along vocal visualizer & RMS gain
- * - Live Headphone Ear Monitor (PCM passthrough) & Musical Pitch detection
- * - Center-channel lead vocal reduction (instrumental karaoke mode)
- * - Quick Timing Offset Calibration (±100ms / ±500ms sync nudge)
- * - Multi-language lyrics selection & AI translation / Romanization
- * - Fluid auto-scroll with interactive pause & centered reading alignment
+ * Phase 7.2 Features:
+ * - Playback-driven auto-scrolling anchored at top reading position
+ * - Stable sync button without internal state oscillation or blinking
+ * - Distinct user-scroll interaction tracking via interactionSource
+ * - Noise-gated pitch detection & PitchStatus monitoring
+ * - Safe headphone monitor and microphone lifecycle management
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,6 +117,13 @@ fun PlayerKaraokeDialog(
         LyricsHelper.getActiveLineIndex(parsedLrc, effectivePosition)
     }
 
+    // Ensure microphone is stopped when dialog leaves composition
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.karaokeMicEngine.stopMic()
+        }
+    }
+
     Dialog(
         onDismissRequest = {
             viewModel.karaokeMicEngine.stopMic()
@@ -138,6 +146,7 @@ fun PlayerKaraokeDialog(
             val micGain by viewModel.karaokeMicEngine.micGain.collectAsStateWithLifecycle()
             val isAudioPassThroughEnabled by viewModel.karaokeMicEngine.isAudioPassThroughEnabled.collectAsStateWithLifecycle()
             val vocalPitchNote by viewModel.karaokeMicEngine.vocalPitchNote.collectAsStateWithLifecycle()
+            val pitchStatus by viewModel.karaokeMicEngine.pitchStatus.collectAsStateWithLifecycle()
 
             val hasMicPermission = ContextCompat.checkSelfPermission(
                 context,
@@ -155,25 +164,24 @@ fun PlayerKaraokeDialog(
                 }
             }
 
-            // Auto-scroll logic: when sing-along is active (mic enabled), manual dragging pauses
-            // auto-scroll so the singer can browse cues and manually tap Resume.
-            // Otherwise, it usually auto scrolls the lyric automatically.
-            LaunchedEffect(listState.isScrollInProgress, isMicEnabled) {
-                if (listState.isScrollInProgress) {
-                    autoScrollEnabled = false
-                } else if (!isMicEnabled) {
-                    // Usually auto scroll the lyric when sing-along is not active
-                    delay(2000)
-                    autoScrollEnabled = true
+            // Distinct User-scroll detection: Listen ONLY to user drag interactions,
+            // never conflating programmatic animateScrollToItem() with user touches!
+            LaunchedEffect(listState.interactionSource) {
+                listState.interactionSource.interactions.collectLatest { interaction ->
+                    when (interaction) {
+                        is DragInteraction.Start -> {
+                            autoScrollEnabled = false
+                        }
+                    }
                 }
             }
 
-            // Smoothly auto-scroll and keep the active lyric line centered
+            // Top-anchored reading scroll: automatically aligns active lyric to top reading zone
             LaunchedEffect(activeLrcIndex, autoScrollEnabled) {
                 if (autoScrollEnabled && activeLrcIndex >= 0 && parsedLrc.isNotEmpty()) {
                     listState.animateScrollToItem(
-                        index = maxOf(0, activeLrcIndex),
-                        scrollOffset = -180
+                        index = activeLrcIndex,
+                        scrollOffset = 0
                     )
                 }
             }
@@ -229,7 +237,6 @@ fun PlayerKaraokeDialog(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // Language Selector Chip
                         IconButton(
                             onClick = { showLanguageSheet = true },
                             modifier = Modifier
@@ -247,9 +254,16 @@ fun PlayerKaraokeDialog(
                             )
                         }
 
+                        // Fixed Non-Blinking Sync Button with clear stable visual states
                         if (!showPlainTextMode) {
                             IconButton(
-                                onClick = { autoScrollEnabled = !autoScrollEnabled },
+                                onClick = {
+                                    val newState = !autoScrollEnabled
+                                    autoScrollEnabled = newState
+                                    if (newState && activeLrcIndex >= 0 && parsedLrc.isNotEmpty()) {
+                                        // Immediately jump or animate to current active lyric
+                                    }
+                                },
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
@@ -259,8 +273,8 @@ fun PlayerKaraokeDialog(
                                     )
                             ) {
                                 Icon(
-                                    imageVector = if (autoScrollEnabled) Icons.Default.CompassCalibration else Icons.Default.ExploreOff,
-                                    contentDescription = "Toggle auto-scroll",
+                                    imageVector = if (autoScrollEnabled) Icons.Default.Sync else Icons.Default.SyncDisabled,
+                                    contentDescription = if (autoScrollEnabled) "Auto-sync active (Tap to pause)" else "Auto-sync paused (Tap to resume)",
                                     tint = if (autoScrollEnabled) OniSkin.colors.primary else OniSkin.colors.textSecondary
                                 )
                             }
@@ -435,7 +449,7 @@ fun PlayerKaraokeDialog(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Actions: Search, Edit, Vocal Cut, Sing Along
+                // Actions: Search, Edit, Sync, Vocal Cut, Sing Along
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -462,7 +476,6 @@ fun PlayerKaraokeDialog(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Vocal Reducer (Lead Vocal Cut)
                     KaraokeActionChip(
                         icon = if (isVocalReductionActive) Icons.Default.HearingDisabled else Icons.Default.Hearing,
                         label = if (isVocalReductionActive) "Vocal Cut: ON" else "Vocal Cut",
@@ -494,7 +507,7 @@ fun PlayerKaraokeDialog(
                     )
                 }
 
-                // Mic Mixer & Vocal Visualizer Panel
+                // Mic Mixer & Pitch Monitoring Panel
                 AnimatedVisibility(
                     visible = isMicEnabled,
                     enter = expandVertically() + fadeIn(),
@@ -522,7 +535,7 @@ fun PlayerKaraokeDialog(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Vocal Monitor & Gain",
+                                        text = "Vocal Pitch & Monitor",
                                         style = OniSkin.typography.caption,
                                         fontWeight = FontWeight.Bold,
                                         color = OniSkin.colors.primary
@@ -530,25 +543,36 @@ fun PlayerKaraokeDialog(
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (vocalPitchNote.isNotEmpty()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(OniSkin.colors.primary.copy(alpha = 0.2f))
-                                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = "Note: $vocalPitchNote",
-                                                style = OniSkin.typography.caption,
-                                                fontWeight = FontWeight.Bold,
-                                                color = OniSkin.colors.primary
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                    // Pitch Status Indicator
+                                    val statusText = when (pitchStatus) {
+                                        is PitchStatus.Detected -> "Pitch: ${(pitchStatus as PitchStatus.Detected).note}"
+                                        is PitchStatus.Detecting -> "Detecting..."
+                                        is PitchStatus.NoClearPitch -> "No Clear Pitch"
+                                        is PitchStatus.Listening -> "Listening"
+                                        is PitchStatus.Idle -> "Idle"
                                     }
 
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(
+                                                if (pitchStatus is PitchStatus.Detected) OniSkin.colors.primary.copy(alpha = 0.2f)
+                                                else OniSkin.colors.surfaceVariant
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = statusText,
+                                            style = OniSkin.typography.caption,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (pitchStatus is PitchStatus.Detected) OniSkin.colors.primary else OniSkin.colors.textSecondary
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
                                     Text(
-                                        text = "${(micGain * 100).toInt()}%",
+                                        text = "Gain: ${(micGain * 100).toInt()}%",
                                         style = OniSkin.typography.caption,
                                         fontWeight = FontWeight.Bold,
                                         color = OniSkin.colors.textSecondary
@@ -558,13 +582,13 @@ fun PlayerKaraokeDialog(
 
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            // Vocal frequency/amplitude visualizer canvas
+                            // Vocal amplitude visualizer canvas
                             val primaryColor = OniSkin.colors.primary
                             val outlineColor = OniSkin.colors.outline
                             Canvas(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(28.dp)
+                                    .height(26.dp)
                             ) {
                                 val barCount = 24
                                 val barWidth = size.width / (barCount * 1.5f)
@@ -577,7 +601,7 @@ fun PlayerKaraokeDialog(
                                     val x = i * (barWidth + spacing) + spacing / 2
 
                                     drawLine(
-                                        color = if (heightFactor > 0.3f) primaryColor else outlineColor.copy(alpha = 0.4f),
+                                        color = if (heightFactor > 0.25f) primaryColor else outlineColor.copy(alpha = 0.4f),
                                         start = Offset(x, size.height / 2 - barHeight / 2),
                                         end = Offset(x, size.height / 2 + barHeight / 2),
                                         strokeWidth = barWidth,
@@ -617,7 +641,7 @@ fun PlayerKaraokeDialog(
                                         color = OniSkin.colors.textPrimary
                                     )
                                     Text(
-                                        text = "Use wired/low-latency headphones to prevent feedback",
+                                        text = "Headphones strongly recommended to prevent feedback",
                                         style = OniSkin.typography.caption,
                                         fontSize = 10.sp,
                                         color = OniSkin.colors.textTertiary
@@ -759,10 +783,12 @@ fun PlayerKaraokeDialog(
                                 }
                             }
                         } else {
+                            // Top-reading position: contentPadding top=16.dp and generous bottom padding
+                            // so even the final lines can cleanly reach the top reading position!
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(top = 140.dp, bottom = 180.dp),
+                                contentPadding = PaddingValues(top = 16.dp, bottom = 320.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 itemsIndexed(parsedLrc) { index, line ->
@@ -781,8 +807,8 @@ fun PlayerKaraokeDialog(
                                     } else 1.0f
 
                                     val scale by animateFloatAsState(
-                                        targetValue = (if (isActive) 1.12f else 0.95f) * micPulseScale,
-                                        animationSpec = tween(durationMillis = 200),
+                                        targetValue = (if (isActive) 1.08f else 0.95f) * micPulseScale,
+                                        animationSpec = tween(durationMillis = 180),
                                         label = "karaoke_line_scale"
                                     )
 
@@ -793,7 +819,7 @@ fun PlayerKaraokeDialog(
                                                 viewModel.seekTo(line.timestampMs)
                                                 autoScrollEnabled = true
                                             }
-                                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                                            .padding(vertical = 10.dp, horizontal = 8.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
@@ -812,7 +838,8 @@ fun PlayerKaraokeDialog(
                                 }
                             }
 
-                            if (!autoScrollEnabled && isMicEnabled) {
+                            // Manual scroll paused floating resume button
+                            if (!autoScrollEnabled) {
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
@@ -822,12 +849,21 @@ fun PlayerKaraokeDialog(
                                         .clickable { autoScrollEnabled = true }
                                         .padding(horizontal = 18.dp, vertical = 8.dp)
                                 ) {
-                                    Text(
-                                        text = "Resume Auto-Scroll",
-                                        style = OniSkin.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = OniSkin.colors.onPrimary
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Sync,
+                                            contentDescription = null,
+                                            tint = OniSkin.colors.onPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Resume Auto-Sync",
+                                            style = OniSkin.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = OniSkin.colors.onPrimary
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -885,7 +921,7 @@ fun PlayerKaraokeDialog(
         }
     }
 
-    // Language Selection Modal Bottom Sheet
+    // Language Translation Sheet
     if (showLanguageSheet) {
         val supportedLanguages = listOf(
             "Original",
@@ -915,7 +951,7 @@ fun PlayerKaraokeDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Select Lyrics Language",
+                        text = "Translate Current Lyrics",
                         style = OniSkin.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = OniSkin.colors.textPrimary
@@ -926,7 +962,7 @@ fun PlayerKaraokeDialog(
                 }
 
                 Text(
-                    text = "Translate or romanize lyrics while keeping synchronization timing intact.",
+                    text = "AI translation feature: translate or romanize loaded lyrics while preserving timestamps.",
                     style = OniSkin.typography.caption,
                     color = OniSkin.colors.textSecondary,
                     modifier = Modifier.padding(bottom = 12.dp)
