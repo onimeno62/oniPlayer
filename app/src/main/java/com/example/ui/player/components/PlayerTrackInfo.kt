@@ -59,17 +59,6 @@ fun PlayerTrackInfo(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-
-            if (!album.isNullOrBlank() && album != "Unknown Album") {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = album,
-                    style = OniSkin.typography.caption,
-                    color = OniSkin.colors.textTertiary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
         }
 
         OniFavoriteAction(

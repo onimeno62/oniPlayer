@@ -317,6 +317,20 @@ class MusicRepository(
     }
 
     /**
+     * Translates or romanizes lyrics for a song using Gemini.
+     */
+    suspend fun translateLyrics(lyrics: String, targetLanguage: String): Result<String> = withContext(Dispatchers.IO) {
+        GeminiMusicService.translateLyrics(lyrics, targetLanguage)
+    }
+
+    /**
+     * Saves updated lyrics directly to the database for a song.
+     */
+    suspend fun updateSongLyrics(songId: String, lyrics: String) = withContext(Dispatchers.IO) {
+        songDao.updateLyrics(songId, lyrics)
+    }
+
+    /**
      * Overrides and clean a song's metadata tags both locally in Room and fetches suggestions using Gemini.
      */
     suspend fun optimizeAndEditTagsOnline(songId: String, currentFileName: String, currentTitle: String, currentArtist: String, currentAlbum: String): OptimizedTags? = withContext(Dispatchers.IO) {

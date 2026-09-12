@@ -26,6 +26,7 @@ import com.example.ui.theme.OniSkin
 @Composable
 fun PlayerLyricsPreview(
     currentLyricLine: String?,
+    nextLyricLine: String? = null,
     hasSynchronizedLyrics: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -37,43 +38,81 @@ fun PlayerLyricsPreview(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 48.dp)
+            .defaultMinSize(minHeight = 52.dp)
             .padding(horizontal = horizontalPadding)
             .testTag("player_lyrics_preview")
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.xs),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Lyrics, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
+            Icon(
+                imageVector = Icons.Default.Lyrics,
+                contentDescription = "Lyrics and Karaoke",
+                tint = OniSkin.colors.primary,
+                modifier = Modifier.size(20.dp)
+            )
             Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
-            val displayText = when {
-                !currentLyricLine.isNullOrBlank() -> currentLyricLine
-                hasSynchronizedLyrics -> "Synchronized lyrics available · Tap to sing"
-                else -> "Lyrics & Karaoke · Tap to view or search"
-            }
+
             val motion = OniSkin.motion
             AnimatedContent(
-                targetState = displayText,
+                targetState = Pair(currentLyricLine, nextLyricLine),
                 transitionSpec = {
                     fadeIn(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing)) togetherWith
                         fadeOut(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing))
                 },
                 label = "lyrics_preview_text_transition",
                 modifier = Modifier.weight(1f)
-            ) { targetText ->
-                Text(
-                    text = targetText,
-                    style = OniSkin.typography.bodySmall,
-                    fontWeight = if (!currentLyricLine.isNullOrBlank()) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (!currentLyricLine.isNullOrBlank()) OniSkin.colors.textPrimary else OniSkin.colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Start
-                )
+            ) { (current, next) ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (!current.isNullOrBlank()) {
+                        // Two-line layout: Line 1 (current singing line), Line 2 (upcoming line or wrapped line)
+                        Text(
+                            text = current,
+                            style = OniSkin.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = OniSkin.colors.textPrimary,
+                            maxLines = if (next.isNullOrBlank()) 2 else 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Start
+                        )
+                        if (!next.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = next,
+                                style = OniSkin.typography.bodySmall,
+                                fontWeight = FontWeight.Normal,
+                                color = OniSkin.colors.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Start
+                            )
+                        }
+                    } else {
+                        // Only shown when song has no lyrics at all
+                        Text(
+                            text = "Lyrics & Karaoke",
+                            style = OniSkin.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = OniSkin.colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(1.dp))
+                        Text(
+                            text = "Tap to view or search online",
+                            style = OniSkin.typography.bodySmall,
+                            color = OniSkin.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
     }

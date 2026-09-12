@@ -517,8 +517,51 @@ object GeminiMusicService {
         return cleaned.ifEmpty { artist }
     }
 
+    fun detectLyricsLanguage(text: String, title: String = ""): String {
+        val lowerTitle = title.lowercase()
+        if (lowerTitle.contains("romaji") || lowerTitle.contains("romanized")) return "Romaji (Phonetic)"
+        if (lowerTitle.contains("english ver") || lowerTitle.contains("english trans") || lowerTitle.contains("english")) return "English"
+        if (lowerTitle.contains("spanish ver") || lowerTitle.contains("español")) return "Spanish"
+
+        val clean = com.example.ui.lyrics.LyricsHelper.stripLrcTags(text).take(800)
+        val hasKana = clean.any { it in '\u3040'..'\u309F' || it in '\u30A0'..'\u30FF' }
+        val hasHangul = clean.any { it in '\uAC00'..'\uD7AF' || it in '\u1100'..'\u11FF' }
+        val hasKanji = clean.any { it in '\u4E00'..'\u9FFF' }
+        val hasCyrillic = clean.any { it in '\u0400'..'\u04FF' }
+
+        if (hasKana) return "Japanese (日本語)"
+        if (hasHangul) return "Korean (한국어)"
+        if (hasKanji) return "Chinese (中文)"
+        if (hasCyrillic) return "Russian (Русский)"
+
+        val lower = clean.lowercase()
+        val romajiMarkers = listOf("watashi", "anata", "bokura", "kokoro", "sekai", "kimi", "kono", "sono", "ano", "ashita", "sarang", "jigeum", "neowa")
+        val words = lower.split(Regex("\\s+")).take(60)
+        if (romajiMarkers.count { words.contains(it) } >= 2) {
+            return "Romaji (Phonetic)"
+        }
+
+        val spanishMarkers = listOf("que", "de", "la", "el", "en", "te", "amor", "corazón", "por", "para", "como", "vida")
+        if (spanishMarkers.count { words.contains(it) } >= 3) {
+            return "Spanish (Español)"
+        }
+
+        val frenchMarkers = listOf("je", "tu", "est", "le", "la", "dans", "pour", "avec", "nous", "vous", "mon")
+        if (frenchMarkers.count { words.contains(it) } >= 3) {
+            return "French (Français)"
+        }
+
+        val germanMarkers = listOf("ich", "du", "ist", "und", "der", "die", "das", "nicht", "wir")
+        if (germanMarkers.count { words.contains(it) } >= 3) {
+            return "German (Deutsch)"
+        }
+
+        return "English / Original"
+    }
+
     /**
      * Searches online for song lyrics options from public lyrics repositories (LRCLIB, Lyrics.ovh, Lyrist).
+     * Surfaces all available language versions and synchronizations.
      */
     suspend fun searchLyricsOnlineMulti(title: String, artist: String, source: String = "Default"): List<Triple<String, Double, String>> = withContext(Dispatchers.IO) {
         val results = mutableListOf<Triple<String, Double, String>>()
@@ -535,8 +578,8 @@ object GeminiMusicService {
         val queryOvh = isDefault || source.contains("ovh", ignoreCase = true)
 
         val labelPrefix = when {
-            source.contains("LRCLIB", ignoreCase = true) -> "LRCLIB Database"
-            source.contains("Lyrist", ignoreCase = true) -> "Lyrist API"
+            source.contains("LRCLIB", ignoreCase = true) -> "LRCLIB"
+            source.contains("Lyrist", ignoreCase = true) -> "Lyrist"
             source.contains("ovh", ignoreCase = true) -> "Lyrics.ovh"
             else -> "Live Database"
         }
@@ -558,20 +601,25 @@ object GeminiMusicService {
                         val body = response.body?.string() ?: ""
                         if (body.isNotEmpty()) {
                             val jsonArray = JSONArray(body)
-                            val limit = minOf(jsonArray.length(), 2)
+                            val limit = minOf(jsonArray.length(), 10)
                             for (i in 0 until limit) {
                                 val item = jsonArray.getJSONObject(i)
                                 val albumName = item.optString("albumName", "")
+                                val recArtist = item.optString("artistName", cleanArtist)
+                                val recTitle = item.optString("trackName", cleanTitle)
                                 val plainLyrics = item.optString("plainLyrics", "").trim()
                                 val syncedLyrics = item.optString("syncedLyrics", "").trim()
                                 
-                                val label = if (albumName.isNotEmpty()) "$labelPrefix: $albumName Release" else "$labelPrefix Official"
+                                val sampleLyrics = syncedLyrics.ifEmpty { plainLyrics }
+                                val lang = detectLyricsLanguage(sampleLyrics, "$recTitle $albumName")
+                                
+                                val baseLabel = if (albumName.isNotEmpty()) "$labelPrefix: $albumName • $lang" else "$labelPrefix: $recTitle • $lang"
                                 
                                 if (syncedLyrics.isNotEmpty() && results.none { it.third == syncedLyrics }) {
-                                    results.add(Triple("$label (Synced)", 5.0 - (i * 0.2), syncedLyrics))
+                                    results.add(Triple("$baseLabel (Synced)", 5.0 - (i * 0.1), syncedLyrics))
                                 }
                                 if (plainLyrics.isNotEmpty() && results.none { it.third == plainLyrics }) {
-                                    results.add(Triple(label, 4.8 - (i * 0.2), plainLyrics))
+                                    results.add(Triple(baseLabel, 4.8 - (i * 0.1), plainLyrics))
                                 }
                             }
                         }
@@ -582,8 +630,8 @@ object GeminiMusicService {
             }
         }
 
-        // 2. Try LRCLIB General Query Search if we have fewer than 2 results and queryLrcLib is true
-        if (queryLrcLib && results.size < 2) {
+        // 2. Try LRCLIB General Query Search to capture alternative releases and language translations
+        if (queryLrcLib && results.size < 6) {
             try {
                 val queryTerm = if (cleanArtist.isNotEmpty()) "$cleanArtist $cleanTitle" else cleanTitle
                 val encodedQuery = java.net.URLEncoder.encode(queryTerm, "UTF-8")
@@ -599,21 +647,24 @@ object GeminiMusicService {
                         val body = response.body?.string() ?: ""
                         if (body.isNotEmpty()) {
                             val jsonArray = JSONArray(body)
-                            val limit = minOf(jsonArray.length(), 3)
+                            val limit = minOf(jsonArray.length(), 8)
                             for (i in 0 until limit) {
                                 val item = jsonArray.getJSONObject(i)
                                 val plainLyrics = item.optString("plainLyrics", "").trim()
                                 val syncedLyrics = item.optString("syncedLyrics", "").trim()
                                 val recArtist = item.optString("artistName", cleanArtist)
                                 val recTitle = item.optString("trackName", cleanTitle)
+                                val albumName = item.optString("albumName", "")
                                 
-                                val label = "$labelPrefix: $recTitle by $recArtist"
+                                val sampleLyrics = syncedLyrics.ifEmpty { plainLyrics }
+                                val lang = detectLyricsLanguage(sampleLyrics, "$recTitle $albumName")
+                                val baseLabel = "$labelPrefix: $recTitle • $lang"
                                 
                                 if (syncedLyrics.isNotEmpty() && results.none { it.third == syncedLyrics }) {
-                                    results.add(Triple("$label (Synced)", 4.9 - (i * 0.2), syncedLyrics))
+                                    results.add(Triple("$baseLabel (Synced)", 4.9 - (i * 0.1), syncedLyrics))
                                 }
                                 if (plainLyrics.isNotEmpty() && results.none { it.third == plainLyrics }) {
-                                    results.add(Triple(label, 4.7 - (i * 0.2), plainLyrics))
+                                    results.add(Triple(baseLabel, 4.7 - (i * 0.1), plainLyrics))
                                 }
                             }
                         }
@@ -648,8 +699,9 @@ object GeminiMusicService {
                             val lyrics = root.optString("lyrics", "").trim()
                             val resArtist = root.optString("artist", cleanArtist)
                             val resTitle = root.optString("title", cleanTitle)
+                            val lang = detectLyricsLanguage(lyrics, resTitle)
                             if (lyrics.isNotEmpty() && results.none { it.third == lyrics }) {
-                                results.add(Triple("$labelPrefix: $resTitle ($resArtist)", 4.9, lyrics))
+                                results.add(Triple("$labelPrefix: $resTitle • $lang", 4.9, lyrics))
                             }
                         }
                     }
@@ -929,6 +981,66 @@ object GeminiMusicService {
             Log.e(TAG, "Error optimizing tags with Gemini: ${e.message}", e)
         }
         return@withContext defaultResult
+    }
+
+    /**
+     * Translates or romanizes song lyrics while strictly maintaining LRC timestamps.
+     */
+    suspend fun translateLyrics(
+        lyricsText: String,
+        targetLanguage: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        val apiKey = getApiKey()
+        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext Result.failure(IllegalStateException("Gemini API key is required for lyrics translation. Please configure GEMINI_API_KEY in Secrets."))
+        }
+
+        val prompt = """
+            You are an expert music translator and lyrical linguist.
+            Translate or romanize the following lyrics into $targetLanguage.
+            
+            CRITICAL FORMATTING RULES:
+            1. If the input contains LRC timestamps like [01:23.45], [00:12], or [02:30.120], you MUST PRESERVE EVERY SINGLE TIMESTAMP EXACTLY IN PLACE. Do not delete, change, or reformat any timestamps.
+            2. If targetLanguage is "Romanized / Romaji", convert non-Latin scripts (Japanese Kanji/Kana, Korean Hangul, Chinese Hanzi, Cyrillic, etc.) to Latin/Romaji phonetics so listeners can sing along phonetically.
+            3. If translating into another natural language, preserve poetic cadence, rhythm, and lyrical meaning.
+            4. Keep line-for-line correspondence. Do not combine or split lines.
+            5. Output ONLY the resulting lyrics lines. Do NOT include markdown codeblocks, explanations, greetings, or notes.
+
+            Lyrics to translate:
+            $lyricsText
+        """.trimIndent()
+
+        val requestJson = buildRequestBody(
+            prompt = prompt,
+            systemPrompt = "You are a professional music lyric translator. Return ONLY translated lyrics with timestamps completely intact.",
+            isJson = false
+        )
+
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = requestJson.toRequestBody(mediaType)
+
+        val request = Request.Builder()
+            .url(API_URL)
+            .addHeader("x-goog-api-key", apiKey)
+            .post(body)
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val errorBody = response.body?.string() ?: ""
+                    Log.e(TAG, "Gemini translation failed code ${response.code}: $errorBody")
+                    return@withContext Result.failure(Exception("Translation service error (${response.code})"))
+                }
+                val responseBody = response.body?.string() ?: return@withContext Result.failure(Exception("Empty translation response"))
+                val text = parseGeminiResponse(responseBody) ?: return@withContext Result.failure(Exception("Failed to parse translation from Gemini"))
+                val cleanLyrics = text.removePrefix("```lrc").removePrefix("```").removeSuffix("```").trim()
+                Result.success(cleanLyrics)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during lyrics translation: ${e.message}", e)
+            Result.failure(e)
+        }
     }
 
     private fun buildRequestBody(prompt: String, systemPrompt: String, isJson: Boolean): String {

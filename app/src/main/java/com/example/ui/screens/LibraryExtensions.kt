@@ -38,11 +38,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.SongEntity
+import com.example.ui.library.PlaylistDetailScreen
+import com.example.ui.library.PlaylistsScreen
+import com.example.ui.library.model.toPlaylistUiModels
 import com.example.ui.viewmodel.MusicPlayerViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
 
@@ -215,396 +221,117 @@ fun PlaylistsView(
     onShowTrackMenu: (SongEntity) -> Unit,
     layoutMode: String
 ) {
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+
+    val playlistUiModels = remember(playlists, songs) {
+        playlists.toPlaylistUiModels(songs)
+    }
 
     if (activePlaylist == null) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Your Playlists", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { showImportDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Input, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Import M3U", fontSize = 12.sp)
+        PlaylistsScreen(
+            playlists = playlistUiModels,
+            layoutMode = layoutMode,
+            onPlaylistClick = { uiModel ->
+                val entity = playlists.find { it.id == uiModel.id }
+                onActivePlaylistChange(entity)
+            },
+            onPlayPlaylist = { uiModel ->
+                val songMap = songs.associateBy { it.id }
+                val targetSongs = uiModel.songIds.mapNotNull { songMap[it] }
+                if (targetSongs.isNotEmpty()) {
+                    viewModel.playSong(targetSongs.first(), targetSongs)
+                }
+            },
+            onShufflePlaylist = { uiModel ->
+                val songMap = songs.associateBy { it.id }
+                val targetSongs = uiModel.songIds.mapNotNull { songMap[it] }
+                if (targetSongs.isNotEmpty()) {
+                    viewModel.playSong(targetSongs.random(), targetSongs)
+                }
+            },
+            onCreatePlaylist = { name ->
+                viewModel.createPlaylist(name)
+                Toast.makeText(context, "Created playlist \"$name\"", Toast.LENGTH_SHORT).show()
+            },
+            onRenamePlaylist = { id, newName ->
+                viewModel.renamePlaylist(id, newName)
+                Toast.makeText(context, "Renamed playlist", Toast.LENGTH_SHORT).show()
+            },
+            onDeletePlaylist = { id ->
+                viewModel.deletePlaylist(id)
+                Toast.makeText(context, "Playlist deleted", Toast.LENGTH_SHORT).show()
+            },
+            onImportM3U = { name, m3uContent ->
+                scope.launch(Dispatchers.IO) {
+                    val lines = m3uContent.lines()
+                    val matchedIds = mutableListOf<String>()
+                    lines.forEach { line ->
+                        val trimmed = line.trim()
+                        if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
+                            val matching = songs.find { s ->
+                                s.filePath.endsWith(trimmed.substringAfterLast("/")) ||
+                                s.filePath.contains(trimmed) ||
+                                s.title.equals(trimmed, ignoreCase = true)
+                            }
+                            if (matching != null && !matchedIds.contains(matching.id)) {
+                                matchedIds.add(matching.id)
+                            }
+                        }
                     }
-
-                    Button(
-                        onClick = { showCreateDialog = true },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Create", fontSize = 12.sp)
+                    withContext(Dispatchers.Main) {
+                        viewModel.createPlaylist(name, matchedIds)
+                        Toast.makeText(context, "Imported \"$name\" (${matchedIds.size} matched tracks)", Toast.LENGTH_LONG).show()
                     }
                 }
-            }
-
-            if (playlists.isEmpty()) {
-                com.example.ui.library.components.LibraryEmptyState(
-                    title = "No Playlists",
-                    message = "No playlists created yet. Create one or import an M3U playlist.",
-                    modifier = Modifier.fillMaxSize().weight(1f),
-                    icon = Icons.Default.QueueMusic
-                )
-            } else if (layoutMode == "grid") {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxSize().weight(1f),
-                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(playlists.size, key = { index -> playlists[index].id }) { index ->
-                        val playlist = playlists[index]
-                        val songIds = remember(playlist.songIdsJson) {
-                            try {
-                                val array = org.json.JSONArray(playlist.songIdsJson)
-                                List(array.length()) { array.getString(it) }
-                            } catch (e: Exception) {
-                                emptyList()
-                            }
-                        }
-
-                        val firstSongArtUri = remember(songs, playlist.songIdsJson) {
-                            try {
-                                val array = org.json.JSONArray(playlist.songIdsJson)
-                                if (array.length() > 0) {
-                                    val firstId = array.getString(0)
-                                    songs.find { it.id == firstId }?.albumArtUri
-                                } else {
-                                    null
-                                }
-                            } catch (e: Exception) {
-                                null
-                            }
-                        }
-
-                        Card(
-                            onClick = { onActivePlaylistChange(playlist) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(0.85f),
-                            shape = RoundedCornerShape(dashboardRadiusMedium()),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                        ) {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(dashboardRadiusMedium()))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (firstSongArtUri != null) {
-                                            coil.compose.AsyncImage(
-                                                model = firstSongArtUri,
-                                                contentDescription = "Playlist Cover",
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Crop,
-                                                error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play)
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(36.dp)
-                                            )
-                                        }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = playlist.name,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onBackground,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            fontSize = 14.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "${songIds.size} tracks",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                IconButton(
-                                    onClick = {
-                                        viewModel.deletePlaylist(playlist.id)
-                                        Toast.makeText(context, "Playlist Deleted", Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp)
-                                        .background(Color.Black.copy(alpha = 0.35f), CircleShape)
-                                        .size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete Playlist",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize().weight(1f)) {
-                    items(playlists) { playlist ->
-                        val songIds = remember(playlist.songIdsJson) {
-                            try {
-                                val array = JSONArray(playlist.songIdsJson)
-                                List(array.length()) { array.getString(it) }
-                            } catch (e: Exception) {
-                                emptyList()
-                            }
-                        }
-
-                        Card(
-                            onClick = { onActivePlaylistChange(playlist) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    }
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column {
-                                        Text(playlist.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                                        Text("${songIds.size} tracks", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-
-                                IconButton(
-                                    onClick = {
-                                        viewModel.deletePlaylist(playlist.id)
-                                        Toast.makeText(context, "Playlist Deleted", Toast.LENGTH_SHORT).show()
-                                    }
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete Playlist", tint = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            },
+            gridIndex = viewModel.playlistsGridIndex,
+            gridOffset = viewModel.playlistsGridOffset,
+            onGridScroll = { i, o -> viewModel.playlistsGridIndex = i; viewModel.playlistsGridOffset = o },
+            listIndex = viewModel.playlistsListIndex,
+            listOffset = viewModel.playlistsListOffset,
+            onListScroll = { i, o -> viewModel.playlistsListIndex = i; viewModel.playlistsListOffset = o }
+        )
     } else {
-        // View Playlist songs
-        val playlistSongs = remember(songs, activePlaylist) {
+        val songsInPlaylist = remember(songs, activePlaylist) {
             val songIds = try {
-                val array = JSONArray(activePlaylist!!.songIdsJson)
+                val array = JSONArray(activePlaylist.songIdsJson)
                 List(array.length()) { array.getString(it) }
             } catch (e: Exception) {
                 emptyList()
             }
-            songs.filter { songIds.contains(it.id) }
+            val songMap = songs.associateBy { it.id }
+            songIds.mapNotNull { songMap[it] }
         }
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { onActivePlaylistChange(null) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = activePlaylist?.name ?: "",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        val m3uContent = StringBuilder("#EXTM3U\n")
-                        playlistSongs.forEach { s ->
-                            m3uContent.append("#EXTINF:${s.duration / 1000},${s.displayArtist} - ${s.displayTitle}\n")
-                            m3uContent.append("${s.filePath}\n")
-                        }
-                        // Export simulation
-                        Toast.makeText(context, "Exported successfully to: ${activePlaylist?.name}.m3u", Toast.LENGTH_LONG).show()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Output, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Export M3U", fontSize = 12.sp)
-                }
-            }
-
-            if (playlistSongs.isEmpty()) {
-                com.example.ui.library.components.LibraryEmptyState(
-                    title = "Empty Playlist",
-                    message = "This playlist has no tracks yet. Add some tracks from the songs menu.",
-                    modifier = Modifier.fillMaxSize(),
-                    icon = Icons.Default.QueueMusic
-                )
-            } else {
-                SongsListView(
-                    songs = playlistSongs,
-                    viewModel = viewModel,
-                    sortBy = "title",
-                    isSortAscending = true,
-                    onShowTrackMenu = onShowTrackMenu,
-                    layoutMode = layoutMode
-                )
-            }
-        }
-    }
-
-    // Create dialog
-    if (showCreateDialog) {
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showCreateDialog = false },
-            title = { Text("New Playlist") },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Playlist Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (name.isNotBlank()) {
-                            viewModel.createPlaylist(name)
-                            showCreateDialog = false
-                            Toast.makeText(context, "Playlist Created!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                ) {
-                    Text("Create")
+        PlaylistDetailScreen(
+            playlist = activePlaylist,
+            songsInPlaylist = songsInPlaylist,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
+            onPlayAll = {
+                if (songsInPlaylist.isNotEmpty()) {
+                    viewModel.playSong(songsInPlaylist.first(), songsInPlaylist)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showCreateDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    // Import M3U Simulation Dialog
-    if (showImportDialog) {
-        var playlistName by remember { mutableStateOf("") }
-        var m3uBody by remember { mutableStateOf("#EXTM3U\n#EXTINF:180,Retro Drive\n/storage/emulated/0/Music/Retro_Drive.mp3") }
-
-        AlertDialog(
-            onDismissRequest = { showImportDialog = false },
-            title = { Text("Import M3U Playlist") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = playlistName,
-                        onValueChange = { playlistName = it },
-                        label = { Text("Playlist Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = m3uBody,
-                        onValueChange = { m3uBody = it },
-                        label = { Text("M3U Content / File Content") },
-                        modifier = Modifier.fillMaxWidth().height(120.dp)
-                    )
+            onShufflePlay = {
+                if (songsInPlaylist.isNotEmpty()) {
+                    viewModel.playSong(songsInPlaylist.random(), songsInPlaylist)
                 }
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (playlistName.isNotBlank()) {
-                            // Search songs path match
-                            val matchedIds = mutableListOf<String>()
-                            val lines = m3uBody.lines()
-                            lines.forEach { line ->
-                                if (line.isNotBlank() && !line.startsWith("#")) {
-                                    val matchedSong = songs.find { s -> s.filePath.endsWith(line.substringAfterLast("/")) }
-                                    if (matchedSong != null) {
-                                        matchedIds.add(matchedSong.id)
-                                    }
-                                }
-                            }
-                            // Insert playlist
-                            val id = "playlist_imported_" + System.currentTimeMillis()
-                            val songIdsJson = JSONArray(matchedIds).toString()
-                            scope.launch {
-                                viewModel.createPlaylist(playlistName)
-                                // Add matched song ids
-                                matchedIds.forEach { sId ->
-                                    viewModel.addSongToPlaylist(sId, "playlist_" + playlistName)
-                                }
-                            }
-                            showImportDialog = false
-                            Toast.makeText(context, "M3U Imported with ${matchedIds.size} matched tracks!", Toast.LENGTH_LONG).show()
-                        } else {
-                            Toast.makeText(context, "Please enter a playlist name", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                ) {
-                    Text("Import")
-                }
+            onSongClick = { song ->
+                viewModel.playSong(song, songsInPlaylist)
             },
-            dismissButton = {
-                TextButton(onClick = { showImportDialog = false }) { Text("Cancel") }
+            onShowTrackMenu = onShowTrackMenu,
+            onExportM3U = {
+                val m3uContent = StringBuilder("#EXTM3U\n")
+                songsInPlaylist.forEach { s ->
+                    m3uContent.append("#EXTINF:${s.duration / 1000},${s.displayArtist} - ${s.displayTitle}\n")
+                    m3uContent.append("${s.filePath}\n")
+                }
+                Toast.makeText(context, "Exported: ${activePlaylist.name}.m3u", Toast.LENGTH_LONG).show()
             }
         )
     }

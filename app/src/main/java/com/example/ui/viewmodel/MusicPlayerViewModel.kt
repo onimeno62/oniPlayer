@@ -95,6 +95,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     var groupedListIndex: Int = 0
     var groupedListOffset: Int = 0
 
+    // Scroll positions for PlaylistsScreen
+    var playlistsGridIndex: Int = 0
+    var playlistsGridOffset: Int = 0
+    var playlistsListIndex: Int = 0
+    var playlistsListOffset: Int = 0
+
     // User selected theme state
     private val _currentTheme = MutableStateFlow(OniTheme.HIGH_DENSITY)
     val currentTheme: StateFlow<OniTheme> = _currentTheme.asStateFlow()
@@ -422,6 +428,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _eqVirtualizer = MutableStateFlow(0f)
     val eqVirtualizer: StateFlow<Float> = _eqVirtualizer.asStateFlow()
+
+    private val _isVocalReductionActive = MutableStateFlow(false)
+    val isVocalReductionActive: StateFlow<Boolean> = _isVocalReductionActive.asStateFlow()
+    private var preVocalReductionGains: FloatArray? = null
+
+    private val lyricsTranslationCache = mutableMapOf<String, String>()
 
     init {
         scanAndLoad()
@@ -1060,6 +1072,40 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    /**
+     * Translates or romanizes lyrics for a song using Gemini.
+     * Caches in memory for instant switching.
+     */
+    fun translateSongLyrics(
+        songId: String,
+        lyricsText: String,
+        targetLanguage: String,
+        onResult: (Result<String>) -> Unit
+    ) {
+        val cacheKey = "${songId}_$targetLanguage"
+        val cached = lyricsTranslationCache[cacheKey]
+        if (cached != null) {
+            onResult(Result.success(cached))
+            return
+        }
+
+        viewModelScope.launch {
+            val result = repository.translateLyrics(lyricsText, targetLanguage)
+            result.onSuccess { translated ->
+                lyricsTranslationCache[cacheKey] = translated
+            }
+            onResult(result)
+        }
+    }
+
+    /**
+     * Shifts the timestamps of an LRC string by offsetMs and saves to the database.
+     */
+    fun shiftSongLyricsTiming(songId: String, currentLyrics: String, offsetMs: Long) {
+        val shifted = com.example.ui.lyrics.LyricsHelper.shiftLrcTimestamps(currentLyrics, offsetMs)
+        updateLyrics(songId, shifted)
+    }
+
     fun optimizeMetadataWithGemini(song: SongEntity, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
             _isOptimizingTags.value = true
@@ -1177,6 +1223,42 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         _currentPresetName.value = "Custom"
     }
 
+    /**
+     * Toggles karaoke lead-vocal reduction (instrumental backing mode).
+     * Dips the vocal frequency bands while preserving bass and highs.
+     */
+    fun toggleVocalReduction() {
+        setVocalReduction(!_isVocalReductionActive.value)
+    }
+
+    fun setVocalReduction(enabled: Boolean) {
+        if (_isVocalReductionActive.value == enabled) return
+        _isVocalReductionActive.value = enabled
+        if (enabled) {
+            preVocalReductionGains = floatArrayOf(
+                _eqBand60Hz.value,
+                _eqBand230Hz.value,
+                _eqBand910Hz.value,
+                _eqBand4kHz.value,
+                _eqBand14kHz.value
+            )
+            // Attenuate mid frequencies (lead vocals) while maintaining rhythm and air
+            audioEngine.setBandGain(0, (_eqBand60Hz.value + 1.5f).coerceAtMost(12f))
+            audioEngine.setBandGain(1, (_eqBand230Hz.value - 3.0f).coerceAtLeast(-12f))
+            audioEngine.setBandGain(2, -12.0f) // Cut primary vocal formant band
+            audioEngine.setBandGain(3, -9.0f)  // Cut vocal presence band
+            audioEngine.setBandGain(4, _eqBand14kHz.value)
+        } else {
+            preVocalReductionGains?.let { gains ->
+                audioEngine.setBandGain(0, gains[0])
+                audioEngine.setBandGain(1, gains[1])
+                audioEngine.setBandGain(2, gains[2])
+                audioEngine.setBandGain(3, gains[3])
+                audioEngine.setBandGain(4, gains[4])
+            }
+        }
+    }
+
     fun selectPreset(preset: EqualizerPresetEntity) {
         _currentPresetName.value = preset.name
         _eqBand60Hz.value = preset.band60Hz
@@ -1217,10 +1299,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun createPlaylist(name: String) {
+    fun createPlaylist(name: String, initialSongIds: List<String> = emptyList()) {
         viewModelScope.launch {
             val id = "playlist_" + System.currentTimeMillis()
-            val playlist = PlaylistEntity(id = id, name = name, songIdsJson = "[]")
+            val distinctIds = initialSongIds.distinct()
+            val initialJson = JSONArray(distinctIds).toString()
+            val playlist = PlaylistEntity(id = id, name = name, songIdsJson = initialJson)
             repository.insertPlaylist(playlist)
         }
     }
@@ -1228,6 +1312,20 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     fun deletePlaylist(playlistId: String) {
         viewModelScope.launch {
             repository.deletePlaylistById(playlistId)
+            if (_activePlaylist.value?.id == playlistId) {
+                _activePlaylist.value = null
+            }
+        }
+    }
+
+    fun renamePlaylist(playlistId: String, newName: String) {
+        viewModelScope.launch {
+            val playlist = database.songDao().getPlaylistById(playlistId) ?: return@launch
+            val updated = playlist.copy(name = newName.trim())
+            repository.insertPlaylist(updated)
+            if (_activePlaylist.value?.id == playlistId) {
+                _activePlaylist.value = updated
+            }
         }
     }
 

@@ -28,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -43,8 +44,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import com.example.data.entity.SongEntity
 import com.example.ui.lyrics.LyricsHelper
+import com.example.ui.lyrics.LrcLine
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.screens.LyricsEditorDialog
@@ -56,10 +59,15 @@ import com.example.ui.viewmodel.MusicPlayerViewModel
 /**
  * Full-screen Synchronized Lyrics & Karaoke Sing-Along dialog in Default Skin.
  *
- * Preserves the full real-time mic engine, vocal visualizer, audio amplitude scaling,
- * seek-on-tap, and manual lyrics management without regressions.
- * Migrated to Default Skin design system tokens.
+ * Features:
+ * - Real-time Sing Along vocal visualizer & RMS gain
+ * - Live Headphone Ear Monitor (PCM passthrough) & Musical Pitch detection
+ * - Center-channel lead vocal reduction (instrumental karaoke mode)
+ * - Quick Timing Offset Calibration (±100ms / ±500ms sync nudge)
+ * - Multi-language lyrics selection & AI translation / Romanization
+ * - Fluid auto-scroll with interactive pause & centered reading alignment
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerKaraokeDialog(
     song: SongEntity,
@@ -70,15 +78,42 @@ fun PlayerKaraokeDialog(
     val currentPosition by viewModel.position.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
+    val isVocalReductionActive by viewModel.isVocalReductionActive.collectAsStateWithLifecycle()
 
     var showManualSearch by remember { mutableStateOf(false) }
     var showLyricsEditor by remember { mutableStateOf(false) }
     var showSyncEditor by remember { mutableStateOf(false) }
+    var showOffsetControls by remember { mutableStateOf(false) }
+    var showLanguageSheet by remember { mutableStateOf(false) }
+
+    // Language & Translation State
+    var selectedLanguage by remember(song.id) { mutableStateOf("Original") }
+    var isTranslatingLyrics by remember { mutableStateOf(false) }
+    var translatedLyricsText by remember(song.id) { mutableStateOf<String?>(null) }
+
+    // Manual sync offset nudge (in milliseconds)
+    var manualOffsetMs by remember(song.id) { mutableStateOf(0L) }
 
     val rawLyrics = song.lyrics ?: ""
-    val parsedLrc = remember(rawLyrics) { LyricsHelper.parseLrc(rawLyrics) }
-    val activeLrcIndex: Int = remember(currentPosition, parsedLrc) {
-        LyricsHelper.getActiveLineIndex(parsedLrc, currentPosition)
+    val activeLyricsText = remember(selectedLanguage, translatedLyricsText, rawLyrics) {
+        if (selectedLanguage == "Original" || translatedLyricsText.isNullOrBlank()) {
+            rawLyrics
+        } else {
+            translatedLyricsText!!
+        }
+    }
+
+    val parsedLrc = remember(activeLyricsText) {
+        LyricsHelper.parseLrc(activeLyricsText).filter { it.text.isNotBlank() }
+    }
+
+    // Effective playback position with manual calibration offset
+    val effectivePosition = remember(currentPosition, manualOffsetMs) {
+        maxOf(0L, currentPosition + manualOffsetMs)
+    }
+
+    val activeLrcIndex: Int = remember(effectivePosition, parsedLrc) {
+        LyricsHelper.getActiveLineIndex(parsedLrc, effectivePosition)
     }
 
     Dialog(
@@ -94,13 +129,15 @@ fun PlayerKaraokeDialog(
         ) {
             var autoScrollEnabled by remember { mutableStateOf(true) }
             val listState = rememberLazyListState()
-            var showPlainTextMode by remember(song.lyrics) {
-                mutableStateOf(!LyricsHelper.isSynced(song.lyrics))
+            var showPlainTextMode by remember(activeLyricsText) {
+                mutableStateOf(!LyricsHelper.isSynced(activeLyricsText))
             }
 
             val isMicEnabled by viewModel.karaokeMicEngine.isMicEnabled.collectAsStateWithLifecycle()
             val micAmplitude by viewModel.karaokeMicEngine.amplitude.collectAsStateWithLifecycle()
             val micGain by viewModel.karaokeMicEngine.micGain.collectAsStateWithLifecycle()
+            val isAudioPassThroughEnabled by viewModel.karaokeMicEngine.isAudioPassThroughEnabled.collectAsStateWithLifecycle()
+            val vocalPitchNote by viewModel.karaokeMicEngine.vocalPitchNote.collectAsStateWithLifecycle()
 
             val hasMicPermission = ContextCompat.checkSelfPermission(
                 context,
@@ -118,10 +155,26 @@ fun PlayerKaraokeDialog(
                 }
             }
 
-            // Auto-scroll logic: scroll active highlighted line into view
-            LaunchedEffect(activeLrcIndex) {
+            // Auto-scroll logic: when sing-along is active (mic enabled), manual dragging pauses
+            // auto-scroll so the singer can browse cues and manually tap Resume.
+            // Otherwise, it usually auto scrolls the lyric automatically.
+            LaunchedEffect(listState.isScrollInProgress, isMicEnabled) {
+                if (listState.isScrollInProgress) {
+                    autoScrollEnabled = false
+                } else if (!isMicEnabled) {
+                    // Usually auto scroll the lyric when sing-along is not active
+                    delay(2000)
+                    autoScrollEnabled = true
+                }
+            }
+
+            // Smoothly auto-scroll and keep the active lyric line centered
+            LaunchedEffect(activeLrcIndex, autoScrollEnabled) {
                 if (autoScrollEnabled && activeLrcIndex >= 0 && parsedLrc.isNotEmpty()) {
-                    listState.animateScrollToItem(activeLrcIndex)
+                    listState.animateScrollToItem(
+                        index = maxOf(0, activeLrcIndex),
+                        scrollOffset = -180
+                    )
                 }
             }
 
@@ -129,7 +182,7 @@ fun PlayerKaraokeDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
                 // Header
                 Row(
@@ -156,7 +209,7 @@ fun PlayerKaraokeDialog(
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                     ) {
                         Text(
                             text = song.customTitle ?: song.title,
@@ -175,48 +228,67 @@ fun PlayerKaraokeDialog(
                         )
                     }
 
-                    if (!showPlainTextMode) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Language Selector Chip
                         IconButton(
-                            onClick = { autoScrollEnabled = !autoScrollEnabled },
+                            onClick = { showLanguageSheet = true },
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (autoScrollEnabled) OniSkin.colors.primary.copy(alpha = 0.15f)
+                                    if (selectedLanguage != "Original") OniSkin.colors.primary.copy(alpha = 0.18f)
                                     else OniSkin.colors.surfaceVariant
                                 )
                         ) {
                             Icon(
-                                imageVector = if (autoScrollEnabled) Icons.Default.CompassCalibration else Icons.Default.ExploreOff,
-                                contentDescription = "Toggle auto-scroll",
-                                tint = if (autoScrollEnabled) OniSkin.colors.primary else OniSkin.colors.textSecondary
+                                imageVector = Icons.Default.Language,
+                                contentDescription = "Select Lyrics Language",
+                                tint = if (selectedLanguage != "Original") OniSkin.colors.primary else OniSkin.colors.textSecondary
                             )
                         }
-                    } else {
-                        Spacer(modifier = Modifier.size(40.dp))
+
+                        if (!showPlainTextMode) {
+                            IconButton(
+                                onClick = { autoScrollEnabled = !autoScrollEnabled },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (autoScrollEnabled) OniSkin.colors.primary.copy(alpha = 0.15f)
+                                        else OniSkin.colors.surfaceVariant
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = if (autoScrollEnabled) Icons.Default.CompassCalibration else Icons.Default.ExploreOff,
+                                    contentDescription = "Toggle auto-scroll",
+                                    tint = if (autoScrollEnabled) OniSkin.colors.primary else OniSkin.colors.textSecondary
+                                )
+                            }
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Mode Selector Capsule Switcher
+                // Mode Selector Capsule Switcher & Language Indicator
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     OniSurface(
                         variant = OniSurfaceVariant.Soft,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.padding(2.dp)
                     ) {
-                        Row(modifier = Modifier.padding(4.dp)) {
+                        Row(modifier = Modifier.padding(3.dp)) {
                             val syncActive = !showPlainTextMode
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (syncActive) OniSkin.colors.primary.copy(alpha = 0.15f) else Color.Transparent)
                                     .clickable { showPlainTextMode = false }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -224,11 +296,11 @@ fun PlayerKaraokeDialog(
                                         imageVector = Icons.Default.MusicNote,
                                         contentDescription = null,
                                         tint = if (syncActive) OniSkin.colors.primary else OniSkin.colors.textSecondary,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(13.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Synced Karaoke",
+                                        text = "Synced",
                                         style = OniSkin.typography.caption,
                                         fontWeight = FontWeight.Bold,
                                         color = if (syncActive) OniSkin.colors.primary else OniSkin.colors.textSecondary
@@ -241,7 +313,7 @@ fun PlayerKaraokeDialog(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (showPlainTextMode) OniSkin.colors.primary.copy(alpha = 0.15f) else Color.Transparent)
                                     .clickable { showPlainTextMode = true }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -249,11 +321,11 @@ fun PlayerKaraokeDialog(
                                         imageVector = Icons.AutoMirrored.Filled.Subject,
                                         contentDescription = null,
                                         tint = if (showPlainTextMode) OniSkin.colors.primary else OniSkin.colors.textSecondary,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(13.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Plain Text",
+                                        text = "Plain",
                                         style = OniSkin.typography.caption,
                                         fontWeight = FontWeight.Bold,
                                         color = if (showPlainTextMode) OniSkin.colors.primary else OniSkin.colors.textSecondary
@@ -262,14 +334,111 @@ fun PlayerKaraokeDialog(
                             }
                         }
                     }
+
+                    // Active Language Pill & Offset indicator
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (selectedLanguage != "Original") {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(OniSkin.colors.primary.copy(alpha = 0.15f))
+                                    .clickable { showLanguageSheet = true }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = selectedLanguage,
+                                    style = OniSkin.typography.caption,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OniSkin.colors.primary
+                                )
+                            }
+                        }
+
+                        // Timing Nudge Toggle Chip
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (manualOffsetMs != 0L || showOffsetControls) OniSkin.colors.primary.copy(alpha = 0.15f)
+                                    else OniSkin.colors.surfaceVariant
+                                )
+                                .clickable { showOffsetControls = !showOffsetControls }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = "Sync Offset",
+                                    tint = if (manualOffsetMs != 0L) OniSkin.colors.primary else OniSkin.colors.textSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (manualOffsetMs == 0L) "Sync Nudge" else "${if (manualOffsetMs > 0) "+" else ""}${manualOffsetMs}ms",
+                                    style = OniSkin.typography.caption,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (manualOffsetMs != 0L) OniSkin.colors.primary else OniSkin.colors.textSecondary
+                                )
+                            }
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                // Quick Timing Calibration Bar
+                AnimatedVisibility(
+                    visible = showOffsetControls,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    OniSurface(
+                        variant = OniSurfaceVariant.Soft,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Offset: ${if (manualOffsetMs > 0) "+" else ""}${manualOffsetMs}ms",
+                                style = OniSkin.typography.caption,
+                                fontWeight = FontWeight.Bold,
+                                color = OniSkin.colors.textPrimary
+                            )
 
-                // Actions: Search, Edit, Sync, Sing Along
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                NudgeButton("-0.5s") { manualOffsetMs -= 500L }
+                                NudgeButton("-0.1s") { manualOffsetMs -= 100L }
+                                NudgeButton("+0.1s") { manualOffsetMs += 100L }
+                                NudgeButton("+0.5s") { manualOffsetMs += 500L }
+
+                                if (manualOffsetMs != 0L) {
+                                    NudgeButton("Reset") { manualOffsetMs = 0L }
+                                    NudgeButton("Save", isPrimary = true) {
+                                        viewModel.shiftSongLyricsTiming(song.id, rawLyrics, manualOffsetMs)
+                                        manualOffsetMs = 0L
+                                        Toast.makeText(context, "Saved calibrated timing!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Actions: Search, Edit, Vocal Cut, Sing Along
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     KaraokeActionChip(
@@ -288,8 +457,21 @@ fun PlayerKaraokeDialog(
 
                     KaraokeActionChip(
                         icon = Icons.Default.Sync,
-                        label = "Sync",
+                        label = "Sync Editor",
                         onClick = { showSyncEditor = true },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // Vocal Reducer (Lead Vocal Cut)
+                    KaraokeActionChip(
+                        icon = if (isVocalReductionActive) Icons.Default.HearingDisabled else Icons.Default.Hearing,
+                        label = if (isVocalReductionActive) "Vocal Cut: ON" else "Vocal Cut",
+                        isActive = isVocalReductionActive,
+                        onClick = {
+                            viewModel.toggleVocalReduction()
+                            val msg = if (!isVocalReductionActive) "Vocal reduction activated!" else "Original vocals restored"
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        },
                         modifier = Modifier.weight(1f)
                     )
 
@@ -323,7 +505,7 @@ fun PlayerKaraokeDialog(
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = 6.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(
@@ -347,12 +529,31 @@ fun PlayerKaraokeDialog(
                                     )
                                 }
 
-                                Text(
-                                    text = "${(micGain * 100).toInt()}%",
-                                    style = OniSkin.typography.caption,
-                                    fontWeight = FontWeight.Bold,
-                                    color = OniSkin.colors.textSecondary
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (vocalPitchNote.isNotEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(OniSkin.colors.primary.copy(alpha = 0.2f))
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "Note: $vocalPitchNote",
+                                                style = OniSkin.typography.caption,
+                                                fontWeight = FontWeight.Bold,
+                                                color = OniSkin.colors.primary
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+
+                                    Text(
+                                        text = "${(micGain * 100).toInt()}%",
+                                        style = OniSkin.typography.caption,
+                                        fontWeight = FontWeight.Bold,
+                                        color = OniSkin.colors.textSecondary
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(6.dp))
@@ -397,8 +598,42 @@ fun PlayerKaraokeDialog(
                                     activeTrackColor = OniSkin.colors.primary,
                                     inactiveTrackColor = OniSkin.colors.outline.copy(alpha = 0.3f)
                                 ),
-                                modifier = Modifier.height(28.dp)
+                                modifier = Modifier.height(24.dp)
                             )
+
+                            // Live Headphone Monitor Toggle
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Live Ear Monitor (Passthrough)",
+                                        style = OniSkin.typography.caption,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = OniSkin.colors.textPrimary
+                                    )
+                                    Text(
+                                        text = "Use wired/low-latency headphones to prevent feedback",
+                                        style = OniSkin.typography.caption,
+                                        fontSize = 10.sp,
+                                        color = OniSkin.colors.textTertiary
+                                    )
+                                }
+
+                                Switch(
+                                    checked = isAudioPassThroughEnabled,
+                                    onCheckedChange = { viewModel.karaokeMicEngine.setAudioPassThrough(it) },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = OniSkin.colors.primary,
+                                        checkedTrackColor = OniSkin.colors.primary.copy(alpha = 0.3f)
+                                    ),
+                                    modifier = Modifier.scale(0.8f)
+                                )
+                            }
                         }
                     }
                 }
@@ -409,7 +644,31 @@ fun PlayerKaraokeDialog(
                         .weight(1f)
                         .fillMaxWidth()
                 ) {
-                    if (showPlainTextMode) {
+                    if (isTranslatingLyrics) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = OniSkin.colors.primary,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Translating lyrics to $selectedLanguage with AI...",
+                                style = OniSkin.typography.bodyMedium,
+                                color = OniSkin.colors.textPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Preserving musical timestamps and rhythm",
+                                style = OniSkin.typography.caption,
+                                color = OniSkin.colors.textSecondary
+                            )
+                        }
+                    } else if (showPlainTextMode) {
                         val scrollState = rememberScrollState()
                         Column(
                             modifier = Modifier
@@ -418,10 +677,10 @@ fun PlayerKaraokeDialog(
                                 .verticalScroll(scrollState),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            val displayText = if (rawLyrics.isNotBlank()) {
-                                LyricsHelper.stripLrcTags(rawLyrics)
+                            val displayText = if (activeLyricsText.isNotBlank()) {
+                                LyricsHelper.stripLrcTags(activeLyricsText)
                             } else {
-                                "No lyrics found for this song.\nTap 'Search Online' or 'Edit' to add lyrics."
+                                "No lyrics found for this song.\nTap 'Search' or 'Edit' to add lyrics."
                             }
 
                             Text(
@@ -503,7 +762,7 @@ fun PlayerKaraokeDialog(
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
+                                contentPadding = PaddingValues(top = 140.dp, bottom = 180.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 itemsIndexed(parsedLrc) { index, line ->
@@ -522,7 +781,7 @@ fun PlayerKaraokeDialog(
                                     } else 1.0f
 
                                     val scale by animateFloatAsState(
-                                        targetValue = (if (isActive) 1.1f else 0.95f) * micPulseScale,
+                                        targetValue = (if (isActive) 1.12f else 0.95f) * micPulseScale,
                                         animationSpec = tween(durationMillis = 200),
                                         label = "karaoke_line_scale"
                                     )
@@ -553,7 +812,7 @@ fun PlayerKaraokeDialog(
                                 }
                             }
 
-                            if (!autoScrollEnabled) {
+                            if (!autoScrollEnabled && isMicEnabled) {
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
@@ -586,7 +845,7 @@ fun PlayerKaraokeDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceAround,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -626,6 +885,129 @@ fun PlayerKaraokeDialog(
         }
     }
 
+    // Language Selection Modal Bottom Sheet
+    if (showLanguageSheet) {
+        val supportedLanguages = listOf(
+            "Original",
+            "English",
+            "Romanized / Romaji",
+            "Japanese (日本語)",
+            "Spanish (Español)",
+            "French (Français)",
+            "German (Deutsch)",
+            "Korean (한국어)",
+            "Chinese (中文)"
+        )
+
+        ModalBottomSheet(
+            onDismissRequest = { showLanguageSheet = false },
+            containerColor = OniSkin.colors.background,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Select Lyrics Language",
+                        style = OniSkin.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.textPrimary
+                    )
+                    IconButton(onClick = { showLanguageSheet = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = OniSkin.colors.textSecondary)
+                    }
+                }
+
+                Text(
+                    text = "Translate or romanize lyrics while keeping synchronization timing intact.",
+                    style = OniSkin.typography.caption,
+                    color = OniSkin.colors.textSecondary,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                supportedLanguages.forEach { lang ->
+                    val isSelected = selectedLanguage == lang
+                    OniSurface(
+                        variant = if (isSelected) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft,
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = {
+                            showLanguageSheet = false
+                            if (lang == "Original") {
+                                selectedLanguage = "Original"
+                                translatedLyricsText = null
+                            } else {
+                                selectedLanguage = lang
+                                isTranslatingLyrics = true
+                                viewModel.translateSongLyrics(song.id, rawLyrics, lang) { result ->
+                                    isTranslatingLyrics = false
+                                    result.onSuccess { translated ->
+                                        translatedLyricsText = translated
+                                        Toast.makeText(context, "Translated to $lang!", Toast.LENGTH_SHORT).show()
+                                    }.onFailure { err ->
+                                        Toast.makeText(context, "Translation failed: ${err.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = lang,
+                                style = OniSkin.typography.bodyMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textPrimary
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = OniSkin.colors.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (translatedLyricsText != null && selectedLanguage != "Original") {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            viewModel.updateLyrics(song.id, translatedLyricsText)
+                            Toast.makeText(context, "Saved $selectedLanguage as song lyrics!", Toast.LENGTH_SHORT).show()
+                            showLanguageSheet = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Permanently Save Translated Lyrics", style = OniSkin.typography.labelMedium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+
     // Secondary Dialogs
     if (showManualSearch) {
         ManualSearchDialog(
@@ -648,6 +1030,33 @@ fun PlayerKaraokeDialog(
             song = song,
             viewModel = viewModel,
             onDismiss = { showSyncEditor = false }
+        )
+    }
+}
+
+@Composable
+private fun NudgeButton(
+    text: String,
+    isPrimary: Boolean = false,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isPrimary) OniSkin.colors.primary
+                else OniSkin.colors.surfaceVariant
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = OniSkin.typography.caption,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (isPrimary) OniSkin.colors.onPrimary else OniSkin.colors.textPrimary
         )
     }
 }

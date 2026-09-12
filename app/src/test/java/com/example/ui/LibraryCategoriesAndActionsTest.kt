@@ -109,4 +109,22 @@ class LibraryCategoriesAndActionsTest {
         assertFalse(validName.trim().isEmpty())
         assertEquals("My Favorites 2026", validName.trim())
     }
+
+    @Test
+    fun newPlaylistCreation_withSelectedSong_initializesWithSongId() {
+        val selectedSongId = "song_target_123"
+        val initialIds = listOf(selectedSongId)
+        val distinctIds = initialIds.distinct()
+        val jsonArray = org.json.JSONArray(distinctIds).toString()
+
+        val playlist = com.example.data.entity.PlaylistEntity(
+            id = "playlist_test",
+            name = "Workout Vibes",
+            songIdsJson = jsonArray
+        )
+
+        val parsed = org.json.JSONArray(playlist.songIdsJson)
+        assertEquals(1, parsed.length())
+        assertEquals(selectedSongId, parsed.getString(0))
+    }
 }

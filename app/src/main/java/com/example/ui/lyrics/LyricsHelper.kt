@@ -110,15 +110,19 @@ object LyricsHelper {
 
     /**
      * Finds the index of the active lyrics line for a given playback position in milliseconds.
+     * During gaps between lines (such as instrumental breaks or empty LRC tags),
+     * keeps the highlight on the current non-blank line until the next line begins.
      */
     fun getActiveLineIndex(lines: List<LrcLine>, positionMs: Long): Int {
         if (lines.isEmpty()) return -1
         
-        // Find the last line whose timestamp is <= positionMs
+        // Find the last line with non-blank text whose timestamp is <= positionMs
         var activeIndex = -1
         for (i in lines.indices) {
             if (lines[i].timestampMs <= positionMs) {
-                activeIndex = i
+                if (lines[i].text.isNotBlank()) {
+                    activeIndex = i
+                }
             } else {
                 break
             }
@@ -149,6 +153,21 @@ object LyricsHelper {
             sb.append("\n")
         }
         return sb.toString().trim()
+    }
+
+    /**
+     * Shifts all timestamps in an LRC string by offsetMs (can be positive or negative).
+     * Timestamps are clamped to >= 0ms.
+     */
+    fun shiftLrcTimestamps(lyricsText: String?, offsetMs: Long): String {
+        if (lyricsText.isNullOrBlank() || offsetMs == 0L) return lyricsText ?: ""
+        val parsed = parseLrc(lyricsText)
+        if (parsed.isEmpty()) return lyricsText
+
+        val shifted = parsed.map { line ->
+            line.copy(timestampMs = maxOf(0L, line.timestampMs + offsetMs))
+        }
+        return buildLrcString(shifted)
     }
 
     /**

@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,7 +84,7 @@ fun AlbumsScreen(
                         title = "Albums",
                         subtitle = heroSubtitle,
                         artworkUri = heroArtwork,
-                        icon = androidx.compose.material.icons.Icons.Default.Album,
+                        icon = Icons.Default.Album,
                         modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
                     )
                 }
@@ -115,7 +118,7 @@ fun AlbumsScreen(
                         title = "Albums",
                         subtitle = heroSubtitle,
                         artworkUri = heroArtwork,
-                        icon = androidx.compose.material.icons.Icons.Default.Album,
+                        icon = Icons.Default.Album,
                         modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
                     )
                 }
@@ -175,7 +178,7 @@ fun AlbumsScreen(
                             }
 
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = null,
                                 tint = OniSkin.colors.textTertiary
                             )

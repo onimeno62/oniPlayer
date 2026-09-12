@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.TextSelectionColors
@@ -53,6 +55,8 @@ fun ManualSearchDialog(
     var results by remember { mutableStateOf<List<Triple<String, Double, String>>>(emptyList()) }
     var selectedResultIndex by remember { mutableStateOf<Int?>(null) }
     var editedLyrics by remember { mutableStateOf("") }
+    var isTranslatingLanguage by remember { mutableStateOf(false) }
+    var translationError by remember { mutableStateOf<String?>(null) }
     
     val sources = listOf("All (Auto)", "LRCLIB Database", "Lyrist API", "Lyrics.ovh")
     val context = LocalContext.current
@@ -236,20 +240,33 @@ fun ManualSearchDialog(
                     }
                 } else if (hasSearched) {
                     if (results.isNotEmpty()) {
-                        Text(
-                            text = "CHOOSE CORRECT LYRICS OPTION:",
-                            style = OniSkin.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = OniSkin.colors.primary,
-                            modifier = Modifier.padding(bottom = OniSkin.spacing.xxs)
-                        )
-
-                        // Results Selection Cards
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            results.forEachIndexed { idx, item ->
+                            Text(
+                                text = "AVAILABLE LYRICS & LANGUAGES (${results.size}):",
+                                style = OniSkin.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = OniSkin.colors.primary
+                            )
+                            Text(
+                                text = "Scroll to view all options",
+                                style = OniSkin.typography.caption,
+                                color = OniSkin.colors.textSecondary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+
+                        // Horizontally scrollable results selection cards showing language, source, and sync status
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs),
+                            contentPadding = PaddingValues(vertical = 2.dp)
+                        ) {
+                            itemsIndexed(results) { idx, item ->
                                 val isSelected = selectedResultIndex == idx
                                 OniSurface(
                                     onClick = {
@@ -259,10 +276,10 @@ fun ManualSearchDialog(
                                     variant = OniSurfaceVariant.Soft,
                                     shape = OniSkin.shapes.card,
                                     containerColor = if (isSelected) OniSkin.colors.primaryContainer else null,
-                                    border = if (isSelected) BorderStroke(1.dp, OniSkin.colors.primary) else null,
+                                    border = if (isSelected) BorderStroke(1.5.dp, OniSkin.colors.primary) else BorderStroke(0.5.dp, OniSkin.colors.outline.copy(alpha = 0.5f)),
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = 68.dp)
+                                        .width(210.dp)
+                                        .heightIn(min = 72.dp)
                                         .semantics(mergeDescendants = true) { selected = isSelected }
                                 ) {
                                     Column(
@@ -279,13 +296,39 @@ fun ManualSearchDialog(
                                             overflow = TextOverflow.Ellipsis,
                                             color = if (isSelected) OniSkin.colors.onPrimaryContainer else OniSkin.colors.textPrimary
                                         )
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Star, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(12.dp))
-                                            Spacer(modifier = Modifier.width(OniSkin.spacing.xxs))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            val isSynced = item.first.contains("Synced", ignoreCase = true) || LyricsHelper.isSynced(item.third)
                                             Text(
-                                                text = if (item.first.contains("Synced")) "Synchronized" else "Plain Text",
+                                                text = if (isSynced) "⏱ Synchronized" else "📄 Plain Text",
                                                 style = OniSkin.typography.caption,
-                                                color = if (isSelected) OniSkin.colors.onPrimaryContainer else OniSkin.colors.textSecondary
+                                                fontWeight = if (isSynced) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (isSelected) OniSkin.colors.primary else OniSkin.colors.textSecondary
+                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Star, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(12.dp))
+                                                Spacer(modifier = Modifier.width(2.dp))
+                                                Text(
+                                                    text = "%.1f".format(item.second),
+                                                    style = OniSkin.typography.caption,
+                                                    color = if (isSelected) OniSkin.colors.onPrimaryContainer else OniSkin.colors.textSecondary
+                                                )
+                                            }
+                                        }
+                                        // Preview snippet of the lyrics text so the user can verify the language immediately
+                                        val snippet = item.third.lines()
+                                            .map { LyricsHelper.stripLrcTags(it).trim() }
+                                            .firstOrNull { it.isNotBlank() } ?: ""
+                                        if (snippet.isNotBlank()) {
+                                            Text(
+                                                text = "\"$snippet\"",
+                                                style = OniSkin.typography.caption,
+                                                color = OniSkin.colors.textSecondary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -293,7 +336,102 @@ fun ManualSearchDialog(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
+
+                        // Other Languages bar: allows instant AI translation/romanization to any language while preserving timestamps
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "TRANSLATE / SWITCH LANGUAGE (PRESERVES SYNC):",
+                                    style = OniSkin.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OniSkin.colors.primary
+                                )
+                                if (isTranslatingLanguage) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = OniSkin.colors.primary)
+                                        Text(
+                                            text = "Translating...",
+                                            style = OniSkin.typography.caption,
+                                            color = OniSkin.colors.primary
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (translationError != null) {
+                                Text(
+                                    text = translationError ?: "",
+                                    style = OniSkin.typography.caption,
+                                    color = OniSkin.colors.error,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                            }
+
+                            val targetLanguages = listOf(
+                                "English" to "🇺🇸 English",
+                                "Romaji (Phonetic)" to "🔤 Romaji",
+                                "Japanese" to "🇯🇵 Japanese",
+                                "Spanish" to "🇪🇸 Spanish",
+                                "Korean" to "🇰🇷 Korean",
+                                "French" to "🇫🇷 French",
+                                "German" to "🇩🇪 German",
+                                "Chinese" to "🇨🇳 Chinese"
+                            )
+
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                contentPadding = PaddingValues(vertical = 2.dp)
+                            ) {
+                                items(targetLanguages) { (langKey, langDisplay) ->
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            if (!isTranslatingLanguage && editedLyrics.isNotBlank()) {
+                                                isTranslatingLanguage = true
+                                                translationError = null
+                                                viewModel.translateSongLyrics(song.id, editedLyrics, langKey) { res ->
+                                                    isTranslatingLanguage = false
+                                                    res.onSuccess { translated ->
+                                                        val isSynced = LyricsHelper.isSynced(translated)
+                                                        val newOption = Triple(
+                                                            "AI Translation: $langKey • $langDisplay ${if (isSynced) "(Synced)" else ""}".trim(),
+                                                            5.0,
+                                                            translated
+                                                        )
+                                                        results = listOf(newOption) + results
+                                                        selectedResultIndex = 0
+                                                        editedLyrics = translated
+                                                        Toast.makeText(context, "Added $langDisplay lyrics!", Toast.LENGTH_SHORT).show()
+                                                    }.onFailure { err ->
+                                                        translationError = err.message ?: "Translation failed"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        label = {
+                                            Text(
+                                                text = langDisplay,
+                                                style = OniSkin.typography.caption
+                                            )
+                                        },
+                                        shape = OniSkin.shapes.button,
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            containerColor = OniSkin.colors.surfaceVariant,
+                                            labelColor = OniSkin.colors.textPrimary
+                                        ),
+                                        border = null
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
 
                         // Preview Area Header
                         FlowRow(

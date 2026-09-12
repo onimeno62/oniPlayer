@@ -20,12 +20,23 @@ data class ArtistUiModel(
 data class FolderUiModel(
     val folderPath: String,
     val displayName: String,
-    val songCount: Int
+    val songCount: Int,
+    val artworkUri: String? = null
 )
 
 data class GenreUiModel(
     val genre: String,
-    val songCount: Int
+    val songCount: Int,
+    val artworkUri: String? = null
+)
+
+data class PlaylistUiModel(
+    val id: String,
+    val name: String,
+    val songCount: Int,
+    val songIds: List<String>,
+    val totalDurationMs: Long = 0L,
+    val artworkUri: String? = null
 )
 
 data class LibrarySortState(

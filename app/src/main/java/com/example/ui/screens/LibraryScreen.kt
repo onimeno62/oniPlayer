@@ -74,12 +74,16 @@ import com.example.playback.ShuffleMode
 import com.example.ui.library.LibraryDashboardScreen
 import com.example.ui.library.AlbumsScreen
 import com.example.ui.library.ArtistsScreen
+import com.example.ui.library.FoldersScreen
+import com.example.ui.library.GenresScreen
 import com.example.ui.library.AlbumDetailScreen
 import com.example.ui.library.ArtistDetailScreen
 import com.example.ui.library.components.HorizontalSongCard
 import com.example.ui.library.components.LibraryStatsStrip
 import com.example.ui.library.model.toAlbumUiModels
 import com.example.ui.library.model.toArtistUiModels
+import com.example.ui.library.model.toFolderUiModels
+import com.example.ui.library.model.toGenreUiModels
 import com.example.ui.player.components.PlayerDeleteDialog
 import java.io.File
 
@@ -198,6 +202,8 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
 
     val albumUiModels = remember(songs) { songs.toAlbumUiModels() }
     val artistUiModels = remember(songs, artistSummaries) { songs.toArtistUiModels(artistSummaries) }
+    val folderUiModels = remember(songs) { songs.toFolderUiModels() }
+    val genreUiModels = remember(songs) { songs.toGenreUiModels() }
 
     // Sort songs inside lists dynamically
     val sortedSongs = remember(songs, sortBy, isSortAscending, searchQuery) {
@@ -452,7 +458,67 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                 } else {
                     when (activeCategoryIndex) {
                         0 -> SongsListView(sortedSongs, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
-                        1 -> GroupedListView(uniqueFolders, Icons.Default.Folder, viewModel, sortBy, isSortAscending, selectedGroup, { viewModel.setSelectedGroup(it) }, { songForMenu = it }, layoutMode)
+                        1 -> {
+                            val currentGroup = selectedGroup
+                            if (currentGroup != null) {
+                                val songsInGroup = uniqueFolders[currentGroup] ?: emptyList()
+                                val sortedSongsInGroup = remember(songsInGroup, sortBy, isSortAscending) {
+                                    val result = when (sortBy) {
+                                        "artist" -> songsInGroup.sortedBy { it.customArtist ?: it.artist }
+                                        "duration" -> songsInGroup.sortedBy { it.duration }
+                                        "play_count" -> songsInGroup.sortedByDescending { it.playCount }
+                                        else -> songsInGroup.sortedBy { it.customTitle ?: it.title }
+                                    }
+
+                                    if (!isSortAscending && sortBy != "play_count") {
+                                        result.reversed()
+                                    } else if (isSortAscending && sortBy == "play_count") {
+                                        result.reversed()
+                                    } else {
+                                        result
+                                    }
+                                }
+
+                                Column {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { viewModel.setSelectedGroup(null) }
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            text = currentGroup,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    SongsListView(
+                                        songs = sortedSongsInGroup,
+                                        viewModel = viewModel,
+                                        sortBy = sortBy,
+                                        isSortAscending = isSortAscending,
+                                        onShowTrackMenu = { songForMenu = it },
+                                        layoutMode = layoutMode
+                                    )
+                                }
+                            } else {
+                                FoldersScreen(
+                                    folders = folderUiModels,
+                                    layoutMode = layoutMode,
+                                    onFolderClick = { viewModel.setSelectedGroup(it.displayName) },
+                                    gridIndex = viewModel.groupedGridIndex,
+                                    gridOffset = viewModel.groupedGridOffset,
+                                    onGridScroll = { i, o -> viewModel.groupedGridIndex = i; viewModel.groupedGridOffset = o },
+                                    listIndex = viewModel.groupedListIndex,
+                                    listOffset = viewModel.groupedListOffset,
+                                    onListScroll = { i, o -> viewModel.groupedListIndex = i; viewModel.groupedListOffset = o }
+                                )
+                            }
+                        }
                         2 -> {
                             if (selectedGroup != null) {
                                 val album = albumUiModels.find { it.albumKey == selectedGroup }
@@ -503,7 +569,67 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                 )
                             }
                         }
-                        4 -> GroupedListView(uniqueGenres, Icons.Default.Category, viewModel, sortBy, isSortAscending, selectedGroup, { viewModel.setSelectedGroup(it) }, { songForMenu = it }, layoutMode)
+                        4 -> {
+                            val currentGroup = selectedGroup
+                            if (currentGroup != null) {
+                                val songsInGroup = uniqueGenres[currentGroup] ?: emptyList()
+                                val sortedSongsInGroup = remember(songsInGroup, sortBy, isSortAscending) {
+                                    val result = when (sortBy) {
+                                        "artist" -> songsInGroup.sortedBy { it.customArtist ?: it.artist }
+                                        "duration" -> songsInGroup.sortedBy { it.duration }
+                                        "play_count" -> songsInGroup.sortedByDescending { it.playCount }
+                                        else -> songsInGroup.sortedBy { it.customTitle ?: it.title }
+                                    }
+
+                                    if (!isSortAscending && sortBy != "play_count") {
+                                        result.reversed()
+                                    } else if (isSortAscending && sortBy == "play_count") {
+                                        result.reversed()
+                                    } else {
+                                        result
+                                    }
+                                }
+
+                                Column {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { viewModel.setSelectedGroup(null) }
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            text = currentGroup,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    SongsListView(
+                                        songs = sortedSongsInGroup,
+                                        viewModel = viewModel,
+                                        sortBy = sortBy,
+                                        isSortAscending = isSortAscending,
+                                        onShowTrackMenu = { songForMenu = it },
+                                        layoutMode = layoutMode
+                                    )
+                                }
+                            } else {
+                                GenresScreen(
+                                    genres = genreUiModels,
+                                    layoutMode = layoutMode,
+                                    onGenreClick = { viewModel.setSelectedGroup(it.genre) },
+                                    gridIndex = viewModel.groupedGridIndex,
+                                    gridOffset = viewModel.groupedGridOffset,
+                                    onGridScroll = { i, o -> viewModel.groupedGridIndex = i; viewModel.groupedGridOffset = o },
+                                    listIndex = viewModel.groupedListIndex,
+                                    listOffset = viewModel.groupedListOffset,
+                                    onListScroll = { i, o -> viewModel.groupedListIndex = i; viewModel.groupedListOffset = o }
+                                )
+                            }
+                        }
                         5 -> SongsListView(sortedFavorites, viewModel, sortBy, isSortAscending, { songForMenu = it }, layoutMode)
                         6 -> {
                             val filtered = remember(mostPlayedSongs, searchQuery) {
@@ -2289,10 +2415,7 @@ fun PlaylistPickerBottomSheet(
                         if (trimmed.isEmpty()) {
                             errorMessage = "Playlist name cannot be empty."
                         } else {
-                            val newId = "playlist_" + System.currentTimeMillis()
-                            viewModel.createPlaylist(trimmed)
-                            // Add song directly to the newly created playlist
-                            viewModel.addSongToPlaylist(song.id, newId)
+                            viewModel.createPlaylist(name = trimmed, initialSongIds = listOf(song.id))
                             Toast.makeText(context, "Created \"$trimmed\" and added song!", Toast.LENGTH_SHORT).show()
                             showCreateDialog = false
                             onDismiss()

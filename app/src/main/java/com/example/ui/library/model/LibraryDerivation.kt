@@ -2,6 +2,8 @@ package com.example.ui.library.model
 
 import com.example.data.entity.SongEntity
 import com.example.data.entity.ArtistSummaryEntity
+import com.example.data.entity.PlaylistEntity
+import org.json.JSONArray
 import java.io.File
 
 fun List<SongEntity>.toAlbumUiModels(): List<AlbumUiModel> {
@@ -54,33 +56,56 @@ fun List<SongEntity>.toArtistUiModels(summaries: List<ArtistSummaryEntity> = emp
 fun List<SongEntity>.toFolderUiModels(): List<FolderUiModel> {
     return groupBy { song ->
         try {
-            File(song.filePath).parent ?: "Internal"
+            File(song.filePath).parentFile?.name ?: "Internal"
         } catch (e: Exception) {
             "Internal"
         }
-    }.map { (folderPath, songsInGroup) ->
-        val displayName = try {
-            File(folderPath).name.ifBlank { "Internal" }
-        } catch (e: Exception) {
-            "Internal"
-        }
+    }.map { (folderName, songsInGroup) ->
+        val artworkUri = songsInGroup.firstNotNullOfOrNull { it.albumArtUri?.takeIf { uri -> uri.isNotBlank() } }
         FolderUiModel(
-            folderPath = folderPath,
-            displayName = displayName,
-            songCount = songsInGroup.size
+            folderPath = folderName,
+            displayName = folderName,
+            songCount = songsInGroup.size,
+            artworkUri = artworkUri
         )
     }.sortedBy { it.displayName.lowercase() }
 }
 
 fun List<SongEntity>.toGenreUiModels(): List<GenreUiModel> {
     return groupBy { song ->
-        song.displayGenre.ifBlank { "Unknown" }
+        song.genre.ifEmpty { "General" }
     }.map { (genre, songsInGroup) ->
+        val artworkUri = songsInGroup.firstNotNullOfOrNull { it.albumArtUri?.takeIf { uri -> uri.isNotBlank() } }
         GenreUiModel(
             genre = genre,
-            songCount = songsInGroup.size
+            songCount = songsInGroup.size,
+            artworkUri = artworkUri
         )
     }.sortedBy { it.genre.lowercase() }
+}
+
+fun List<PlaylistEntity>.toPlaylistUiModels(songs: List<SongEntity>): List<PlaylistUiModel> {
+    val songMap = songs.associateBy { it.id }
+    return map { playlist ->
+        val songIds = try {
+            val array = JSONArray(playlist.songIdsJson)
+            List(array.length()) { array.getString(it) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val matchedSongs = songIds.mapNotNull { songMap[it] }
+        val artworkUri = matchedSongs.firstNotNullOfOrNull { it.albumArtUri?.takeIf { uri -> uri.isNotBlank() } }
+        val totalDurationMs = matchedSongs.sumOf { it.duration }
+
+        PlaylistUiModel(
+            id = playlist.id,
+            name = playlist.name,
+            songCount = songIds.size,
+            songIds = songIds,
+            totalDurationMs = totalDurationMs,
+            artworkUri = artworkUri
+        )
+    }.sortedBy { it.name.lowercase() }
 }
 
 fun List<SongEntity>.toLibraryStatistics(): LibraryStatisticsUiModel {

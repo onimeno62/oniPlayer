@@ -4,19 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -31,17 +32,16 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
-import com.example.ui.library.components.ArtistRow
 import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
-import com.example.ui.library.model.ArtistUiModel
+import com.example.ui.library.model.FolderUiModel
 import com.example.ui.theme.OniSkin
 
 @Composable
-fun ArtistsScreen(
-    artists: List<ArtistUiModel>,
+fun FoldersScreen(
+    folders: List<FolderUiModel>,
     layoutMode: String,
-    onArtistClick: (ArtistUiModel) -> Unit,
+    onFolderClick: (FolderUiModel) -> Unit,
     modifier: Modifier = Modifier,
     gridIndex: Int = 0,
     gridOffset: Int = 0,
@@ -50,15 +50,16 @@ fun ArtistsScreen(
     listOffset: Int = 0,
     onListScroll: (Int, Int) -> Unit = { _, _ -> }
 ) {
-    if (artists.isEmpty()) {
+    if (folders.isEmpty()) {
         LibraryEmptyState(
-            title = "No Artists",
-            message = "No artists found in your library",
+            title = "No Folders",
+            message = "No folders found in your library",
+            icon = Icons.Default.Folder,
             modifier = modifier.fillMaxSize()
         )
     } else {
-        val heroArtwork = artists.firstOrNull()?.artworkUri
-        val heroSubtitle = if (artists.size == 1) "1 artist" else "${artists.size} artists"
+        val heroArtwork = folders.firstNotNullOfOrNull { it.artworkUri }
+        val heroSubtitle = if (folders.size == 1) "1 folder" else "${folders.size} folders"
 
         if (layoutMode == "grid") {
             val gridState = rememberLazyGridState(
@@ -83,16 +84,15 @@ fun ArtistsScreen(
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     LibraryCategoryHero(
-                        title = "Artists",
+                        title = "Folders",
                         subtitle = heroSubtitle,
                         artworkUri = heroArtwork,
-                        icon = Icons.Default.Person,
+                        icon = Icons.Default.Folder,
                         modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
                     )
                 }
-                items(artists, key = { it.artistKey }) { artist ->
-                    val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
-                    val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
+                items(folders, key = { it.folderPath }) { folder ->
+                    val songText = if (folder.songCount == 1) "1 song" else "${folder.songCount} songs"
 
                     OniSurface(
                         modifier = Modifier
@@ -100,24 +100,23 @@ fun ArtistsScreen(
                             .aspectRatio(0.9f)
                             .semantics(mergeDescendants = true) {
                                 role = Role.Button
-                                contentDescription = "${artist.name}, $albumText, $songText"
+                                contentDescription = "${folder.displayName}, $songText"
                             }
-                            .clickable { onArtistClick(artist) },
+                            .clickable { onFolderClick(folder) },
                         variant = OniSurfaceVariant.Soft,
                         shape = OniSkin.shapes.card
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             OniArtwork(
-                                artworkUri = artist.artworkUri,
+                                artworkUri = folder.artworkUri,
                                 shape = OniSkin.artwork.shape,
                                 contentDescription = null,
                                 placeholder = {
-                                    val initial = artist.name.trim().take(1).uppercase().ifEmpty { "?" }
-                                    Text(
-                                        text = initial,
-                                        style = OniSkin.typography.displayMedium,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = OniSkin.colors.primary.copy(alpha = 0.5f)
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = OniSkin.colors.primary.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(48.dp)
                                     )
                                 },
                                 modifier = Modifier.fillMaxSize()
@@ -142,17 +141,30 @@ fun ArtistsScreen(
                                     .align(Alignment.BottomStart)
                                     .padding(OniSkin.spacing.sm)
                             ) {
-                                Text(
-                                    text = artist.name,
-                                    style = OniSkin.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.9f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                                    Text(
+                                        text = folder.displayName,
+                                        style = OniSkin.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                                 Text(
-                                    text = "$albumText • $songText",
+                                    text = songText,
                                     style = OniSkin.typography.bodySmall,
                                     fontWeight = FontWeight.Medium,
                                     color = Color.White.copy(alpha = 0.82f),
@@ -181,25 +193,27 @@ fun ArtistsScreen(
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
             ) {
-                item(key = "artists_hero") {
+                item(key = "folders_hero") {
                     LibraryCategoryHero(
-                        title = "Artists",
+                        title = "Folders",
                         subtitle = heroSubtitle,
                         artworkUri = heroArtwork,
-                        icon = Icons.Default.Person,
+                        icon = Icons.Default.Folder,
                         modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
                     )
                 }
-                items(artists, key = { it.artistKey }) { artist ->
+                items(folders, key = { it.folderPath }) { folder ->
+                    val songText = if (folder.songCount == 1) "1 song" else "${folder.songCount} songs"
+
                     OniSurface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 72.dp)
                             .semantics(mergeDescendants = true) {
                                 role = Role.Button
-                                contentDescription = "${artist.name}, ${artist.albumCount} albums, ${artist.songCount} songs"
+                                contentDescription = "${folder.displayName}, $songText"
                             }
-                            .clickable { onArtistClick(artist) },
+                            .clickable { onFolderClick(folder) },
                         variant = OniSurfaceVariant.Soft,
                         shape = OniSkin.shapes.card
                     ) {
@@ -210,24 +224,23 @@ fun ArtistsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OniArtwork(
-                                artworkUri = artist.artworkUri,
+                                artworkUri = folder.artworkUri,
                                 size = 64.dp,
                                 shape = OniSkin.artwork.shape,
                                 contentDescription = null,
                                 placeholder = {
-                                    val initial = artist.name.trim().take(1).uppercase().ifEmpty { "?" }
-                                    Text(
-                                        text = initial,
-                                        style = OniSkin.typography.titleLarge,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = OniSkin.colors.primary
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = OniSkin.colors.primary,
+                                        modifier = Modifier.size(32.dp)
                                     )
                                 }
                             )
                             Spacer(modifier = Modifier.width(OniSkin.spacing.md))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = artist.name,
+                                    text = folder.displayName,
                                     style = OniSkin.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = OniSkin.colors.textPrimary,
@@ -236,7 +249,7 @@ fun ArtistsScreen(
                                 )
                                 Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                                 Text(
-                                    text = "${artist.albumCount} ${if (artist.albumCount == 1) "album" else "albums"} • ${artist.songCount} ${if (artist.songCount == 1) "song" else "songs"}",
+                                    text = songText,
                                     style = OniSkin.typography.bodySmall,
                                     color = OniSkin.colors.textSecondary,
                                     maxLines = 1,

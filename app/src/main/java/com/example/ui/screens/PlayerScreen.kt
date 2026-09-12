@@ -57,19 +57,33 @@ fun PlayerScreen(
 
     val song = uiState.currentSong
 
-    // Calculate active line preview if synced lyrics are present
-    val currentLyricLine = remember(song?.lyrics, uiState.position) {
+    // Calculate active and upcoming line preview if synced lyrics are present.
+    // In between lyric line gaps, keeps highlight on the current line until the next line starts.
+    val (currentLyricLine, nextLyricLine) = remember(song?.lyrics, uiState.position) {
         val lyrics = song?.lyrics
         if (!lyrics.isNullOrBlank() && LyricsHelper.isSynced(lyrics)) {
-            val parsed = LyricsHelper.parseLrc(lyrics)
-            val idx = LyricsHelper.getActiveLineIndex(parsed, uiState.position)
-            if (idx in parsed.indices) parsed[idx].text else null
-        } else null
+            val parsed = LyricsHelper.parseLrc(lyrics).filter { it.text.isNotBlank() }
+            if (parsed.isEmpty()) {
+                Pair(null, null)
+            } else {
+                val idx = LyricsHelper.getActiveLineIndex(parsed, uiState.position)
+                val activeIdx = if (idx >= 0) idx else 0
+                val curr = parsed.getOrNull(activeIdx)?.text
+                val next = parsed.getOrNull(activeIdx + 1)?.text
+                Pair(curr, next)
+            }
+        } else if (!lyrics.isNullOrBlank()) {
+            val plainLines = lyrics.lines().map { it.trim() }.filter { it.isNotEmpty() }
+            Pair(plainLines.getOrNull(0), plainLines.getOrNull(1))
+        } else {
+            Pair(null, null)
+        }
     }
 
     PlayerContent(
         uiState = uiState,
         currentLyricLine = currentLyricLine,
+        nextLyricLine = nextLyricLine,
         onNavigateBack = { viewModel.goBackToLibraryContext() },
         onOpenQueue = { showQueueSheet = true },
         onDeleteClick = { showDeleteDialog = true },
@@ -149,6 +163,7 @@ fun PlayerScreen(
 fun PlayerContent(
     uiState: PlayerUiState,
     currentLyricLine: String?,
+    nextLyricLine: String? = null,
     onNavigateBack: () -> Unit,
     onOpenQueue: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -325,6 +340,7 @@ fun PlayerContent(
                         // 4. Inline Lyrics / Karaoke Preview prompt
                         PlayerLyricsPreview(
                             currentLyricLine = currentLyricLine,
+                            nextLyricLine = nextLyricLine,
                             hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
                             onClick = onOpenKaraoke
                         )
@@ -414,6 +430,7 @@ fun PlayerContent(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     PlayerLyricsPreview(
                                         currentLyricLine = currentLyricLine,
+                                        nextLyricLine = nextLyricLine,
                                         hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
                                         onClick = onOpenKaraoke,
                                         horizontalPadding = 0.dp
