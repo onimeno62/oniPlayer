@@ -131,6 +131,67 @@ object LyricsHelper {
     }
 
     /**
+     * Deterministically classifies the natural language of lyrics based on Unicode character
+     * scripts and key vocabulary markers. Offline, fast, and does not require AI.
+     */
+    fun detectLanguage(lyricsText: String, titleOrMetadata: String = ""): LyricsLanguage {
+        val lowerMeta = titleOrMetadata.lowercase()
+        if (lowerMeta.contains("romaji") || lowerMeta.contains("romanized")) return LyricsLanguage.ROMAJI
+        if (lowerMeta.contains("english ver") || lowerMeta.contains("english trans")) return LyricsLanguage.ENGLISH
+        if (lowerMeta.contains("spanish ver") || lowerMeta.contains("español")) return LyricsLanguage.SPANISH
+
+        val clean = stripLrcTags(lyricsText).take(1000)
+        if (clean.isBlank()) return LyricsLanguage.UNKNOWN
+
+        val hasKana = clean.any { it in '\u3040'..'\u309F' || it in '\u30A0'..'\u30FF' }
+        val hasHangul = clean.any { it in '\uAC00'..'\uD7AF' || it in '\u1100'..'\u11FF' }
+        val hasKanji = clean.any { it in '\u4E00'..'\u9FFF' }
+        val hasCyrillic = clean.any { it in '\u0400'..'\u04FF' }
+        val hasPersianArabic = clean.any { it in '\u0600'..'\u06FF' || it in '\uFB50'..'\uFDFF' || it in '\uFE70'..'\uFEFF' }
+
+        if (hasKana) return LyricsLanguage.JAPANESE
+        if (hasHangul) return LyricsLanguage.KOREAN
+        if (hasKanji) return LyricsLanguage.CHINESE
+        if (hasCyrillic) return LyricsLanguage.RUSSIAN
+
+        if (hasPersianArabic) {
+            // Persian specific characters: گ، چ، پ، ژ (گ=\u06AF, چ=\u0686, پ=\u067E, ژ=\u0698)
+            val hasPersianSpecific = clean.any { it in listOf('\u06AF', '\u0686', '\u067E', '\u0698') }
+            val persianWords = listOf("من", "تو", "ما", "دل", "عشق", "برای", "این", "که", "به", "شد", "بود", "یک")
+            val words = clean.split(Regex("\\s+")).take(50)
+            if (hasPersianSpecific || words.any { persianWords.contains(it) }) {
+                return LyricsLanguage.PERSIAN
+            }
+            return LyricsLanguage.ARABIC
+        }
+
+        val lower = clean.lowercase()
+        val words = lower.split(Regex("[\\s,;.!?'\"()]+")).filter { it.isNotBlank() }.take(80)
+
+        val romajiMarkers = setOf("watashi", "anata", "bokura", "kokoro", "sekai", "kimi", "kono", "sono", "ano", "ashita", "sarang", "jigeum", "neowa", "tsubasa", "kaze", "hikari", "yoru")
+        if (words.count { romajiMarkers.contains(it) } >= 2) {
+            return LyricsLanguage.ROMAJI
+        }
+
+        val spanishMarkers = setOf("que", "de", "la", "el", "en", "te", "amor", "corazon", "corazón", "por", "para", "como", "vida", "suenos", "sueños", "siempre")
+        if (words.count { spanishMarkers.contains(it) } >= 3) {
+            return LyricsLanguage.SPANISH
+        }
+
+        val frenchMarkers = setOf("je", "tu", "est", "le", "la", "dans", "pour", "avec", "nous", "vous", "mon", "une", "pas", "etre", "être", "amour")
+        if (words.count { frenchMarkers.contains(it) } >= 3) {
+            return LyricsLanguage.FRENCH
+        }
+
+        val germanMarkers = setOf("ich", "du", "ist", "und", "der", "die", "das", "nicht", "wir", "ein", "eine", "zu", "mit", "herz")
+        if (words.count { germanMarkers.contains(it) } >= 3) {
+            return LyricsLanguage.GERMAN
+        }
+
+        return LyricsLanguage.ENGLISH
+    }
+
+    /**
      * Formats milliseconds into LRC timestamp: [mm:ss.xx]
      */
     fun formatLrcTime(ms: Long): String {
@@ -200,6 +261,4 @@ object LyricsHelper {
         }
         return null
     }
-
 }
-

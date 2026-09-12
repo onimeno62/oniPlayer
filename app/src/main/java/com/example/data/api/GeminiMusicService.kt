@@ -2,6 +2,10 @@ package com.example.data.api
 
 import android.util.Log
 import com.example.BuildConfig
+import com.example.ui.lyrics.LyricsHelper
+import com.example.ui.lyrics.LyricsLanguage
+import com.example.ui.lyrics.LyricsSource
+import com.example.ui.lyrics.OnlineLyricsResult
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import okhttp3.MediaType.Companion.toMediaType
@@ -104,7 +108,6 @@ object GeminiMusicService {
      */
     suspend fun searchTagsMusicBrainz(title: String, artist: String): List<OnlineTagResult> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineTagResult>()
-        // MusicBrainz recording search with Lucene query syntax
         val queryStr = "recording:\"$title\" AND artist:\"$artist\""
         val url = "https://musicbrainz.org/ws/2/recording?query=${java.net.URLEncoder.encode(queryStr, "UTF-8")}&fmt=json"
 
@@ -224,7 +227,6 @@ object GeminiMusicService {
                         val recTrack = trackObj.optInt("trackNumber", 1).toString()
                         val recDisc = trackObj.optInt("discNumber", 1).toString()
                         
-                        // Convert artwork to high-quality 600x600 size
                         val artworkUrl100 = trackObj.optString("artworkUrl100", "")
                         val albumArt = if (artworkUrl100.isNotEmpty()) {
                             artworkUrl100.replace("100x100bb.jpg", "600x600bb.jpg")
@@ -361,16 +363,10 @@ object GeminiMusicService {
         return@withContext results
     }
 
-    /**
-     * Searches Gemini online knowledge for music release metadata.
-     */
     suspend fun searchTagsGemini(title: String, artist: String): List<OnlineTagResult> = withContext(Dispatchers.IO) {
         return@withContext searchTagsITunes(title, artist)
     }
 
-    /**
-     * Searches multi-source online music metadata database.
-     */
     suspend fun searchTagsOnlineMulti(title: String, artist: String, source: String): List<OnlineTagResult> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineTagResult>()
         try {
@@ -409,7 +405,6 @@ object GeminiMusicService {
                     }
                 }
                 else -> {
-                    // Fallback search order
                     try {
                         val mb = searchTagsMusicBrainz(title, artist)
                         if (mb.isNotEmpty()) results.addAll(mb)
@@ -438,7 +433,6 @@ object GeminiMusicService {
             return@withContext results
         }
 
-        // Final local fallback
         val capitalizedTitle = title.trim().split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
         val capitalizedArtist = artist.trim().split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
         return@withContext listOf(
@@ -517,80 +511,33 @@ object GeminiMusicService {
         return cleaned.ifEmpty { artist }
     }
 
-    fun detectLyricsLanguage(text: String, title: String = ""): String {
-        val lowerTitle = title.lowercase()
-        if (lowerTitle.contains("romaji") || lowerTitle.contains("romanized")) return "Romaji (Phonetic)"
-        if (lowerTitle.contains("english ver") || lowerTitle.contains("english trans") || lowerTitle.contains("english")) return "English"
-        if (lowerTitle.contains("spanish ver") || lowerTitle.contains("español")) return "Spanish"
-
-        val clean = com.example.ui.lyrics.LyricsHelper.stripLrcTags(text).take(800)
-        val hasKana = clean.any { it in '\u3040'..'\u309F' || it in '\u30A0'..'\u30FF' }
-        val hasHangul = clean.any { it in '\uAC00'..'\uD7AF' || it in '\u1100'..'\u11FF' }
-        val hasKanji = clean.any { it in '\u4E00'..'\u9FFF' }
-        val hasCyrillic = clean.any { it in '\u0400'..'\u04FF' }
-
-        if (hasKana) return "Japanese (日本語)"
-        if (hasHangul) return "Korean (한국어)"
-        if (hasKanji) return "Chinese (中文)"
-        if (hasCyrillic) return "Russian (Русский)"
-
-        val lower = clean.lowercase()
-        val romajiMarkers = listOf("watashi", "anata", "bokura", "kokoro", "sekai", "kimi", "kono", "sono", "ano", "ashita", "sarang", "jigeum", "neowa")
-        val words = lower.split(Regex("\\s+")).take(60)
-        if (romajiMarkers.count { words.contains(it) } >= 2) {
-            return "Romaji (Phonetic)"
-        }
-
-        val spanishMarkers = listOf("que", "de", "la", "el", "en", "te", "amor", "corazón", "por", "para", "como", "vida")
-        if (spanishMarkers.count { words.contains(it) } >= 3) {
-            return "Spanish (Español)"
-        }
-
-        val frenchMarkers = listOf("je", "tu", "est", "le", "la", "dans", "pour", "avec", "nous", "vous", "mon")
-        if (frenchMarkers.count { words.contains(it) } >= 3) {
-            return "French (Français)"
-        }
-
-        val germanMarkers = listOf("ich", "du", "ist", "und", "der", "die", "das", "nicht", "wir")
-        if (germanMarkers.count { words.contains(it) } >= 3) {
-            return "German (Deutsch)"
-        }
-
-        return "English / Original"
-    }
-
     /**
-     * Searches online for song lyrics options from public lyrics repositories (LRCLIB, Lyrics.ovh, Lyrist).
-     * Surfaces all available language versions and synchronizations.
+     * Searches real online lyrics repositories (LRCLIB, Lyrist, Lyrics.ovh) and returns
+     * first-class [OnlineLyricsResult] domain objects without AI-generated search items.
      */
-    suspend fun searchLyricsOnlineMulti(title: String, artist: String, source: String = "Default"): List<Triple<String, Double, String>> = withContext(Dispatchers.IO) {
-        val results = mutableListOf<Triple<String, Double, String>>()
+    suspend fun searchRealLyricsOnline(
+        title: String,
+        artist: String,
+        sourceSelection: String = "All (Auto)",
+        desiredLanguages: List<LyricsLanguage> = emptyList()
+    ): List<OnlineLyricsResult> = withContext(Dispatchers.IO) {
+        val rawResults = mutableListOf<OnlineLyricsResult>()
         val cleanTitle = cleanMusicTitle(title)
         val cleanArtist = cleanMusicArtist(artist)
 
-        if (cleanTitle.isBlank()) {
-            return@withContext results
-        }
+        if (cleanTitle.isBlank()) return@withContext emptyList()
 
-        val isDefault = source == "Default" || source == "All (Auto)" || source.isBlank()
-        val queryLrcLib = isDefault || source.contains("LRCLIB", ignoreCase = true)
-        val queryLyrist = isDefault || source.contains("Lyrist", ignoreCase = true)
-        val queryOvh = isDefault || source.contains("ovh", ignoreCase = true)
+        val isDefault = sourceSelection == "All (Auto)" || sourceSelection == "Default" || sourceSelection.isBlank()
+        val queryLrcLib = isDefault || sourceSelection.contains("LRCLIB", ignoreCase = true)
+        val queryLyrist = isDefault || sourceSelection.contains("Lyrist", ignoreCase = true)
+        val queryOvh = isDefault || sourceSelection.contains("ovh", ignoreCase = true)
 
-        val labelPrefix = when {
-            source.contains("LRCLIB", ignoreCase = true) -> "LRCLIB"
-            source.contains("Lyrist", ignoreCase = true) -> "Lyrist"
-            source.contains("ovh", ignoreCase = true) -> "Lyrics.ovh"
-            else -> "Live Database"
-        }
-
-        // 1. Try LRCLIB Exact Search
+        // 1. LRCLIB Exact track + artist search
         if (queryLrcLib) {
             try {
                 val encodedArtist = java.net.URLEncoder.encode(cleanArtist, "UTF-8")
                 val encodedTitle = java.net.URLEncoder.encode(cleanTitle, "UTF-8")
                 val url = "https://lrclib.net/api/search?track_name=$encodedTitle&artist_name=$encodedArtist"
-                
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "OniPlayer/1.0.0 (o.Inugami.a@gmail.com)")
@@ -609,34 +556,53 @@ object GeminiMusicService {
                                 val recTitle = item.optString("trackName", cleanTitle)
                                 val plainLyrics = item.optString("plainLyrics", "").trim()
                                 val syncedLyrics = item.optString("syncedLyrics", "").trim()
-                                
+
                                 val sampleLyrics = syncedLyrics.ifEmpty { plainLyrics }
-                                val lang = detectLyricsLanguage(sampleLyrics, "$recTitle $albumName")
-                                
-                                val baseLabel = if (albumName.isNotEmpty()) "$labelPrefix: $albumName • $lang" else "$labelPrefix: $recTitle • $lang"
-                                
-                                if (syncedLyrics.isNotEmpty() && results.none { it.third == syncedLyrics }) {
-                                    results.add(Triple("$baseLabel (Synced)", 5.0 - (i * 0.1), syncedLyrics))
+                                val detectedLang = LyricsHelper.detectLanguage(sampleLyrics, "$recTitle $albumName")
+
+                                if (syncedLyrics.isNotEmpty()) {
+                                    rawResults.add(
+                                        OnlineLyricsResult(
+                                            title = recTitle,
+                                            artist = recArtist,
+                                            album = albumName,
+                                            score = 5.0 - (i * 0.1),
+                                            lyrics = syncedLyrics,
+                                            language = detectedLang,
+                                            source = LyricsSource.LRCLIB,
+                                            isSynchronized = true
+                                        )
+                                    )
                                 }
-                                if (plainLyrics.isNotEmpty() && results.none { it.third == plainLyrics }) {
-                                    results.add(Triple(baseLabel, 4.8 - (i * 0.1), plainLyrics))
+                                if (plainLyrics.isNotEmpty()) {
+                                    rawResults.add(
+                                        OnlineLyricsResult(
+                                            title = recTitle,
+                                            artist = recArtist,
+                                            album = albumName,
+                                            score = 4.8 - (i * 0.1),
+                                            lyrics = plainLyrics,
+                                            language = detectedLang,
+                                            source = LyricsSource.LRCLIB,
+                                            isSynchronized = false
+                                        )
+                                    )
                                 }
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "LRCLIB exact lyrics search failed: ${e.message}")
+                Log.w(TAG, "LRCLIB exact search failed: ${e.message}")
             }
         }
 
-        // 2. Try LRCLIB General Query Search to capture alternative releases and language translations
-        if (queryLrcLib && results.size < 6) {
+        // 2. LRCLIB General Query search for alternative releases
+        if (queryLrcLib && rawResults.size < 6) {
             try {
                 val queryTerm = if (cleanArtist.isNotEmpty()) "$cleanArtist $cleanTitle" else cleanTitle
                 val encodedQuery = java.net.URLEncoder.encode(queryTerm, "UTF-8")
                 val url = "https://lrclib.net/api/search?q=$encodedQuery"
-                
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "OniPlayer/1.0.0 (o.Inugami.a@gmail.com)")
@@ -655,28 +621,49 @@ object GeminiMusicService {
                                 val recArtist = item.optString("artistName", cleanArtist)
                                 val recTitle = item.optString("trackName", cleanTitle)
                                 val albumName = item.optString("albumName", "")
-                                
+
                                 val sampleLyrics = syncedLyrics.ifEmpty { plainLyrics }
-                                val lang = detectLyricsLanguage(sampleLyrics, "$recTitle $albumName")
-                                val baseLabel = "$labelPrefix: $recTitle • $lang"
-                                
-                                if (syncedLyrics.isNotEmpty() && results.none { it.third == syncedLyrics }) {
-                                    results.add(Triple("$baseLabel (Synced)", 4.9 - (i * 0.1), syncedLyrics))
+                                val detectedLang = LyricsHelper.detectLanguage(sampleLyrics, "$recTitle $albumName")
+
+                                if (syncedLyrics.isNotEmpty()) {
+                                    rawResults.add(
+                                        OnlineLyricsResult(
+                                            title = recTitle,
+                                            artist = recArtist,
+                                            album = albumName,
+                                            score = 4.9 - (i * 0.1),
+                                            lyrics = syncedLyrics,
+                                            language = detectedLang,
+                                            source = LyricsSource.LRCLIB,
+                                            isSynchronized = true
+                                        )
+                                    )
                                 }
-                                if (plainLyrics.isNotEmpty() && results.none { it.third == plainLyrics }) {
-                                    results.add(Triple(baseLabel, 4.7 - (i * 0.1), plainLyrics))
+                                if (plainLyrics.isNotEmpty()) {
+                                    rawResults.add(
+                                        OnlineLyricsResult(
+                                            title = recTitle,
+                                            artist = recArtist,
+                                            album = albumName,
+                                            score = 4.7 - (i * 0.1),
+                                            lyrics = plainLyrics,
+                                            language = detectedLang,
+                                            source = LyricsSource.LRCLIB,
+                                            isSynchronized = false
+                                        )
+                                    )
                                 }
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "LRCLIB query lyrics search failed: ${e.message}")
+                Log.w(TAG, "LRCLIB query search failed: ${e.message}")
             }
         }
 
-        // 3. Try Lyrist API as fallback or direct query
-        if (queryLyrist && results.isEmpty()) {
+        // 3. Lyrist API
+        if (queryLyrist && rawResults.isEmpty()) {
             try {
                 val encodedArtist = java.net.URLEncoder.encode(cleanArtist, "UTF-8")
                 val encodedTitle = java.net.URLEncoder.encode(cleanTitle, "UTF-8")
@@ -685,7 +672,6 @@ object GeminiMusicService {
                 } else {
                     "https://lyrist.vercel.app/api/$encodedTitle"
                 }
-                
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "OniPlayer/1.0.0 (o.Inugami.a@gmail.com)")
@@ -699,25 +685,34 @@ object GeminiMusicService {
                             val lyrics = root.optString("lyrics", "").trim()
                             val resArtist = root.optString("artist", cleanArtist)
                             val resTitle = root.optString("title", cleanTitle)
-                            val lang = detectLyricsLanguage(lyrics, resTitle)
-                            if (lyrics.isNotEmpty() && results.none { it.third == lyrics }) {
-                                results.add(Triple("$labelPrefix: $resTitle • $lang", 4.9, lyrics))
+                            val detectedLang = LyricsHelper.detectLanguage(lyrics, resTitle)
+                            if (lyrics.isNotEmpty()) {
+                                rawResults.add(
+                                    OnlineLyricsResult(
+                                        title = resTitle,
+                                        artist = resArtist,
+                                        score = 4.9,
+                                        lyrics = lyrics,
+                                        language = detectedLang,
+                                        source = LyricsSource.LYRIST,
+                                        isSynchronized = LyricsHelper.isSynced(lyrics)
+                                    )
+                                )
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Lyrist lyrics search failed: ${e.message}")
+                Log.w(TAG, "Lyrist search failed: ${e.message}")
             }
         }
 
-        // 4. Try Lyrics.ovh as fallback or direct query
-        if (queryOvh && results.isEmpty()) {
+        // 4. Lyrics.ovh
+        if (queryOvh && rawResults.isEmpty()) {
             try {
                 val encodedArtist = java.net.URLEncoder.encode(cleanArtist, "UTF-8")
                 val encodedTitle = java.net.URLEncoder.encode(cleanTitle, "UTF-8")
                 val url = "https://api.lyrics.ovh/v1/$encodedArtist/$encodedTitle"
-                
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "OniPlayer/1.0.0 (o.Inugami.a@gmail.com)")
@@ -729,8 +724,19 @@ object GeminiMusicService {
                         if (body.isNotEmpty()) {
                             val root = JSONObject(body)
                             val lyrics = root.optString("lyrics", "").trim()
-                            if (lyrics.isNotEmpty() && results.none { it.third == lyrics }) {
-                                results.add(Triple("$labelPrefix (Ovh Version)", 4.8, lyrics))
+                            val detectedLang = LyricsHelper.detectLanguage(lyrics, cleanTitle)
+                            if (lyrics.isNotEmpty()) {
+                                rawResults.add(
+                                    OnlineLyricsResult(
+                                        title = cleanTitle,
+                                        artist = cleanArtist,
+                                        score = 4.8,
+                                        lyrics = lyrics,
+                                        language = detectedLang,
+                                        source = LyricsSource.LYRICS_OVH,
+                                        isSynchronized = false
+                                    )
+                                )
                             }
                         }
                     }
@@ -740,19 +746,58 @@ object GeminiMusicService {
             }
         }
 
-        if (results.isEmpty()) {
-            throw IOException("No online lyrics found for '$cleanTitle' by '$cleanArtist' on LRCLIB, Lyrist, or Lyrics.ovh databases.")
+        // Deduplication: Content hash + synchronization preference
+        val deduplicated = mutableListOf<OnlineLyricsResult>()
+        for (item in rawResults) {
+            val normalizedSnippet = item.cleanSnippet.take(120).lowercase()
+            val existing = deduplicated.firstOrNull { 
+                it.cleanSnippet.take(120).lowercase() == normalizedSnippet &&
+                it.language == item.language
+            }
+            if (existing == null) {
+                deduplicated.add(item)
+            } else if (!existing.isSynchronized && item.isSynchronized) {
+                // Prefer synchronized version over plain version
+                val idx = deduplicated.indexOf(existing)
+                deduplicated[idx] = item
+            }
         }
 
-        return@withContext results
+        // Filter and Rank according to desired languages
+        val activeDesired = desiredLanguages.filter { it != LyricsLanguage.UNKNOWN && it != LyricsLanguage.ORIGINAL }
+        val sortedResults = deduplicated.sortedWith(
+            compareByDescending<OnlineLyricsResult> { res ->
+                // Priority 1: Match requested language
+                if (activeDesired.contains(res.language)) 2 else 0
+            }.thenByDescending { it.isSynchronized } // Priority 2: Synchronized
+             .thenByDescending { it.score }         // Priority 3: Score / provider confidence
+        )
+
+        // If user specified languages, filter to matching languages if matches exist;
+        // if none match, return empty so UI shows proper empty state per spec.
+        if (activeDesired.isNotEmpty()) {
+            val matching = sortedResults.filter { activeDesired.contains(it.language) }
+            return@withContext matching
+        }
+
+        return@withContext sortedResults
     }
 
-    private fun stripLrcTimestamps(lrc: String): String {
-        val timestampRegex = "\\[\\d{2}:\\d{2}(?:\\.\\d{1,3})?]".toRegex()
-        val infoTagRegex = "\\[[a-zA-Z]+:[^]]*]".toRegex()
-        return lrc.lines().map { line ->
-            line.replace(timestampRegex, "").replace(infoTagRegex, "").trim()
-        }.filter { it.isNotEmpty() }.joinToString("\n")
+    /**
+     * Backward-compatible search method returning formatted Triples,
+     * maintaining compatibility while delegating to real search results.
+     */
+    suspend fun searchLyricsOnlineMulti(
+        title: String,
+        artist: String,
+        source: String = "Default"
+    ): List<Triple<String, Double, String>> = withContext(Dispatchers.IO) {
+        val results = searchRealLyricsOnline(title, artist, source)
+        return@withContext results.map { item ->
+            val syncTag = if (item.isSynchronized) "(Synced)" else ""
+            val label = "${item.source.displayName}: ${item.title} • ${item.language.labelWithFlag} $syncTag".trim()
+            Triple(label, item.score, item.lyrics)
+        }
     }
 
     /**
@@ -760,9 +805,9 @@ object GeminiMusicService {
      */
     suspend fun searchLyrics(title: String, artist: String): String? {
         return try {
-            val results = searchLyricsOnlineMulti(title, artist, "Default")
+            val results = searchRealLyricsOnline(title, artist)
             if (results.isNotEmpty()) {
-                results[0].third
+                results[0].lyrics
             } else {
                 null
             }
@@ -967,7 +1012,6 @@ object GeminiMusicService {
                 val responseBody = response.body?.string() ?: return@withContext defaultResult
                 val responseText = parseGeminiResponse(responseBody) ?: return@withContext defaultResult
                 
-                // Parse the JSON returned by Gemini
                 val cleanJson = responseText.trim().removeSurrounding("```json", "```").trim()
                 val jsonObject = JSONObject(cleanJson)
                 return@withContext OptimizedTags(
@@ -1055,7 +1099,6 @@ object GeminiMusicService {
         contentsArray.put(contentObj)
         root.put("contents", contentsArray)
 
-        // Add system instruction
         val systemInstructionObj = JSONObject()
         val systemPartsArray = JSONArray()
         val systemPartObj = JSONObject()
@@ -1064,7 +1107,6 @@ object GeminiMusicService {
         systemInstructionObj.put("parts", systemPartsArray)
         root.put("systemInstruction", systemInstructionObj)
 
-        // Add configuration
         val configObj = JSONObject()
         if (isJson) {
             configObj.put("responseMimeType", "application/json")
@@ -1086,7 +1128,6 @@ object GeminiMusicService {
         val contentObj = JSONObject()
         val partsArray = JSONArray()
 
-        // Part 1: Inline audio data
         val audioPartObj = JSONObject()
         val inlineDataObj = JSONObject()
         inlineDataObj.put("mimeType", mimeType)
@@ -1094,7 +1135,6 @@ object GeminiMusicService {
         audioPartObj.put("inlineData", inlineDataObj)
         partsArray.put(audioPartObj)
 
-        // Part 2: Text prompt
         val textPartObj = JSONObject()
         textPartObj.put("text", prompt)
         partsArray.put(textPartObj)
@@ -1103,7 +1143,6 @@ object GeminiMusicService {
         contentsArray.put(contentObj)
         root.put("contents", contentsArray)
 
-        // Add system instruction
         val systemInstructionObj = JSONObject()
         val systemPartsArray = JSONArray()
         val systemPartObj = JSONObject()
@@ -1112,7 +1151,6 @@ object GeminiMusicService {
         systemInstructionObj.put("parts", systemPartsArray)
         root.put("systemInstruction", systemInstructionObj)
 
-        // Add configuration
         val configObj = JSONObject()
         if (isJson) {
             configObj.put("responseMimeType", "application/json")
@@ -1186,9 +1224,6 @@ object GeminiMusicService {
         }
     }
 
-    /**
-     * Automatically recognizes a song using Gemini's native multimodal audio understanding (Fingerprinting).
-     */
     suspend fun recognizeMusicByFingerprint(filePath: String): List<OnlineTagResult> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineTagResult>()
         val apiKey = getApiKey()
@@ -1261,7 +1296,6 @@ object GeminiMusicService {
                         val comment = jsonObject.optString("comment", "Identified by Gemini Fingerprint")
                         val bpm = jsonObject.optString("bpm", "120")
 
-                        // We can also search iTunes/Spotify for high quality cover arts using the recognized title and artist!
                         var albumArt = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400"
                         try {
                             val onlineResults = searchTagsITunes(title, artist)
@@ -1302,12 +1336,9 @@ object GeminiMusicService {
         return@withContext results
     }
 
-    /**
-     * Automatically recognizes a song using the AudD Acoustic Fingerprinting API.
-     */
     suspend fun recognizeMusicByAudD(filePath: String, apiToken: String): List<OnlineTagResult> = withContext(Dispatchers.IO) {
         val results = mutableListOf<OnlineTagResult>()
-        val token = apiToken.trim().ifEmpty { "test" } // fallback to test token
+        val token = apiToken.trim().ifEmpty { "test" }
 
         try {
             val audioDataPair = getAudioFileFingerprintChunk(filePath)
@@ -1346,7 +1377,6 @@ object GeminiMusicService {
                             val year = if (releaseDate.length >= 4) releaseDate.substring(0, 4) else "2026"
                             val label = result.optString("label", "Official Release")
                             
-                            // Get album art if available
                             val spotify = result.optJSONObject("spotify")
                             val spotifyAlbum = spotify?.optJSONObject("album")
                             val spotifyImages = spotifyAlbum?.optJSONArray("images")
