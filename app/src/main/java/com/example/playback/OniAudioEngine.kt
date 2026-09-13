@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -88,6 +89,14 @@ class OniAudioEngine private constructor(context: Context) {
     private val currentBandGains = FloatArray(5)
     private var currentBassBoostLevel = 0f
     private var currentVirtualizerLevel = 0f
+
+    init {
+        scope.launch {
+            state.collect { playbackState ->
+                com.example.ui.widgets.updater.WidgetUpdateManager.onPlaybackStateChanged(context, playbackState)
+            }
+        }
+    }
 
     fun setSongWithoutPlaying(song: SongEntity) {
         client.setSongWithoutPlaying(song)

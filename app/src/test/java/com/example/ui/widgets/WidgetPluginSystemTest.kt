@@ -63,8 +63,10 @@ class WidgetPluginSystemTest {
             title = "Midnight Drive",
             artist = "Oni",
             album = "After Dark",
+            genre = "Electronic",
             duration = 200000L,
             filePath = "/music/test.mp3",
+            albumArtUri = null,
             lyrics = "[00:10.00] Line 1\n[00:20.00] Line 2\n[00:30.00] Line 3"
         )
 

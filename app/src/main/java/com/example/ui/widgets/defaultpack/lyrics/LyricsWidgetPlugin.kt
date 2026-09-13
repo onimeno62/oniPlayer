@@ -18,6 +18,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.example.MainActivity
 import com.example.R
 import com.example.ui.theme.OniSkinTokens
 import com.example.ui.widgets.actions.SkipNextActionCallback
@@ -48,14 +49,12 @@ class LyricsWidgetRenderer : OniWidgetRenderer {
         state: OniWidgetPlaybackState,
         skin: OniSkinTokens
     ) {
-        val openAppIntent = WidgetPlaybackStateAdapter.createOpenAppIntent(context)
-
         val bgModifier = GlanceModifier
             .fillMaxSize()
             .background(ColorProvider(skin.colors.surface))
             .cornerRadius(16.dp)
             .padding(12.dp)
-            .clickable(actionStartActivity(openAppIntent))
+            .clickable(actionStartActivity<MainActivity>())
 
         when (size) {
             WidgetSize.SIZE_4X1 -> Render4x1(state, skin, bgModifier)

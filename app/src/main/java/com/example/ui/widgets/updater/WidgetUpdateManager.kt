@@ -5,6 +5,7 @@ import com.example.playback.PlaybackState
 import com.example.ui.widgets.glance.CompactPlayerGlanceWidget
 import com.example.ui.widgets.glance.LyricsGlanceWidget
 import com.example.ui.widgets.glance.NowPlayingGlanceWidget
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

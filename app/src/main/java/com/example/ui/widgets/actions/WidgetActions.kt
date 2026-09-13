@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.updateAll
 import com.example.ui.widgets.playback.WidgetPlaybackStateAdapter
 import com.example.ui.widgets.glance.NowPlayingGlanceWidget
 import com.example.ui.widgets.glance.CompactPlayerGlanceWidget

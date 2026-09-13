@@ -17,6 +17,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.example.MainActivity
 import com.example.R
 import com.example.ui.theme.OniSkinTokens
 import com.example.ui.widgets.actions.SkipNextActionCallback
@@ -49,7 +50,6 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
         state: OniWidgetPlaybackState,
         skin: OniSkinTokens
     ) {
-        val openAppIntent = WidgetPlaybackStateAdapter.createOpenAppIntent(context)
         val artworkBitmap = WidgetPlaybackStateAdapter.loadArtworkBitmap(context, state.albumArtworkUri)
 
         val bgModifier = GlanceModifier
@@ -57,7 +57,7 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
             .background(ColorProvider(skin.colors.surface))
             .cornerRadius(16.dp)
             .padding(10.dp)
-            .clickable(actionStartActivity(openAppIntent))
+            .clickable(actionStartActivity<MainActivity>())
 
         when (size) {
             WidgetSize.SIZE_4X1 -> Render4x1(state, skin, artworkBitmap, bgModifier)
