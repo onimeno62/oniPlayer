@@ -13,19 +13,20 @@ import com.example.ui.lyrics.LyricsHelper
 import com.example.ui.widgets.core.OniWidgetPlaybackState
 import java.io.File
 import java.io.InputStream
-import java.util.concurrent.ConcurrentHashMap
+import java.util.LinkedHashMap
 
-/**
- * Adapter that safely maps oniPlayer core playback state to [OniWidgetPlaybackState].
- * Decouples widgets completely from ViewModels.
- */
+/** Adapter between the single playback state source and widget state. */
 object WidgetPlaybackStateAdapter {
-    private val artworkCache = ConcurrentHashMap<String, Bitmap>()
+    private const val MAX_ARTWORK_CACHE_ENTRIES = 8
+
+    private val artworkCache = object : LinkedHashMap<String, Bitmap>(MAX_ARTWORK_CACHE_ENTRIES, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean =
+            size > MAX_ARTWORK_CACHE_ENTRIES
+    }
 
     fun fromPlaybackState(state: PlaybackState): OniWidgetPlaybackState {
         val song = state.currentSong
         val (currentLyric, prevLyric, nextLyric) = resolveLyrics(song?.lyrics, state.positionMs)
-
         return OniWidgetPlaybackState(
             songId = song?.id,
             title = song?.displayTitle ?: "No track playing",
@@ -33,8 +34,8 @@ object WidgetPlaybackStateAdapter {
             album = song?.displayAlbum ?: "",
             albumArtworkUri = song?.albumArtUri,
             isPlaying = state.isPlaying,
-            positionMs = state.positionMs,
-            durationMs = state.durationMs,
+            positionMs = state.positionMs.coerceAtLeast(0L),
+            durationMs = state.durationMs.coerceAtLeast(0L),
             isShuffle = state.shuffleEnabled,
             isRepeat = state.repeatMode == RepeatMode.ONE,
             activeLyric = currentLyric,
@@ -46,85 +47,57 @@ object WidgetPlaybackStateAdapter {
 
     private fun resolveLyrics(rawLyrics: String?, positionMs: Long): Triple<String?, String?, String?> {
         if (rawLyrics.isNullOrBlank()) return Triple(null, null, null)
-
         if (LyricsHelper.isSynced(rawLyrics)) {
             val lines = LyricsHelper.parseLrc(rawLyrics).filter { it.text.isNotBlank() }
             if (lines.isEmpty()) return Triple(null, null, null)
-
             val activeIdx = LyricsHelper.getActiveLineIndex(lines, positionMs)
-            val current = if (activeIdx in lines.indices) lines[activeIdx].text else lines.firstOrNull()?.text
-            val prev = if (activeIdx > 0 && activeIdx - 1 in lines.indices) lines[activeIdx - 1].text else null
-            val next = if (activeIdx + 1 in lines.indices) lines[activeIdx + 1].text else null
-            return Triple(current, prev, next)
-        } else {
-            val plainLines = rawLyrics.lines().map { it.trim() }.filter { it.isNotEmpty() }
-            val current = plainLines.getOrNull(0)
-            val next = plainLines.getOrNull(1)
-            return Triple(current, null, next)
+            return Triple(
+                lines.getOrNull(activeIdx)?.text,
+                lines.getOrNull(activeIdx - 1)?.text,
+                lines.getOrNull(activeIdx + 1)?.text
+            )
         }
+        // Plain lyrics have no time information; expose a stable preview only.
+        val lines = rawLyrics.lines().map(String::trim).filter(String::isNotEmpty)
+        return Triple(lines.getOrNull(0), null, lines.getOrNull(1))
     }
 
-    /**
-     * Loads artwork bitmap with bounds memory safety for remote views / Glance.
-     */
     fun loadArtworkBitmap(context: Context, uriString: String?): Bitmap? {
         if (uriString.isNullOrBlank()) return null
-        artworkCache[uriString]?.let { return it }
-
+        synchronized(artworkCache) { artworkCache[uriString]?.let { return it } }
         return try {
             val uri = Uri.parse(uriString)
-            val inputStream: InputStream? = if (uriString.startsWith("content://")) {
-                context.contentResolver.openInputStream(uri)
-            } else if (uriString.startsWith("file://") || File(uriString).exists()) {
-                File(uri.path ?: uriString).inputStream()
-            } else {
-                null
+            val inputStream: InputStream? = when {
+                uriString.startsWith("content://") -> context.contentResolver.openInputStream(uri)
+                uriString.startsWith("file://") -> uri.path?.let { File(it).inputStream() }
+                File(uriString).exists() -> File(uriString).inputStream()
+                else -> null
             }
-
             inputStream?.use { stream ->
                 val options = BitmapFactory.Options().apply {
-                    inSampleSize = 2 // downsample for widget efficiency
+                    inSampleSize = 2
+                    inPreferredConfig = Bitmap.Config.RGB_565
                 }
-                val bitmap = BitmapFactory.decodeStream(stream, null, options)
-                if (bitmap != null) {
-                    artworkCache[uriString] = bitmap
+                BitmapFactory.decodeStream(stream, null, options)?.also { bitmap ->
+                    synchronized(artworkCache) { artworkCache[uriString] = bitmap }
                 }
-                bitmap
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
 
-    fun createOpenAppIntent(context: Context): Intent {
-        return Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
+    fun createOpenAppIntent(context: Context): Intent = Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
     }
 
-    // Playback control actions delegated cleanly to OniAudioEngine
     fun togglePlayPause(context: Context) {
         val engine = OniAudioEngine.getInstance(context)
-        if (engine.isPlaying.value) {
-            engine.pause()
-        } else {
-            engine.resume()
-        }
+        if (engine.isPlaying.value) engine.pause() else engine.resume()
     }
 
-    fun skipNext(context: Context) {
-        OniAudioEngine.getInstance(context).skipNext()
-    }
-
-    fun skipPrevious(context: Context) {
-        OniAudioEngine.getInstance(context).skipPrevious()
-    }
-
-    fun toggleShuffle(context: Context) {
-        OniAudioEngine.getInstance(context).toggleShuffle()
-    }
-
-    fun toggleRepeat(context: Context) {
-        OniAudioEngine.getInstance(context).toggleRepeat()
-    }
+    fun skipNext(context: Context) = OniAudioEngine.getInstance(context).skipNext()
+    fun skipPrevious(context: Context) = OniAudioEngine.getInstance(context).skipPrevious()
+    fun toggleShuffle(context: Context) = OniAudioEngine.getInstance(context).toggleShuffle()
+    fun toggleRepeat(context: Context) = OniAudioEngine.getInstance(context).toggleRepeat()
 }
