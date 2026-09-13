@@ -20,6 +20,7 @@ class LyricsGlanceWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val skin = WidgetSkinResolver.resolveActiveSkin(context)
         provideContent {
             val sizeInfo = androidx.glance.LocalSize.current
             val logicalSize = WidgetSize.fromDimensions(sizeInfo.width.value.toInt(), sizeInfo.height.value.toInt())
@@ -27,7 +28,6 @@ class LyricsGlanceWidget : GlanceAppWidget() {
             val engine = OniAudioEngine.getInstance(context)
             val playbackState = engine.state.value
             val widgetState = WidgetPlaybackStateAdapter.fromPlaybackState(playbackState)
-            val skin = WidgetSkinResolver.resolveActiveSkin(context)
 
             val plugin = OniWidgetRegistry.getPlugin("oni.lyrics")
                 ?: DefaultWidgetPack.widgets.first { it.id == "oni.lyrics" }
