@@ -1,7 +1,6 @@
 package com.example.ui.widgets.defaultpack.compactplayer
 
 import android.content.Context
-import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,13 +21,13 @@ import com.example.ui.theme.OniSkinTokens
 import com.example.ui.widgets.actions.*
 import com.example.ui.widgets.core.*
 import com.example.ui.widgets.playback.WidgetPlaybackStateAdapter
-import com.example.ui.widgets.skin.AuroraWidgetStyle
+import com.example.ui.widgets.skin.OniWidgetVisualSystem
 
 class CompactPlayerWidgetPlugin : OniWidgetPlugin {
     override val id = "oni.compactplayer"
     override val packId = "default.pack"
-    override val name = "Compact Player"
-    override val description = "Minimal Aurora Glass playback controller."
+    override val name = "Mini Player"
+    override val description = "Transport-first compact music controller."
     override val supportedSizes = setOf(WidgetSize.SIZE_4X1, WidgetSize.SIZE_4X2, WidgetSize.SIZE_4X4)
     override fun createRenderer(): OniWidgetRenderer = CompactPlayerWidgetRenderer()
 }
@@ -37,9 +36,11 @@ class CompactPlayerWidgetRenderer : OniWidgetRenderer {
     @Composable
     override fun Render(context: Context, size: WidgetSize, state: OniWidgetPlaybackState, skin: OniSkinTokens) {
         val art = WidgetPlaybackStateAdapter.loadArtworkBitmap(context, state.albumArtworkUri)
-        Box(GlanceModifier.fillMaxSize().cornerRadius(26.dp).background(ColorProvider(AuroraWidgetStyle.surface(skin))).clickable(actionStartActivity<MainActivity>()).padding(if (size == WidgetSize.SIZE_4X1) 10.dp else 13.dp)) {
-            Box(GlanceModifier.size(if (size == WidgetSize.SIZE_4X4) 190.dp else 120.dp).background(ColorProvider(AuroraWidgetStyle.secondary(skin).copy(alpha = .10f))).cornerRadius(100.dp).align(Alignment.TopEnd)) {}
-            Box(GlanceModifier.fillMaxWidth().height(1.dp).background(ColorProvider(AuroraWidgetStyle.primary(skin).copy(alpha = .28f))).align(Alignment.TopCenter)) {}
+        Box(
+            GlanceModifier.fillMaxSize().cornerRadius(22.dp)
+                .background(ColorProvider(OniWidgetVisualSystem.surface(skin)))
+                .clickable(actionStartActivity<MainActivity>()).padding(12.dp)
+        ) {
             when (size) {
                 WidgetSize.SIZE_4X1 -> Small(state, skin, art)
                 WidgetSize.SIZE_4X2 -> Medium(state, skin, art)
@@ -49,84 +50,88 @@ class CompactPlayerWidgetRenderer : OniWidgetRenderer {
     }
 
     @Composable
-    private fun Artwork(bitmap: Bitmap?, size: Int, skin: OniSkinTokens) {
-        Box(GlanceModifier.size((size + 8).dp).background(ColorProvider(AuroraWidgetStyle.glow(skin).copy(alpha = .34f))).cornerRadius(((size + 8) / 5).dp).padding(4.dp), Alignment.Center) {
-            Image(bitmap?.let(::ImageProvider) ?: ImageProvider(R.drawable.ic_music_note), "Album artwork", GlanceModifier.fillMaxSize().cornerRadius((size / 5).dp))
-        }
-    }
-
-    @Composable
-    private fun Small(state: OniWidgetPlaybackState, skin: OniSkinTokens, art: Bitmap?) {
+    private fun Small(state: OniWidgetPlaybackState, skin: OniSkinTokens, art: android.graphics.Bitmap?) {
         Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Artwork(art, 56, skin)
-            Spacer(GlanceModifier.width(11.dp))
+            Artwork(art, 54)
+            Spacer(GlanceModifier.width(10.dp))
             Column(GlanceModifier.defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
-                Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 14.sp, FontWeight.Medium))
-                Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 10.sp))
+                Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.text(skin)), 14.sp, FontWeight.Medium))
+                Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.muted(skin)), 10.sp))
                 Spacer(GlanceModifier.height(6.dp))
-                Progress(state, skin, 145)
-                Spacer(GlanceModifier.height(4.dp))
-                Controls(state, skin, 27, 38)
+                Progress(state, skin)
             }
+            Spacer(GlanceModifier.width(10.dp))
+            Transport(state, skin, 32)
         }
     }
 
     @Composable
-    private fun Medium(state: OniWidgetPlaybackState, skin: OniSkinTokens, art: Bitmap?) {
+    private fun Medium(state: OniWidgetPlaybackState, skin: OniSkinTokens, art: android.graphics.Bitmap?) {
         Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Artwork(art, 82, skin)
-            Spacer(GlanceModifier.width(13.dp))
+            Artwork(art, 76)
+            Spacer(GlanceModifier.width(14.dp))
             Column(GlanceModifier.defaultWeight()) {
-                Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 17.sp, FontWeight.Medium))
-                Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 11.sp))
-                Spacer(GlanceModifier.height(7.dp))
-                Progress(state, skin, 215)
-                Spacer(GlanceModifier.height(3.dp))
-                Text(if (state.isPlaying) "NOW PLAYING" else "PAUSED", style = TextStyle(ColorProvider(AuroraWidgetStyle.secondary(skin)), 8.sp, FontWeight.Medium))
+                Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.text(skin)), 16.sp, FontWeight.Medium))
+                Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.muted(skin)), 11.sp))
+                Spacer(GlanceModifier.height(9.dp))
+                Progress(state, skin)
                 Spacer(GlanceModifier.height(8.dp))
-                Controls(state, skin, 31, 44)
+                Transport(state, skin, 34)
             }
         }
     }
 
     @Composable
-    private fun Large(state: OniWidgetPlaybackState, skin: OniSkinTokens, art: Bitmap?) {
-        Column(GlanceModifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.CenterVertically) {
-            Artwork(art, 148, skin)
-            Spacer(GlanceModifier.height(9.dp))
-            Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 18.sp, FontWeight.Medium))
-            Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 11.sp))
-            Spacer(GlanceModifier.height(8.dp))
-            Progress(state, skin, 250)
-            Spacer(GlanceModifier.height(8.dp))
-            Controls(state, skin, 32, 46)
-        }
-    }
-
-    @Composable
-    private fun Progress(state: OniWidgetPlaybackState, skin: OniSkinTokens, width: Int) {
-        val filled = (width * state.progress).coerceAtLeast(if (state.progress > 0f) 3f else 0f)
-        Box(GlanceModifier.fillMaxWidth().height(9.dp), Alignment.CenterStart) {
-            Box(GlanceModifier.fillMaxWidth().height(3.dp).background(ColorProvider(AuroraWidgetStyle.track(skin).copy(alpha = .82f))).cornerRadius(2.dp)) {}
-            if (filled > 0f) Box(GlanceModifier.width(filled.dp).height(3.dp).background(ColorProvider(AuroraWidgetStyle.primary(skin))).cornerRadius(2.dp)) {
-                Box(GlanceModifier.size(8.dp).background(ColorProvider(AuroraWidgetStyle.primary(skin))).cornerRadius(4.dp).align(Alignment.CenterEnd)) {}
+    private fun Large(state: OniWidgetPlaybackState, skin: OniSkinTokens, art: android.graphics.Bitmap?) {
+        Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Artwork(art, 142)
+            Spacer(GlanceModifier.width(18.dp))
+            Column(GlanceModifier.defaultWeight()) {
+                Text("PLAYING", style = TextStyle(ColorProvider(OniWidgetVisualSystem.primary(skin)), 9.sp, FontWeight.Bold))
+                Spacer(GlanceModifier.height(5.dp))
+                Text(state.title, maxLines = 2, style = TextStyle(ColorProvider(OniWidgetVisualSystem.text(skin)), 20.sp, FontWeight.Medium))
+                Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.muted(skin)), 12.sp))
+                Spacer(GlanceModifier.height(14.dp))
+                Progress(state, skin)
+                Spacer(GlanceModifier.height(10.dp))
+                Transport(state, skin, 42)
             }
         }
     }
 
     @Composable
-    private fun Controls(state: OniWidgetPlaybackState, skin: OniSkinTokens, side: Int, center: Int) {
+    private fun Artwork(bitmap: android.graphics.Bitmap?, size: Int) {
+        Image(bitmap?.let(::ImageProvider) ?: ImageProvider(R.drawable.ic_music_note), "Album artwork", GlanceModifier.size(size.dp).cornerRadius(16.dp))
+    }
+
+    @Composable
+    private fun Progress(state: OniWidgetPlaybackState, skin: OniSkinTokens) {
+        val fraction = state.progress.coerceIn(0f, 1f)
+        Box(GlanceModifier.fillMaxWidth().height(7.dp), Alignment.CenterStart) {
+            Box(GlanceModifier.fillMaxWidth().height(3.dp).background(ColorProvider(OniWidgetVisualSystem.track(skin))).cornerRadius(2.dp)) {}
+            if (fraction > 0f) Box(GlanceModifier.fillMaxWidth(fraction).height(3.dp).background(ColorProvider(OniWidgetVisualSystem.primary(skin))).cornerRadius(2.dp)) {}
+        }
+    }
+
+    @Composable
+    private fun Transport(state: OniWidgetPlaybackState, skin: OniSkinTokens, size: Int) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Control(R.drawable.ic_skip_previous, "Previous", skin, side, SkipPreviousActionCallback::class.java)
-            Spacer(GlanceModifier.width(12.dp))
-            Control(if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play, if (state.isPlaying) "Pause" else "Play", skin, center, TogglePlayPauseActionCallback::class.java, true)
-            Spacer(GlanceModifier.width(12.dp))
-            Control(R.drawable.ic_skip_next, "Next", skin, side, SkipNextActionCallback::class.java)
+            ActionIcon(R.drawable.ic_skip_previous, "Previous", size, SkipPreviousActionCallback::class.java, skin, false)
+            Spacer(GlanceModifier.width(8.dp))
+            ActionIcon(if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play, if (state.isPlaying) "Pause" else "Play", size + 8, TogglePlayPauseActionCallback::class.java, skin, true)
+            Spacer(GlanceModifier.width(8.dp))
+            ActionIcon(R.drawable.ic_skip_next, "Next", size, SkipNextActionCallback::class.java, skin, false)
         }
     }
 
     @Composable
-    private fun Control(res: Int, description: String, skin: OniSkinTokens, size: Int, callback: Class<out androidx.glance.appwidget.action.ActionCallback>, primary: Boolean = false) {
-        Image(ImageProvider(res), description, GlanceModifier.size(size.dp).background(ColorProvider(if (primary) AuroraWidgetStyle.primary(skin) else AuroraWidgetStyle.elevated(skin).copy(alpha = .92f))).cornerRadius((size / 2).dp).padding((size / 3).dp).clickable(actionRunCallback(callback)))
+    private fun ActionIcon(res: Int, description: String, size: Int, callback: Class<out androidx.glance.appwidget.action.ActionCallback>, skin: OniSkinTokens, primary: Boolean) {
+        Image(
+            ImageProvider(res), description,
+            GlanceModifier.size(size.dp)
+                .background(ColorProvider(if (primary) OniWidgetVisualSystem.primary(skin) else OniWidgetVisualSystem.control(skin)))
+                .cornerRadius((size / 2).dp).padding((size / 3).dp)
+                .clickable(actionRunCallback(callback))
+        )
     }
 }
