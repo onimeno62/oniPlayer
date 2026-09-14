@@ -2,9 +2,9 @@
 
 ## Status
 
-**W1/W2 + first renderer rebuild implemented on `feat/widgets-rebuild-work6`.**
+**W1/W2 + first renderer rebuild pushed to `main`.**
 
-The previous widget renderer files and Aurora widget style have been removed. A new Glance-safe visual foundation and distinct Mini Player, Now Playing, Dynamic Album, and Lyrics families are now registered. Final promotion requires build/test and launcher validation.
+The previous Compact Player renderer and Aurora widget style have been removed. The default pack now registers a new Mini Player, rebuilt Now Playing, new Dynamic Album, and rebuilt Lyrics family using a new Glance-safe skin-aware visual foundation. Build/test and launcher validation remain open.
 
 ## Phase W1 — Repository Reset and Audit
 
@@ -99,7 +99,7 @@ The previous widget renderer files and Aurora widget style have been removed. A 
 
 ## Definition of Done
 
-- [x] No obsolete Aurora widget style remains in the rebuilt implementation.
+- [x] No obsolete Aurora widget style remains in active use.
 - [x] Mini Player, Now Playing, and Dynamic Album are distinct products.
 - [x] Lyrics is a separate lyric-first product.
 - [x] All rebuilt widget families are skin-aware.
