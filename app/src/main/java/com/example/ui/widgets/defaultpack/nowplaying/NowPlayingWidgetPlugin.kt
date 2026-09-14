@@ -50,25 +50,9 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
     @Composable
     private fun AuroraCard(skin: OniSkinTokens, size: WidgetSize, content: @Composable () -> Unit) {
         val compact = size == WidgetSize.SIZE_4X1
-        Box(
-            GlanceModifier.fillMaxSize()
-                .cornerRadius(26.dp)
-                .background(ColorProvider(AuroraWidgetStyle.surface(skin)))
-                .clickable(actionStartActivity<MainActivity>())
-                .padding(if (compact) 10.dp else 13.dp)
-        ) {
-            Box(
-                GlanceModifier.size(if (size == WidgetSize.SIZE_4X4) 190.dp else 118.dp)
-                    .background(ColorProvider(AuroraWidgetStyle.glow(skin).copy(alpha = .16f)))
-                    .cornerRadius(100.dp)
-                    .align(Alignment.TopEnd)
-            ) {}
-            Box(
-                GlanceModifier.size(if (compact) 74.dp else 130.dp)
-                    .background(ColorProvider(AuroraWidgetStyle.secondary(skin).copy(alpha = .08f)))
-                    .cornerRadius(80.dp)
-                    .align(Alignment.BottomStart)
-            ) {}
+        Box(GlanceModifier.fillMaxSize().cornerRadius(26.dp).background(ColorProvider(AuroraWidgetStyle.surface(skin))).clickable(actionStartActivity<MainActivity>()).padding(if (compact) 10.dp else 13.dp)) {
+            Box(GlanceModifier.size(if (size == WidgetSize.SIZE_4X4) 190.dp else 118.dp).background(ColorProvider(AuroraWidgetStyle.glow(skin).copy(alpha = .16f))).cornerRadius(100.dp).align(Alignment.TopEnd)) {}
+            Box(GlanceModifier.size(if (compact) 74.dp else 130.dp).background(ColorProvider(AuroraWidgetStyle.secondary(skin).copy(alpha = .08f))).cornerRadius(80.dp).align(Alignment.BottomStart)) {}
             Box(GlanceModifier.fillMaxWidth().height(1.dp).background(ColorProvider(AuroraWidgetStyle.secondary(skin).copy(alpha = .30f))).align(Alignment.TopCenter)) {}
             content()
         }
@@ -76,18 +60,8 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
 
     @Composable
     private fun Artwork(bitmap: Bitmap?, size: Int, skin: OniSkinTokens) {
-        Box(
-            GlanceModifier.size((size + 8).dp)
-                .background(ColorProvider(AuroraWidgetStyle.glow(skin).copy(alpha = .38f)))
-                .cornerRadius(((size + 8) / 5).dp)
-                .padding(4.dp),
-            Alignment.Center
-        ) {
-            Image(
-                bitmap?.let(::ImageProvider) ?: ImageProvider(R.drawable.ic_music_note),
-                "Album artwork",
-                GlanceModifier.fillMaxSize().cornerRadius((size / 5).dp)
-            )
+        Box(GlanceModifier.size((size + 8).dp).background(ColorProvider(AuroraWidgetStyle.glow(skin).copy(alpha = .38f))).cornerRadius(((size + 8) / 5).dp).padding(4.dp), Alignment.Center) {
+            Image(bitmap?.let(::ImageProvider) ?: ImageProvider(R.drawable.ic_music_note), "Album artwork", GlanceModifier.fillMaxSize().cornerRadius((size / 5).dp))
         }
     }
 
@@ -96,14 +70,19 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
         Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Artwork(art, 56, skin)
             Spacer(GlanceModifier.width(11.dp))
-            Column(GlanceModifier.defaultWeight()) {
-                Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 14.sp, FontWeight.Medium))
-                Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 10.sp))
-                Spacer(GlanceModifier.height(7.dp))
-                Progress(state, skin, 120)
+            Column(GlanceModifier.defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
+                Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(GlanceModifier.defaultWeight()) {
+                        Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 14.sp, FontWeight.Medium))
+                        Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 10.sp))
+                    }
+                    Image(ImageProvider(R.drawable.ic_favorite_border), "Favorite", GlanceModifier.size(21.dp).padding(2.dp))
+                }
+                Spacer(GlanceModifier.height(6.dp))
+                Progress(state, skin, 150)
+                Spacer(GlanceModifier.height(4.dp))
+                Controls(state, skin, 27, 38)
             }
-            Spacer(GlanceModifier.width(10.dp))
-            Controls(state, skin, 30, 42)
         }
     }
 
@@ -120,7 +99,7 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
                     }
                     Image(ImageProvider(R.drawable.ic_favorite_border), "Favorite", GlanceModifier.size(24.dp).padding(3.dp))
                 }
-                Spacer(GlanceModifier.height(11.dp))
+                Spacer(GlanceModifier.height(10.dp))
                 Waveform(skin)
                 Spacer(GlanceModifier.height(5.dp))
                 Progress(state, skin, 230)
@@ -152,9 +131,7 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
         val heights = listOf(5, 9, 14, 8, 18, 11, 7, 16, 10, 20, 13, 7, 16, 11, 19, 9, 6, 14, 10, 18, 8, 13, 6, 11)
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             heights.forEachIndexed { index, height ->
-                Box(
-                    GlanceModifier.width(2.dp).height(height.dp).background(ColorProvider(if (index < 12) AuroraWidgetStyle.primary(skin) else AuroraWidgetStyle.textSecondary(skin).copy(alpha = .55f))).cornerRadius(2.dp)
-                ) {}
+                Box(GlanceModifier.width(2.dp).height(height.dp).background(ColorProvider(if (index < 12) AuroraWidgetStyle.primary(skin) else AuroraWidgetStyle.textSecondary(skin).copy(alpha = .55f))).cornerRadius(2.dp)) {}
                 if (index < heights.lastIndex) Spacer(GlanceModifier.width(3.dp))
             }
         }
@@ -187,27 +164,12 @@ class NowPlayingWidgetRenderer : OniWidgetRenderer {
 
     @Composable
     private fun PlayButton(playing: Boolean, skin: OniSkinTokens, size: Int) {
-        Image(
-            ImageProvider(if (playing) R.drawable.ic_pause else R.drawable.ic_play),
-            if (playing) "Pause" else "Play",
-            GlanceModifier.size(size.dp)
-                .background(ColorProvider(AuroraWidgetStyle.primary(skin)))
-                .cornerRadius((size / 2).dp)
-                .padding((size / 4).dp)
-                .clickable(actionRunCallback(TogglePlayPauseActionCallback::class.java))
-        )
+        Image(ImageProvider(if (playing) R.drawable.ic_pause else R.drawable.ic_play), if (playing) "Pause" else "Play", GlanceModifier.size(size.dp).background(ColorProvider(AuroraWidgetStyle.primary(skin))).cornerRadius((size / 2).dp).padding((size / 4).dp).clickable(actionRunCallback(TogglePlayPauseActionCallback::class.java)))
     }
 
     @Composable
     private fun IconButton(res: Int, description: String, skin: OniSkinTokens, size: Int, callback: Class<out androidx.glance.appwidget.action.ActionCallback>) {
-        Image(
-            ImageProvider(res), description,
-            GlanceModifier.size(size.dp)
-                .background(ColorProvider(AuroraWidgetStyle.elevated(skin).copy(alpha = .92f)))
-                .cornerRadius((size / 2).dp)
-                .padding((size / 3).dp)
-                .clickable(actionRunCallback(callback))
-        )
+        Image(ImageProvider(res), description, GlanceModifier.size(size.dp).background(ColorProvider(AuroraWidgetStyle.elevated(skin).copy(alpha = .92f))).cornerRadius((size / 2).dp).padding((size / 3).dp).clickable(actionRunCallback(callback)))
     }
 
     @Composable
