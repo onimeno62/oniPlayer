@@ -21,13 +21,13 @@ import com.example.R
 import com.example.ui.theme.OniSkinTokens
 import com.example.ui.widgets.actions.*
 import com.example.ui.widgets.core.*
-import com.example.ui.widgets.skin.AuroraWidgetStyle
+import com.example.ui.widgets.skin.OniWidgetVisualSystem
 
 class LyricsWidgetPlugin : OniWidgetPlugin {
     override val id = "oni.lyrics"
     override val packId = "default.pack"
-    override val name = "Lyrics & Visualizer"
-    override val description = "Premium Aurora Glass synchronized lyrics widget."
+    override val name = "Lyrics"
+    override val description = "Lyric-first synchronized home-screen widget."
     override val supportedSizes = setOf(WidgetSize.SIZE_4X1, WidgetSize.SIZE_4X2, WidgetSize.SIZE_4X4)
     override fun createRenderer(): OniWidgetRenderer = LyricsWidgetRenderer()
 }
@@ -35,14 +35,7 @@ class LyricsWidgetPlugin : OniWidgetPlugin {
 class LyricsWidgetRenderer : OniWidgetRenderer {
     @Composable
     override fun Render(context: Context, size: WidgetSize, state: OniWidgetPlaybackState, skin: OniSkinTokens) {
-        Box(
-            GlanceModifier.fillMaxSize().cornerRadius(26.dp)
-                .background(ColorProvider(AuroraWidgetStyle.surface(skin)))
-                .clickable(actionStartActivity<MainActivity>())
-                .padding(if (size == WidgetSize.SIZE_4X1) 10.dp else 13.dp)
-        ) {
-            Box(GlanceModifier.size(if (size == WidgetSize.SIZE_4X4) 190.dp else 120.dp).background(ColorProvider(AuroraWidgetStyle.glow(skin).copy(alpha = .11f))).cornerRadius(100.dp).align(Alignment.TopEnd)) {}
-            Box(GlanceModifier.fillMaxWidth().height(1.dp).background(ColorProvider(AuroraWidgetStyle.secondary(skin).copy(alpha = .28f))).align(Alignment.TopCenter)) {}
+        Box(GlanceModifier.fillMaxSize().cornerRadius(24.dp).background(ColorProvider(OniWidgetVisualSystem.surface(skin))).clickable(actionStartActivity<MainActivity>()).padding(12.dp)) {
             when (size) {
                 WidgetSize.SIZE_4X1 -> Small(state, skin)
                 WidgetSize.SIZE_4X2 -> Medium(state, skin)
@@ -51,123 +44,86 @@ class LyricsWidgetRenderer : OniWidgetRenderer {
         }
     }
 
-    private fun lyric(state: OniWidgetPlaybackState): String = when {
+    private fun current(state: OniWidgetPlaybackState): String = when {
         state.isBlank -> "Nothing playing"
         !state.hasLyrics -> "No lyrics available"
-        state.activeLyric.isNullOrBlank() -> "♪  Instrumental"
-        else -> state.activeLyric!!
+        state.activeLyric.isNullOrBlank() -> "♪ Instrumental"
+        else -> state.activeLyric.orEmpty()
     }
 
     @Composable
     private fun Small(state: OniWidgetPlaybackState, skin: OniSkinTokens) {
         Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Box(GlanceModifier.size(44.dp).background(ColorProvider(AuroraWidgetStyle.elevated(skin).copy(alpha = .92f))).cornerRadius(22.dp), Alignment.Center) {
-                Image(ImageProvider(R.drawable.ic_lyrics), "Lyrics", GlanceModifier.size(22.dp).padding(2.dp))
-            }
-            Spacer(GlanceModifier.width(11.dp))
-            Column(GlanceModifier.defaultWeight()) {
-                Text(lyric(state), maxLines = 1, style = TextStyle(ColorProvider(if (state.activeLyric != null) AuroraWidgetStyle.primary(skin) else AuroraWidgetStyle.textSecondary(skin)), 13.sp, FontWeight.Medium))
-                if (!state.isBlank) Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 9.sp))
-                Spacer(GlanceModifier.height(6.dp))
-                LyricPulse(skin)
-            }
+            Image(ImageProvider(R.drawable.ic_lyrics), "Lyrics", GlanceModifier.size(28.dp).padding(2.dp))
             Spacer(GlanceModifier.width(10.dp))
-            PlayButton(state, skin, 42)
+            Column(GlanceModifier.defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
+                Text(current(state), maxLines = 2, style = TextStyle(ColorProvider(OniWidgetVisualSystem.text(skin)), 13.sp, FontWeight.Medium))
+                if (!state.isBlank) Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.muted(skin)), 9.sp))
+            }
+            Spacer(GlanceModifier.width(8.dp))
+            Play(state, skin, 38)
         }
     }
 
     @Composable
     private fun Medium(state: OniWidgetPlaybackState, skin: OniSkinTokens) {
-        Column(GlanceModifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.CenterVertically) {
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Image(ImageProvider(R.drawable.ic_lyrics), "Lyrics", GlanceModifier.size(22.dp).padding(2.dp))
-                Spacer(GlanceModifier.width(8.dp))
-                Column(GlanceModifier.defaultWeight()) {
-                    Text(if (state.isBlank) "Lyrics" else state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 11.sp, FontWeight.Medium))
-                    if (!state.isBlank) Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 9.sp))
-                }
-                PlayButton(state, skin, 36)
-            }
-            Spacer(GlanceModifier.height(9.dp))
-            LyricsStack(state, skin, 11, 16)
+        Column(GlanceModifier.fillMaxSize()) {
+            Header(state, skin, 34)
+            Spacer(GlanceModifier.height(8.dp))
+            LyricLine(state.previousLyric, skin, false, 10)
+            Spacer(GlanceModifier.height(6.dp))
+            LyricLine(current(state), skin, true, 15)
+            Spacer(GlanceModifier.height(6.dp))
+            LyricLine(state.nextLyric, skin, false, 10)
         }
     }
 
     @Composable
     private fun Large(state: OniWidgetPlaybackState, skin: OniSkinTokens) {
-        Column(GlanceModifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.CenterVertically) {
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Image(ImageProvider(R.drawable.ic_lyrics), "Lyrics", GlanceModifier.size(25.dp).padding(2.dp))
-                Spacer(GlanceModifier.width(8.dp))
-                Column(GlanceModifier.defaultWeight()) {
-                    Text(if (state.isBlank) "Lyrics" else state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 13.sp, FontWeight.Medium))
-                    if (!state.isBlank) Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 9.sp))
-                }
-                PlayButton(state, skin, 40)
+        Column(GlanceModifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Header(state, skin, 38)
+            Spacer(GlanceModifier.height(11.dp))
+            LyricLine(state.previousLyric, skin, false, 12)
+            Spacer(GlanceModifier.height(8.dp))
+            Box(GlanceModifier.fillMaxWidth().background(ColorProvider(OniWidgetVisualSystem.control(skin))).cornerRadius(16.dp).padding(horizontal = 14.dp, vertical = 12.dp), Alignment.Center) {
+                Text(current(state), maxLines = 3, style = TextStyle(ColorProvider(OniWidgetVisualSystem.primary(skin)), 18.sp, FontWeight.Medium, textAlign = TextAlign.Center))
             }
-            Spacer(GlanceModifier.height(10.dp))
-            LyricsStack(state, skin, 13, 20)
-            Spacer(GlanceModifier.height(9.dp))
+            Spacer(GlanceModifier.height(8.dp))
+            LyricLine(state.nextLyric, skin, false, 12)
+            Spacer(GlanceModifier.defaultWeight())
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(R.drawable.ic_skip_previous, "Previous", skin, 32, SkipPreviousActionCallback::class.java)
-                Spacer(GlanceModifier.width(13.dp))
-                PlayButton(state, skin, 46)
-                Spacer(GlanceModifier.width(13.dp))
-                IconButton(R.drawable.ic_skip_next, "Next", skin, 32, SkipNextActionCallback::class.java)
+                Action(R.drawable.ic_skip_previous, "Previous", 32, SkipPreviousActionCallback::class.java, skin, false)
+                Spacer(GlanceModifier.width(12.dp))
+                Play(state, skin, 44)
+                Spacer(GlanceModifier.width(12.dp))
+                Action(R.drawable.ic_skip_next, "Next", 32, SkipNextActionCallback::class.java, skin, false)
             }
         }
     }
 
     @Composable
-    private fun LyricsStack(state: OniWidgetPlaybackState, skin: OniSkinTokens, sideSize: Int, activeSize: Int) {
-        if (!state.hasLyrics || state.isBlank) {
-            Empty(state, skin, activeSize)
-        } else {
-            Line(state.previousLyric, skin, sideSize, false)
-            Spacer(GlanceModifier.height(7.dp))
-            Active(state.activeLyric, skin, activeSize)
-            Spacer(GlanceModifier.height(7.dp))
-            Line(state.nextLyric, skin, sideSize, false)
-        }
-    }
-
-    @Composable
-    private fun Empty(state: OniWidgetPlaybackState, skin: OniSkinTokens, size: Int) {
-        Box(GlanceModifier.fillMaxWidth().background(ColorProvider(AuroraWidgetStyle.elevated(skin).copy(alpha = .72f))).cornerRadius(18.dp).padding(12.dp), Alignment.Center) {
-            Text(lyric(state), maxLines = 3, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), size.sp, textAlign = TextAlign.Center))
-        }
-    }
-
-    @Composable
-    private fun Line(text: String?, skin: OniSkinTokens, size: Int, active: Boolean) {
-        Text(text.orEmpty().ifBlank { " " }, maxLines = if (active) 3 else 1, style = TextStyle(ColorProvider(if (active) AuroraWidgetStyle.textPrimary(skin) else AuroraWidgetStyle.textSecondary(skin).copy(alpha = .62f)), size.sp, if (active) FontWeight.Medium else FontWeight.Normal, textAlign = TextAlign.Center))
-    }
-
-    @Composable
-    private fun Active(text: String?, skin: OniSkinTokens, size: Int) {
-        Box(GlanceModifier.fillMaxWidth().background(ColorProvider(AuroraWidgetStyle.elevated(skin).copy(alpha = .90f))).cornerRadius(18.dp).padding(horizontal = 15.dp, vertical = 10.dp), Alignment.Center) {
-            Line(text, skin, size, true)
-        }
-    }
-
-    @Composable
-    private fun LyricPulse(skin: OniSkinTokens) {
-        val heights = listOf(3, 6, 10, 5, 8, 4, 9, 6, 11, 5, 8, 3, 7, 5, 9, 4)
+    private fun Header(state: OniWidgetPlaybackState, skin: OniSkinTokens, playSize: Int) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            heights.forEachIndexed { index, height ->
-                Box(GlanceModifier.width(2.dp).height(height.dp).background(ColorProvider(if (index % 3 == 0) AuroraWidgetStyle.primary(skin) else AuroraWidgetStyle.secondary(skin).copy(alpha = .65f))).cornerRadius(2.dp)) {}
-                if (index < heights.lastIndex) Spacer(GlanceModifier.width(3.dp))
+            Image(ImageProvider(R.drawable.ic_lyrics), "Lyrics", GlanceModifier.size(24.dp).padding(2.dp))
+            Spacer(GlanceModifier.width(8.dp))
+            Column(GlanceModifier.defaultWeight()) {
+                Text(if (state.isBlank) "Lyrics" else state.title, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.text(skin)), 12.sp, FontWeight.Medium))
+                if (!state.isBlank) Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(OniWidgetVisualSystem.muted(skin)), 9.sp))
             }
+            Play(state, skin, playSize)
         }
     }
 
     @Composable
-    private fun PlayButton(state: OniWidgetPlaybackState, skin: OniSkinTokens, size: Int) {
-        Image(ImageProvider(if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play), if (state.isPlaying) "Pause" else "Play", GlanceModifier.size(size.dp).background(ColorProvider(AuroraWidgetStyle.primary(skin))).cornerRadius((size / 2).dp).padding((size / 4).dp).clickable(actionRunCallback(TogglePlayPauseActionCallback::class.java)))
+    private fun LyricLine(text: String?, skin: OniSkinTokens, active: Boolean, size: Int) {
+        Text(text.orEmpty().ifBlank { " " }, maxLines = if (active) 3 else 1, style = TextStyle(ColorProvider(if (active) OniWidgetVisualSystem.primary(skin) else OniWidgetVisualSystem.muted(skin)), size.sp, if (active) FontWeight.Medium else FontWeight.Normal, textAlign = TextAlign.Center), modifier = GlanceModifier.fillMaxWidth())
     }
 
     @Composable
-    private fun IconButton(res: Int, description: String, skin: OniSkinTokens, size: Int, callback: Class<out androidx.glance.appwidget.action.ActionCallback>) {
-        Image(ImageProvider(res), description, GlanceModifier.size(size.dp).background(ColorProvider(AuroraWidgetStyle.elevated(skin).copy(alpha = .92f))).cornerRadius((size / 2).dp).padding((size / 3).dp).clickable(actionRunCallback(callback)))
+    private fun Play(state: OniWidgetPlaybackState, skin: OniSkinTokens, size: Int) = Action(if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play, if (state.isPlaying) "Pause" else "Play", size, TogglePlayPauseActionCallback::class.java, skin, true)
+
+    @Composable
+    private fun Action(res: Int, description: String, size: Int, callback: Class<out androidx.glance.appwidget.action.ActionCallback>, skin: OniSkinTokens, primary: Boolean) {
+        Image(ImageProvider(res), description, GlanceModifier.size(size.dp).background(ColorProvider(if (primary) OniWidgetVisualSystem.primary(skin) else OniWidgetVisualSystem.control(skin))).cornerRadius((size / 2).dp).padding((size / 3).dp).clickable(actionRunCallback(callback)))
     }
 }
