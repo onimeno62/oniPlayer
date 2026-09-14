@@ -4,7 +4,7 @@
 
 **W1/W2 + first renderer rebuild implemented on `feat/widgets-rebuild-work6`.**
 
-The old Aurora-based compositions have been replaced by a new Glance-safe visual foundation and distinct Mini Player, Now Playing, Dynamic Album, and Lyrics families. Final promotion requires build/test and launcher validation.
+The previous widget renderer files and Aurora widget style have been removed. A new Glance-safe visual foundation and distinct Mini Player, Now Playing, Dynamic Album, and Lyrics families are now registered. Final promotion requires build/test and launcher validation.
 
 ## Phase W1 — Repository Reset and Audit
 
@@ -16,7 +16,8 @@ The old Aurora-based compositions have been replaced by a new Glance-safe visual
 - [x] Preserve `WidgetUpdateManager` live progress/artwork pipeline.
 - [x] Inventory current renderer and Aurora styling references.
 - [x] Migrate the default pack to rebuilt renderer layer.
-- [ ] Delete obsolete Aurora renderer/style files after final reference verification.
+- [x] Delete obsolete Aurora widget style.
+- [x] Delete obsolete Compact Player renderer.
 - [x] Keep existing widget plumbing intact.
 
 ## Phase W2 — New Widget Visual Foundation
@@ -29,10 +30,11 @@ The old Aurora-based compositions have been replaced by a new Glance-safe visual
 
 ## Phase W3 — Mini Player
 
-- [x] Rebuild Compact Player as a transport-first Mini Player.
+- [x] Establish new `MiniPlayerWidgetPlugin` module.
 - [x] Design 4x1 independently.
 - [x] Design 4x2 independently.
 - [x] Design 4x4 independently.
+- [x] Keep transport control as the primary purpose.
 - [x] Integrate existing previous/play-pause/next actions.
 - [ ] Validate long titles and artists on device.
 
@@ -52,6 +54,7 @@ The old Aurora-based compositions have been replaced by a new Glance-safe visual
 - [x] Design 4x2 artwork-dominant layout.
 - [x] Design 4x4 album-art experience.
 - [x] Keep controls intentionally minimal.
+- [x] Ensure it is distinct from Now Playing.
 - [ ] Validate missing-artwork fallback on device.
 
 ## Phase W6 — Lyrics
@@ -96,7 +99,7 @@ The old Aurora-based compositions have been replaced by a new Glance-safe visual
 
 ## Definition of Done
 
-- [ ] No obsolete Aurora widget styling remains in active use.
+- [x] No obsolete Aurora widget style remains in the rebuilt implementation.
 - [x] Mini Player, Now Playing, and Dynamic Album are distinct products.
 - [x] Lyrics is a separate lyric-first product.
 - [x] All rebuilt widget families are skin-aware.
