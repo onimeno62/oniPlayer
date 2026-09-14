@@ -37,12 +37,7 @@ class CompactPlayerWidgetRenderer : OniWidgetRenderer {
     @Composable
     override fun Render(context: Context, size: WidgetSize, state: OniWidgetPlaybackState, skin: OniSkinTokens) {
         val art = WidgetPlaybackStateAdapter.loadArtworkBitmap(context, state.albumArtworkUri)
-        Box(
-            GlanceModifier.fillMaxSize().cornerRadius(26.dp)
-                .background(ColorProvider(AuroraWidgetStyle.surface(skin)))
-                .clickable(actionStartActivity<MainActivity>())
-                .padding(if (size == WidgetSize.SIZE_4X1) 10.dp else 13.dp)
-        ) {
+        Box(GlanceModifier.fillMaxSize().cornerRadius(26.dp).background(ColorProvider(AuroraWidgetStyle.surface(skin))).clickable(actionStartActivity<MainActivity>()).padding(if (size == WidgetSize.SIZE_4X1) 10.dp else 13.dp)) {
             Box(GlanceModifier.size(if (size == WidgetSize.SIZE_4X4) 190.dp else 120.dp).background(ColorProvider(AuroraWidgetStyle.secondary(skin).copy(alpha = .10f))).cornerRadius(100.dp).align(Alignment.TopEnd)) {}
             Box(GlanceModifier.fillMaxWidth().height(1.dp).background(ColorProvider(AuroraWidgetStyle.primary(skin).copy(alpha = .28f))).align(Alignment.TopCenter)) {}
             when (size) {
@@ -65,14 +60,14 @@ class CompactPlayerWidgetRenderer : OniWidgetRenderer {
         Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Artwork(art, 56, skin)
             Spacer(GlanceModifier.width(11.dp))
-            Column(GlanceModifier.defaultWeight()) {
+            Column(GlanceModifier.defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
                 Text(state.title, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textPrimary(skin)), 14.sp, FontWeight.Medium))
                 Text(state.artist, maxLines = 1, style = TextStyle(ColorProvider(AuroraWidgetStyle.textSecondary(skin)), 10.sp))
-                Spacer(GlanceModifier.height(7.dp))
-                Progress(state, skin, 115)
+                Spacer(GlanceModifier.height(6.dp))
+                Progress(state, skin, 145)
+                Spacer(GlanceModifier.height(4.dp))
+                Controls(state, skin, 27, 38)
             }
-            Spacer(GlanceModifier.width(10.dp))
-            Controls(state, skin, 30, 42)
         }
     }
 
