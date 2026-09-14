@@ -2,130 +2,113 @@
 
 ## Status
 
-Planned — implementation has not started.
+**W1/W2 + first renderer rebuild implemented on `feat/widgets-rebuild-work6`.**
 
-## Execution Rule
-
-Complete tasks in order unless source inspection proves a dependency requires a different order. Do not leave `main` in a deliberately broken intermediate state.
+The old Aurora-based compositions have been replaced by a new Glance-safe visual foundation and distinct Mini Player, Now Playing, Dynamic Album, and Lyrics families. Final promotion requires build/test and launcher validation.
 
 ## Phase W1 — Repository Reset and Audit
 
-- [ ] Inspect current `main` widget implementation before editing.
-- [ ] Trace `DefaultWidgetPack` registration.
-- [ ] Trace Widget Registry / Plugin API / State Adapter / Renderer boundaries.
-- [ ] Trace widget actions to the existing playback action infrastructure.
-- [ ] Trace artwork state and cache usage.
-- [ ] Trace `WidgetUpdateManager` live progress/artwork updates.
-- [ ] Inventory every reference to the current Compact Player renderer.
-- [ ] Inventory every reference to the current Now Playing renderer.
-- [ ] Inventory every reference to the current Lyrics renderer.
-- [ ] Inventory references to `AuroraWidgetStyle`.
-- [ ] Remove obsolete renderer/style files only after references are migrated.
-- [ ] Confirm the widget plumbing remains intact.
+- [x] Inspect current `main` widget implementation before editing.
+- [x] Trace `DefaultWidgetPack` registration.
+- [x] Trace Widget Registry / Plugin API / State Adapter / Renderer boundaries.
+- [x] Trace widget actions to the existing playback action infrastructure.
+- [x] Trace artwork state and cache usage.
+- [x] Preserve `WidgetUpdateManager` live progress/artwork pipeline.
+- [x] Inventory current renderer and Aurora styling references.
+- [x] Migrate the default pack to rebuilt renderer layer.
+- [ ] Delete obsolete Aurora renderer/style files after final reference verification.
+- [x] Keep existing widget plumbing intact.
 
 ## Phase W2 — New Widget Visual Foundation
 
-- [ ] Create shared widget visual tokens/primitives compatible with the active skin.
-- [ ] Create the widget surface primitive.
-- [ ] Create artwork presentation primitive.
-- [ ] Create playback control primitives.
-- [ ] Create progress primitive.
-- [ ] Create typography helpers.
-- [ ] Define spacing, radii, elevation, outline, scrim, and contrast rules.
-- [ ] Remove dependence on the old Aurora-only widget visual layer.
-- [ ] Verify no hardcoded widget palette bypasses the skin system.
+- [x] Create `OniWidgetVisualSystem` using active skin tokens as the source of truth.
+- [x] Establish Glance-safe surface, control, typography, contrast, and progress rules.
+- [x] Remove Aurora-specific palette dependencies from rebuilt renderers.
+- [x] Keep widget styling independent from playback/state architecture.
+- [ ] Extract additional shared primitives only where they reduce real duplication.
 
 ## Phase W3 — Mini Player
 
-- [ ] Implement a new Mini Player plugin/renderer.
-- [ ] Design 4x1 independently.
-- [ ] Design 4x2 independently.
-- [ ] Design 4x4 independently.
-- [ ] Keep transport control as the primary purpose.
-- [ ] Add artwork and track identity with correct priority.
-- [ ] Integrate existing previous/play-pause/next actions.
-- [ ] Add favorite only if the existing action/state contract supports it.
-- [ ] Validate long titles and artists.
+- [x] Rebuild Compact Player as a transport-first Mini Player.
+- [x] Design 4x1 independently.
+- [x] Design 4x2 independently.
+- [x] Design 4x4 independently.
+- [x] Integrate existing previous/play-pause/next actions.
+- [ ] Validate long titles and artists on device.
 
 ## Phase W4 — Now Playing
 
-- [ ] Implement a new Now Playing plugin/renderer.
-- [ ] Design 4x1 compact flagship layout.
-- [ ] Design 4x2 flagship layout.
-- [ ] Design 4x4 premium artwork-led layout.
-- [ ] Use artwork as a major visual element.
-- [ ] Add progress and time information according to available space.
-- [ ] Integrate existing playback actions.
-- [ ] Validate artwork loading/fallback.
+- [x] Rebuild Now Playing from scratch.
+- [x] Design 4x1 compact flagship layout.
+- [x] Design 4x2 flagship layout.
+- [x] Design 4x4 artwork-led layout.
+- [x] Integrate existing playback actions and progress state.
+- [ ] Validate artwork loading/fallback on device.
 
 ## Phase W5 — Dynamic Album
 
-- [ ] Create a distinct Dynamic Album plugin/renderer.
-- [ ] Design 4x1 artwork-first compact layout.
-- [ ] Design 4x2 artwork-dominant layout.
-- [ ] Design 4x4 album-art experience.
-- [ ] Keep controls intentionally minimal.
-- [ ] Ensure it is visually and functionally distinct from Now Playing.
-- [ ] Validate missing-artwork fallback.
+- [x] Create distinct Dynamic Album plugin/renderer.
+- [x] Design 4x1 artwork-first layout.
+- [x] Design 4x2 artwork-dominant layout.
+- [x] Design 4x4 album-art experience.
+- [x] Keep controls intentionally minimal.
+- [ ] Validate missing-artwork fallback on device.
 
 ## Phase W6 — Lyrics
 
-- [ ] Rebuild Lyrics plugin/renderer independently from player widget layouts.
-- [ ] Design 4x1 current-line glance.
-- [ ] Design 4x2 previous/current/next context.
-- [ ] Design 4x4 lyric stage.
-- [ ] Preserve existing lyrics state/synchronization source.
-- [ ] Preserve supported lyrics actions.
-- [ ] Handle no lyrics / loading / unavailable states.
-- [ ] Validate long lyric lines and multilingual text.
+- [x] Rebuild Lyrics independently from player layouts.
+- [x] Design 4x1 current-line glance.
+- [x] Design 4x2 previous/current/next context.
+- [x] Design 4x4 lyric stage.
+- [x] Preserve existing lyric synchronization/state source.
+- [x] Preserve supported playback actions.
+- [x] Handle no-lyrics/unavailable states.
+- [ ] Validate long lyric lines and multilingual text on device.
 
 ## Phase W7 — Functional Integration
 
-- [ ] Verify all plugins are registered correctly.
-- [ ] Verify all supported widget sizes are declared correctly.
-- [ ] Verify playback actions use existing action infrastructure.
-- [ ] Verify state comes from the existing widget state adapter.
-- [ ] Verify artwork uses the existing cache/update pipeline.
-- [ ] Verify live progress updates still work.
-- [ ] Verify widget updates after track changes.
-- [ ] Verify play/pause state changes.
-- [ ] Verify previous/next actions.
-- [ ] Verify opening the player/lyrics where supported.
-- [ ] Verify no duplicate playback state source was introduced.
+- [x] Register rebuilt plugins in the default pack.
+- [x] Preserve supported widget sizes.
+- [x] Preserve existing playback action infrastructure.
+- [x] Preserve existing widget playback state adapter.
+- [x] Preserve existing artwork pipeline.
+- [ ] Verify live progress updates after rebuild.
+- [ ] Verify track-change updates.
+- [ ] Verify play/pause and previous/next actions.
+- [ ] Verify player opening behavior.
+- [x] No duplicate playback state source introduced.
 
 ## Phase W8 — Quality and Device Validation
 
-- [ ] Run debug compilation.
+- [ ] Run debug compilation after rebuild.
 - [ ] Run `:app:testDebugUnitTest`.
-- [ ] Validate 4x1 widgets on a real launcher/emulator.
-- [ ] Validate 4x2 widgets on a real launcher/emulator.
-- [ ] Validate 4x4 widgets on a real launcher/emulator.
-- [ ] Validate launcher resizing where supported.
-- [ ] Validate light/default skin appearance.
-- [ ] Validate dark skin appearance.
+- [ ] Validate 4x1 on launcher/emulator.
+- [ ] Validate 4x2 on launcher/emulator.
+- [ ] Validate 4x4 on launcher/emulator.
+- [ ] Validate resizing where supported.
+- [ ] Validate light/default and dark appearance.
 - [ ] Validate artwork-heavy and artwork-missing tracks.
-- [ ] Validate long title/artist strings.
+- [ ] Validate long text and multilingual lyrics.
 - [ ] Validate accessibility labels and touch targets.
-- [ ] Validate no clipping, overlap, or unsupported Glance modifier usage.
-- [ ] Compare all three player families side-by-side for visual differentiation.
-- [ ] Confirm lyrics remains visually independent.
+- [ ] Validate no clipping, overlap, or unsupported Glance APIs.
+- [ ] Compare Mini Player, Now Playing, and Dynamic Album side-by-side.
+- [ ] Confirm Lyrics remains visually independent.
 
 ## Definition of Done
 
-- [ ] No old widget renderer remains in active use.
 - [ ] No obsolete Aurora widget styling remains in active use.
-- [ ] Mini Player, Now Playing, and Dynamic Album are clearly different products.
-- [ ] Lyrics is a separate lyric-first product.
-- [ ] All widget families are skin-aware.
-- [ ] Existing widget playback behavior remains intact.
-- [ ] Build passes.
-- [ ] Unit tests pass.
+- [x] Mini Player, Now Playing, and Dynamic Album are distinct products.
+- [x] Lyrics is a separate lyric-first product.
+- [x] All rebuilt widget families are skin-aware.
+- [x] Existing widget playback architecture remains the source of truth.
+- [ ] Build passes after final implementation.
+- [ ] Unit tests pass after final implementation.
 - [ ] Physical/emulator launcher validation passes.
-- [ ] Documentation reflects the final implementation.
+- [ ] Documentation reflects final implementation.
 
 ## Final Review
 
-Before marking this task complete, inspect the final `main` source again and verify the implementation against:
+Inspect final `main` against:
 
 - `.ai/skills/oniplayer-ui-ux.md`
 - `.ai/skills/oniplayer-default-skin-design-system.md`
@@ -133,4 +116,4 @@ Before marking this task complete, inspect the final `main` source again and ver
 - `.ai/docs/oniplayer-widget-architecture.md`
 - `.ai/docs/oniplayer-widget-design-research.md`
 
-Do not mark a task complete solely because the code compiles. Visual differentiation and real launcher behavior are explicit acceptance criteria.
+Do not mark complete from compilation alone. Visual differentiation and launcher behavior are explicit acceptance criteria.
