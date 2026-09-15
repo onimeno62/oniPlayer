@@ -2,8 +2,10 @@
     <string name="app_name">OniPlayer</string>
     <string name="widget_now_playing_name">oniPlayer Now Playing</string>
     <string name="widget_now_playing_desc">Flagship music identity and controls</string>
-    <string name="widget_compact_player_name">oniPlayer Compact Player</string>
+    <string name="widget_compact_player_name">oniPlayer Mini Player</string>
     <string name="widget_compact_player_desc">Tactile, compact playback controls</string>
     <string name="widget_lyrics_name">oniPlayer Lyrics</string>
     <string name="widget_lyrics_desc">Live scrolling lyrics and cues</string>
+    <string name="widget_dynamic_album_name">oniPlayer Dynamic Album</string>
+    <string name="widget_dynamic_album_desc">Artwork-first music identity</string>
 </resources>
