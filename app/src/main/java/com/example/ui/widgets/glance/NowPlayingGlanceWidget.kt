@@ -10,33 +10,30 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
 import com.example.playback.OniAudioEngine
-import com.example.ui.widgets.core.OniWidgetRegistry
 import com.example.ui.widgets.core.OniWidgetPlaybackState
 import com.example.ui.widgets.core.WidgetSize
-import com.example.ui.widgets.defaultpack.DefaultWidgetPack
 import com.example.ui.widgets.playback.WidgetPlaybackStateAdapter
-import com.example.ui.widgets.skin.WidgetSkinResolver
 
 class NowPlayingGlanceWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Resolve service/database state before entering Glance composition. Glance's
-        // composition must stay declarative; creating MediaController clients from
-        // inside it can make the launcher report "Can't load widget".
-        val skin = WidgetSkinResolver.resolveActiveSkin(context)
+        val skin = WidgetGlanceHost.resolveSkin(context)
         val widgetState = runCatching {
             WidgetPlaybackStateAdapter.fromPlaybackState(OniAudioEngine.getInstance(context).state.value)
         }.getOrDefault(OniWidgetPlaybackState())
-        val plugin = OniWidgetRegistry.getPlugin("oni.nowplaying")
-            ?: DefaultWidgetPack.widgets.first { it.id == "oni.nowplaying" }
+        val plugin = WidgetGlanceHost.resolvePlugin("oni.nowplaying")
+            ?: return
         val renderer = plugin.createRenderer()
 
         provideContent {
             val sizeInfo = androidx.glance.LocalSize.current
-            val logicalSize = WidgetSize.fromDimensions(sizeInfo.width.value.toInt(), sizeInfo.height.value.toInt())
+            val logicalSize = WidgetSize.fromDimensions(
+                sizeInfo.width.value.toInt(),
+                sizeInfo.height.value.toInt()
+            )
             Box(modifier = GlanceModifier.fillMaxSize()) {
-                renderer.Render(context, logicalSize, widgetState, skin)
+                WidgetGlanceHost.RenderSafely(renderer, context, logicalSize, widgetState, skin)
             }
         }
     }
