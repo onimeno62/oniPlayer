@@ -33,61 +33,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name=".playback.MusicPlaybackService"
-            android:enabled="true"
-            android:exported="true"
-            android:foregroundServiceType="mediaPlayback">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
-            </intent-filter>
+        <service android:name=".playback.MusicPlaybackService" android:enabled="true" android:exported="true" android:foregroundServiceType="mediaPlayback">
+            <intent-filter><action android:name="androidx.media3.session.MediaSessionService" /></intent-filter>
         </service>
+        <service android:name=".playback.FloatingLyricsService" android:enabled="true" android:exported="false" />
 
-        <service
-            android:name=".playback.FloatingLyricsService"
-            android:enabled="true"
-            android:exported="false" />
-
-        <!-- 1. Now Playing Widget Receiver -->
-        <receiver
-            android:name=".ui.widgets.glance.NowPlayingWidgetReceiver"
-            android:label="@string/widget_now_playing_name"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_now_playing_info" />
+        <receiver android:name=".ui.widgets.glance.NowPlayingWidgetReceiver" android:label="@string/widget_now_playing_name" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_now_playing_info" />
         </receiver>
-
-        <!-- 2. Compact Player Widget Receiver -->
-        <receiver
-            android:name=".ui.widgets.glance.CompactPlayerWidgetReceiver"
-            android:label="@string/widget_compact_player_name"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_compact_player_info" />
+        <receiver android:name=".ui.widgets.glance.CompactPlayerWidgetReceiver" android:label="@string/widget_compact_player_name" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_compact_player_info" />
         </receiver>
-
-        <!-- 3. Lyrics & Visualizer Widget Receiver -->
-        <receiver
-            android:name=".ui.widgets.glance.LyricsWidgetReceiver"
-            android:label="@string/widget_lyrics_name"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_lyrics_info" />
+        <receiver android:name=".ui.widgets.glance.LyricsWidgetReceiver" android:label="@string/widget_lyrics_name" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_lyrics_info" />
         </receiver>
-
+        <receiver android:name=".ui.widgets.glance.DynamicAlbumWidgetReceiver" android:label="@string/widget_dynamic_album_name" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_dynamic_album_info" />
+        </receiver>
     </application>
-
 </manifest>
