@@ -6,26 +6,23 @@ import androidx.glance.appwidget.updateAll
 import com.example.playback.PlaybackState
 import com.example.playback.RepeatMode
 import com.example.ui.widgets.glance.CompactPlayerGlanceWidget
+import com.example.ui.widgets.glance.DynamicAlbumGlanceWidget
 import com.example.ui.widgets.glance.LyricsGlanceWidget
 import com.example.ui.widgets.glance.NowPlayingGlanceWidget
+import com.example.ui.widgets.settings.WidgetSettings
+import com.example.ui.widgets.settings.WidgetSettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/**
- * Keeps launcher widgets synchronized with meaningful playback changes without
- * running a continuous high-frequency polling loop.
- *
- * Lyrics are refreshed approximately once per second while playing so the
- * active line follows synchronized lyrics. Visual player widgets refresh less
- * frequently because their progress is only a snapshot in an AppWidget.
- */
+/** Event-driven widget updates with user-configurable refresh policy. */
 object WidgetUpdateManager {
-    private const val LYRICS_REFRESH_MS = 1_000L
-    private const val PLAYER_REFRESH_MS = 2_000L
-
     private val scope = CoroutineScope(Dispatchers.IO + Job())
+    private var settings = WidgetSettings()
+    private var settingsContext: Context? = null
+    private var settingsJob: Job? = null
     private var lastSongId: String? = null
     private var lastIsPlaying: Boolean? = null
     private var lastShuffle: Boolean? = null
@@ -34,7 +31,17 @@ object WidgetUpdateManager {
     private var lastLyricsUpdateAt: Long = 0L
     private var lastPlayerUpdateAt: Long = 0L
 
+    private fun ensureSettings(context: Context) {
+        if (settingsContext != null) return
+        settingsContext = context.applicationContext
+        settingsJob = scope.launch {
+            WidgetSettingsStore.settings(context.applicationContext).collect { settings = it }
+        }
+    }
+
     fun onPlaybackStateChanged(context: Context, state: PlaybackState) {
+        ensureSettings(context)
+        if (!settings.widgetsEnabled) return
         val now = SystemClock.elapsedRealtime()
         val songChanged = state.currentSong?.id != lastSongId
         val playStateChanged = state.isPlaying != lastIsPlaying
@@ -50,7 +57,6 @@ object WidgetUpdateManager {
             lastPositionMs = state.positionMs
             lastLyricsUpdateAt = now
             lastPlayerUpdateAt = now
-
             scope.launch { updateAllWidgets(context) }
             return
         }
@@ -58,29 +64,25 @@ object WidgetUpdateManager {
         if (!positionChanged || !state.isPlaying) return
         lastPositionMs = state.positionMs
 
-        if (now - lastLyricsUpdateAt >= LYRICS_REFRESH_MS) {
+        if (settings.liveLyricsUpdates && settings.lyricsEnabled && now - lastLyricsUpdateAt >= settings.lyricsRefreshSeconds * 1_000L) {
             lastLyricsUpdateAt = now
-            scope.launch {
-                runCatching { LyricsGlanceWidget().updateAll(context) }
-            }
+            scope.launch { runCatching { LyricsGlanceWidget().updateAll(context) } }
         }
 
-        if (now - lastPlayerUpdateAt >= PLAYER_REFRESH_MS) {
+        if (now - lastPlayerUpdateAt >= settings.playerRefreshSeconds * 1_000L) {
             lastPlayerUpdateAt = now
             scope.launch {
-                runCatching {
-                    NowPlayingGlanceWidget().updateAll(context)
-                    CompactPlayerGlanceWidget().updateAll(context)
-                }
+                if (settings.nowPlayingEnabled) runCatching { NowPlayingGlanceWidget().updateAll(context) }
+                if (settings.miniPlayerEnabled) runCatching { CompactPlayerGlanceWidget().updateAll(context) }
+                if (settings.dynamicAlbumEnabled) runCatching { DynamicAlbumGlanceWidget().updateAll(context) }
             }
         }
     }
 
     private suspend fun updateAllWidgets(context: Context) {
-        runCatching {
-            NowPlayingGlanceWidget().updateAll(context)
-            CompactPlayerGlanceWidget().updateAll(context)
-            LyricsGlanceWidget().updateAll(context)
-        }
+        if (settings.nowPlayingEnabled) runCatching { NowPlayingGlanceWidget().updateAll(context) }
+        if (settings.miniPlayerEnabled) runCatching { CompactPlayerGlanceWidget().updateAll(context) }
+        if (settings.lyricsEnabled) runCatching { LyricsGlanceWidget().updateAll(context) }
+        if (settings.dynamicAlbumEnabled) runCatching { DynamicAlbumGlanceWidget().updateAll(context) }
     }
 }
