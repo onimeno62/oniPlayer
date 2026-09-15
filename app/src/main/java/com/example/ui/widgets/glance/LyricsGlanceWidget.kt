@@ -11,6 +11,7 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
 import com.example.playback.OniAudioEngine
 import com.example.ui.widgets.core.OniWidgetRegistry
+import com.example.ui.widgets.core.OniWidgetPlaybackState
 import com.example.ui.widgets.core.WidgetSize
 import com.example.ui.widgets.defaultpack.DefaultWidgetPack
 import com.example.ui.widgets.playback.WidgetPlaybackStateAdapter
@@ -21,18 +22,16 @@ class LyricsGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val skin = WidgetSkinResolver.resolveActiveSkin(context)
+        val widgetState = runCatching {
+            WidgetPlaybackStateAdapter.fromPlaybackState(OniAudioEngine.getInstance(context).state.value)
+        }.getOrDefault(OniWidgetPlaybackState())
+        val plugin = OniWidgetRegistry.getPlugin("oni.lyrics")
+            ?: DefaultWidgetPack.widgets.first { it.id == "oni.lyrics" }
+        val renderer = plugin.createRenderer()
+
         provideContent {
             val sizeInfo = androidx.glance.LocalSize.current
             val logicalSize = WidgetSize.fromDimensions(sizeInfo.width.value.toInt(), sizeInfo.height.value.toInt())
-
-            val engine = OniAudioEngine.getInstance(context)
-            val playbackState = engine.state.value
-            val widgetState = WidgetPlaybackStateAdapter.fromPlaybackState(playbackState)
-
-            val plugin = OniWidgetRegistry.getPlugin("oni.lyrics")
-                ?: DefaultWidgetPack.widgets.first { it.id == "oni.lyrics" }
-            val renderer = plugin.createRenderer()
-
             Box(modifier = GlanceModifier.fillMaxSize()) {
                 renderer.Render(context, logicalSize, widgetState, skin)
             }
