@@ -14,6 +14,11 @@ import com.example.ui.widgets.core.OniWidgetPlaybackState
 import java.io.File
 import java.io.InputStream
 import java.util.LinkedHashMap
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 
 /** Adapter between the single playback state source and widget state. */
 object WidgetPlaybackStateAdapter {
@@ -36,7 +41,8 @@ object WidgetPlaybackStateAdapter {
     private const val KEY_HAS_LYRICS = "has_lyrics"
 
     private val artworkCache = object : LinkedHashMap<String, Bitmap>(MAX_ARTWORK_CACHE_ENTRIES, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > MAX_ARTWORK_CACHE_ENTRIES
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean =
+            size > MAX_ARTWORK_CACHE_ENTRIES
     }
 
     fun fromPlaybackState(state: PlaybackState): OniWidgetPlaybackState {
@@ -82,6 +88,24 @@ object WidgetPlaybackStateAdapter {
             .apply()
     }
 
+    /**
+     * Polls the cross-process-safe persisted snapshot while a Glance composition is active.
+     * Glance update/updateAll requests do not restart an already-running composition, so
+     * providers must observe changing data inside provideContent rather than loading it once.
+     */
+    fun observePersistedPlaybackState(
+        context: Context,
+        intervalMs: Long = 1_000L
+    ): Flow<OniWidgetPlaybackState> = flow {
+        var previous: OniWidgetPlaybackState? = null
+        while (currentCoroutineContext().isActive) {
+            val next = fromPersistedPlaybackState(context)
+            if (next != previous) emit(next)
+            previous = next
+            delay(intervalMs.coerceAtLeast(250L))
+        }
+    }.distinctUntilChanged()
+
     fun fromPersistedPlaybackState(context: Context): OniWidgetPlaybackState {
         val prefs = context.applicationContext.getSharedPreferences(SNAPSHOT_PREFS, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_INITIALIZED, false)) return OniWidgetPlaybackState()
@@ -109,7 +133,11 @@ object WidgetPlaybackStateAdapter {
             val lines = LyricsHelper.parseLrc(rawLyrics).filter { it.text.isNotBlank() }
             if (lines.isEmpty()) return Triple(null, null, null)
             val activeIdx = LyricsHelper.getActiveLineIndex(lines, positionMs)
-            return Triple(lines.getOrNull(activeIdx)?.text, lines.getOrNull(activeIdx - 1)?.text, lines.getOrNull(activeIdx + 1)?.text)
+            return Triple(
+                lines.getOrNull(activeIdx)?.text,
+                lines.getOrNull(activeIdx - 1)?.text,
+                lines.getOrNull(activeIdx + 1)?.text
+            )
         }
         val lines = rawLyrics.lines().map(String::trim).filter(String::isNotEmpty)
         return Triple(lines.getOrNull(0), null, lines.getOrNull(1))
@@ -127,13 +155,22 @@ object WidgetPlaybackStateAdapter {
                 else -> null
             }
             inputStream?.use { stream ->
-                val options = BitmapFactory.Options().apply { inSampleSize = 2; inPreferredConfig = Bitmap.Config.RGB_565 }
-                BitmapFactory.decodeStream(stream, null, options)?.also { bitmap -> synchronized(artworkCache) { artworkCache[uriString] = bitmap } }
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = 2
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeStream(stream, null, options)?.also { bitmap ->
+                    synchronized(artworkCache) { artworkCache[uriString] = bitmap }
+                }
             }
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
-    fun createOpenAppIntent(context: Context): Intent = Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP }
+    fun createOpenAppIntent(context: Context): Intent = Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+    }
 
     fun togglePlayPause(context: Context) {
         val engine = OniAudioEngine.getInstance(context)
