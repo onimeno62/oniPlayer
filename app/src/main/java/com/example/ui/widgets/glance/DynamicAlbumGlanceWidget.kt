@@ -2,6 +2,7 @@ package com.example.ui.widgets.glance
 
 import android.content.Context
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.GlanceAppWidget
@@ -26,10 +27,10 @@ class DynamicAlbumGlanceWidget : GlanceAppWidget() {
         val renderer = plugin.createRenderer()
 
         provideContent {
-            val widgetState = WidgetPlaybackStateAdapter
-                .observePersistedPlaybackState(context)
-                .collectAsState(initial = initialState)
-                .value
+            val playbackFlow = remember(context) {
+                WidgetPlaybackStateAdapter.observePersistedPlaybackState(context)
+            }
+            val widgetState = playbackFlow.collectAsState(initial = initialState).value
             val sizeInfo = androidx.glance.LocalSize.current
             val logicalSize = WidgetSize.fromDimensions(sizeInfo.width.value.toInt(), sizeInfo.height.value.toInt())
             Box(modifier = GlanceModifier.fillMaxSize()) {
