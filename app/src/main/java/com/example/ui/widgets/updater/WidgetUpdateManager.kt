@@ -9,12 +9,12 @@ import com.example.ui.widgets.glance.CompactPlayerGlanceWidget
 import com.example.ui.widgets.glance.DynamicAlbumGlanceWidget
 import com.example.ui.widgets.glance.LyricsGlanceWidget
 import com.example.ui.widgets.glance.NowPlayingGlanceWidget
+import com.example.ui.widgets.playback.WidgetPlaybackStateAdapter
 import com.example.ui.widgets.settings.WidgetSettings
 import com.example.ui.widgets.settings.WidgetSettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** Event-driven widget updates with user-configurable refresh policy. */
@@ -22,7 +22,6 @@ object WidgetUpdateManager {
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var settings = WidgetSettings()
     private var settingsContext: Context? = null
-    private var settingsJob: Job? = null
     private var lastSongId: String? = null
     private var lastIsPlaying: Boolean? = null
     private var lastShuffle: Boolean? = null
@@ -34,14 +33,16 @@ object WidgetUpdateManager {
     private fun ensureSettings(context: Context) {
         if (settingsContext != null) return
         settingsContext = context.applicationContext
-        settingsJob = scope.launch {
+        scope.launch {
             WidgetSettingsStore.settings(context.applicationContext).collect { settings = it }
         }
     }
 
     fun onPlaybackStateChanged(context: Context, state: PlaybackState) {
         ensureSettings(context)
+        WidgetPlaybackStateAdapter.persistPlaybackState(context, state)
         if (!settings.widgetsEnabled) return
+
         val now = SystemClock.elapsedRealtime()
         val songChanged = state.currentSong?.id != lastSongId
         val playStateChanged = state.isPlaying != lastIsPlaying
