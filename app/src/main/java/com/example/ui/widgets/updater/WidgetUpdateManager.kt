@@ -124,10 +124,25 @@ object WidgetUpdateManager {
         force: Boolean,
         followUp: Boolean
     ) {
-        pendingUpdateJob?.cancel()
-        pendingUpdateJob = scope.launch {
-            delay(if (force) FORCED_DEBOUNCE_MS else NORMAL_DEBOUNCE_MS)
-            publishWidgets(context.applicationContext, state)
+        if (force) {
+            pendingUpdateJob?.cancel()
+            pendingUpdateJob = scope.launch {
+                delay(FORCED_DEBOUNCE_MS)
+                publishWidgets(
+                    context.applicationContext,
+                    OniAudioEngine.getInstance(context).state.value
+                )
+            }
+        } else if (pendingUpdateJob?.isActive != true) {
+            // Keep one trailing position update alive. Playback emits frequently;
+            // restarting the delay for every emission would starve the update forever.
+            pendingUpdateJob = scope.launch {
+                delay(NORMAL_DEBOUNCE_MS)
+                publishWidgets(
+                    context.applicationContext,
+                    OniAudioEngine.getInstance(context).state.value
+                )
+            }
         }
 
         if (followUp) {
