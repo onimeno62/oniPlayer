@@ -1,6 +1,8 @@
 package com.example.ui.widgets.glance
 
 import androidx.datastore.preferences.core.preferencesOf
+import androidx.datastore.preferences.core.toMutablePreferences
+import androidx.datastore.preferences.core.toPreferences
 import com.example.ui.widgets.core.OniWidgetPlaybackState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
