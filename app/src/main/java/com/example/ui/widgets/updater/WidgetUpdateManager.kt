@@ -2,6 +2,7 @@ package com.example.ui.widgets.updater
 
 import android.content.Context
 import android.os.SystemClock
+import android.util.Log
 import androidx.glance.appwidget.updateAll
 import com.example.playback.PlaybackState
 import com.example.playback.RepeatMode
@@ -15,29 +16,53 @@ import com.example.ui.widgets.settings.WidgetSettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-/** Event-driven widget updates with user-configurable refresh policy. */
+/**
+ * Coordinates event-driven Glance updates.
+ *
+ * The playback service remains the source of truth. This manager persists the
+ * latest snapshot, coalesces bursts of playback callbacks, serializes Glance
+ * update work, and performs a delayed follow-up for late metadata/artwork.
+ */
 object WidgetUpdateManager {
+    private const val TAG = "OniWidgetUpdates"
+    private const val FORCED_DEBOUNCE_MS = 150L
+    private const val NORMAL_DEBOUNCE_MS = 350L
+    private const val FOLLOW_UP_DELAY_MS = 500L
+    private const val POSITION_DRIFT_THRESHOLD_MS = 2_000L
+
     private val scope = CoroutineScope(Dispatchers.IO + Job())
+    private val updateMutex = Mutex()
+
+    @Volatile
     private var settings = WidgetSettings()
+    @Volatile
     private var settingsContext: Context? = null
+    private var settingsJob: Job? = null
+    private var pendingUpdateJob: Job? = null
+    private var followUpJob: Job? = null
+
     private var lastSongId: String? = null
     private var lastIsPlaying: Boolean? = null
     private var lastShuffle: Boolean? = null
     private var lastRepeat: Boolean? = null
     private var lastPositionMs: Long = Long.MIN_VALUE
-    private var lastLyricsUpdateAt: Long = 0L
-    private var lastPlayerUpdateAt: Long = 0L
+    private var lastPublishedPositionMs: Long = Long.MIN_VALUE
 
     private fun ensureSettings(context: Context) {
         if (settingsContext != null) return
         settingsContext = context.applicationContext
-        scope.launch {
+        settingsJob = scope.launch {
             WidgetSettingsStore.settings(context.applicationContext).collect { settings = it }
         }
     }
 
+    /** Called by the playback service for every playback-state emission. */
     fun onPlaybackStateChanged(context: Context, state: PlaybackState) {
         ensureSettings(context)
         WidgetPlaybackStateAdapter.persistPlaybackState(context, state)
@@ -49,41 +74,83 @@ object WidgetUpdateManager {
         val shuffleChanged = state.shuffleEnabled != lastShuffle
         val repeatChanged = (state.repeatMode == RepeatMode.ONE) != lastRepeat
         val positionChanged = state.positionMs != lastPositionMs
-
-        if (songChanged || playStateChanged || shuffleChanged || repeatChanged) {
-            lastSongId = state.currentSong?.id
-            lastIsPlaying = state.isPlaying
-            lastShuffle = state.shuffleEnabled
-            lastRepeat = state.repeatMode == RepeatMode.ONE
-            lastPositionMs = state.positionMs
-            lastLyricsUpdateAt = now
-            lastPlayerUpdateAt = now
-            scope.launch { updateAllWidgets(context) }
-            return
+        val positionDrift = if (lastPublishedPositionMs == Long.MIN_VALUE) {
+            Long.MAX_VALUE
+        } else {
+            kotlin.math.abs(state.positionMs - lastPublishedPositionMs)
         }
 
-        if (!positionChanged || !state.isPlaying) return
+        lastSongId = state.currentSong?.id
+        lastIsPlaying = state.isPlaying
+        lastShuffle = state.shuffleEnabled
+        lastRepeat = state.repeatMode == RepeatMode.ONE
         lastPositionMs = state.positionMs
 
-        if (settings.liveLyricsUpdates && settings.lyricsEnabled && now - lastLyricsUpdateAt >= settings.lyricsRefreshSeconds * 1_000L) {
-            lastLyricsUpdateAt = now
-            scope.launch { runCatching { LyricsGlanceWidget().updateAll(context) } }
+        when {
+            songChanged || playStateChanged || shuffleChanged || repeatChanged -> {
+                requestUpdate(context, force = true, followUp = songChanged)
+            }
+            positionChanged && state.isPlaying && positionDrift >= POSITION_DRIFT_THRESHOLD_MS -> {
+                requestUpdate(context, force = false, followUp = false)
+            }
         }
 
-        if (now - lastPlayerUpdateAt >= settings.playerRefreshSeconds * 1_000L) {
-            lastPlayerUpdateAt = now
-            scope.launch {
-                if (settings.nowPlayingEnabled) runCatching { NowPlayingGlanceWidget().updateAll(context) }
-                if (settings.miniPlayerEnabled) runCatching { CompactPlayerGlanceWidget().updateAll(context) }
-                if (settings.dynamicAlbumEnabled) runCatching { DynamicAlbumGlanceWidget().updateAll(context) }
+        if (now < 0L) {
+            Log.w(TAG, "Unexpected elapsed realtime value: $now")
+        }
+    }
+
+    /** Forces an update and optionally schedules a second pass for late artwork. */
+    fun requestWithFollowUp(context: Context) {
+        ensureSettings(context)
+        if (!settings.widgetsEnabled) return
+        requestUpdate(context, force = true, followUp = true)
+    }
+
+    /** Cancels pending work. Call this when the playback service is destroyed. */
+    fun cancel() {
+        pendingUpdateJob?.cancel()
+        followUpJob?.cancel()
+        settingsJob?.cancel()
+    }
+
+    private fun requestUpdate(context: Context, force: Boolean, followUp: Boolean) {
+        pendingUpdateJob?.cancel()
+        pendingUpdateJob = scope.launch {
+            delay(if (force) FORCED_DEBOUNCE_MS else NORMAL_DEBOUNCE_MS)
+            publishWidgets(context.applicationContext)
+        }
+
+        if (followUp) {
+            followUpJob?.cancel()
+            followUpJob = scope.launch {
+                delay(FOLLOW_UP_DELAY_MS)
+                publishWidgets(context.applicationContext)
             }
         }
     }
 
-    private suspend fun updateAllWidgets(context: Context) {
-        if (settings.nowPlayingEnabled) runCatching { NowPlayingGlanceWidget().updateAll(context) }
-        if (settings.miniPlayerEnabled) runCatching { CompactPlayerGlanceWidget().updateAll(context) }
-        if (settings.lyricsEnabled) runCatching { LyricsGlanceWidget().updateAll(context) }
-        if (settings.dynamicAlbumEnabled) runCatching { DynamicAlbumGlanceWidget().updateAll(context) }
+    private suspend fun publishWidgets(context: Context) {
+        updateMutex.withLock {
+            val startedAt = SystemClock.elapsedRealtime()
+            try {
+                if (settings.nowPlayingEnabled) {
+                    NowPlayingGlanceWidget().updateAll(context)
+                }
+                if (settings.miniPlayerEnabled) {
+                    CompactPlayerGlanceWidget().updateAll(context)
+                }
+                if (settings.lyricsEnabled) {
+                    LyricsGlanceWidget().updateAll(context)
+                }
+                if (settings.dynamicAlbumEnabled) {
+                    DynamicAlbumGlanceWidget().updateAll(context)
+                }
+                lastPublishedPositionMs = lastPositionMs
+                Log.d(TAG, "Published widget updates in ${SystemClock.elapsedRealtime() - startedAt}ms")
+            } catch (error: Throwable) {
+                Log.e(TAG, "Failed to publish widget updates", error)
+            }
+        }
     }
 }
