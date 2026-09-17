@@ -14,40 +14,26 @@ import com.example.ui.widgets.core.OniWidgetPlaybackState
 import java.io.File
 import java.io.InputStream
 import java.util.LinkedHashMap
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flow
 
-/** Adapter between the single playback state source and widget state. */
+/** Adapter between the single playback state source and widget rendering/actions. */
 object WidgetPlaybackStateAdapter {
     private const val MAX_ARTWORK_CACHE_ENTRIES = 8
-    private const val SNAPSHOT_PREFS = "oni_widget_playback_snapshot"
-    private const val KEY_INITIALIZED = "initialized"
-    private const val KEY_SONG_ID = "song_id"
-    private const val KEY_TITLE = "title"
-    private const val KEY_ARTIST = "artist"
-    private const val KEY_ALBUM = "album"
-    private const val KEY_ARTWORK_URI = "artwork_uri"
-    private const val KEY_IS_PLAYING = "is_playing"
-    private const val KEY_POSITION_MS = "position_ms"
-    private const val KEY_DURATION_MS = "duration_ms"
-    private const val KEY_SHUFFLE = "shuffle"
-    private const val KEY_REPEAT = "repeat"
-    private const val KEY_ACTIVE_LYRIC = "active_lyric"
-    private const val KEY_PREVIOUS_LYRIC = "previous_lyric"
-    private const val KEY_NEXT_LYRIC = "next_lyric"
-    private const val KEY_HAS_LYRICS = "has_lyrics"
 
-    private val artworkCache = object : LinkedHashMap<String, Bitmap>(MAX_ARTWORK_CACHE_ENTRIES, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean =
-            size > MAX_ARTWORK_CACHE_ENTRIES
+    private val artworkCache = object : LinkedHashMap<String, Bitmap>(
+        MAX_ARTWORK_CACHE_ENTRIES,
+        0.75f,
+        true
+    ) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, Bitmap>?
+        ): Boolean = size > MAX_ARTWORK_CACHE_ENTRIES
     }
 
     fun fromPlaybackState(state: PlaybackState): OniWidgetPlaybackState {
         val song = state.currentSong
-        val (currentLyric, prevLyric, nextLyric) = resolveLyrics(song?.lyrics, state.positionMs)
+        val (currentLyric, prevLyric, nextLyric) =
+            resolveLyrics(song?.lyrics, state.positionMs)
+
         return OniWidgetPlaybackState(
             songId = song?.id,
             title = song?.displayTitle ?: "No track playing",
@@ -66,69 +52,12 @@ object WidgetPlaybackStateAdapter {
         )
     }
 
-    fun persistPlaybackState(context: Context, state: PlaybackState) {
-        val widgetState = fromPlaybackState(state)
-        context.applicationContext.getSharedPreferences(SNAPSHOT_PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_INITIALIZED, true)
-            .putString(KEY_SONG_ID, widgetState.songId)
-            .putString(KEY_TITLE, widgetState.title)
-            .putString(KEY_ARTIST, widgetState.artist)
-            .putString(KEY_ALBUM, widgetState.album)
-            .putString(KEY_ARTWORK_URI, widgetState.albumArtworkUri)
-            .putBoolean(KEY_IS_PLAYING, widgetState.isPlaying)
-            .putLong(KEY_POSITION_MS, widgetState.positionMs)
-            .putLong(KEY_DURATION_MS, widgetState.durationMs)
-            .putBoolean(KEY_SHUFFLE, widgetState.isShuffle)
-            .putBoolean(KEY_REPEAT, widgetState.isRepeat)
-            .putString(KEY_ACTIVE_LYRIC, widgetState.activeLyric)
-            .putString(KEY_PREVIOUS_LYRIC, widgetState.previousLyric)
-            .putString(KEY_NEXT_LYRIC, widgetState.nextLyric)
-            .putBoolean(KEY_HAS_LYRICS, widgetState.hasLyrics)
-            .apply()
-    }
-
-    /**
-     * Polls the cross-process-safe persisted snapshot while a Glance composition is active.
-     * Glance update/updateAll requests do not restart an already-running composition, so
-     * providers must observe changing data inside provideContent rather than loading it once.
-     */
-    fun observePersistedPlaybackState(
-        context: Context,
-        intervalMs: Long = 1_000L
-    ): Flow<OniWidgetPlaybackState> = flow {
-        var previous: OniWidgetPlaybackState? = null
-        while (currentCoroutineContext().isActive) {
-            val next = fromPersistedPlaybackState(context)
-            if (next != previous) emit(next)
-            previous = next
-            delay(intervalMs.coerceAtLeast(250L))
-        }
-    }.distinctUntilChanged()
-
-    fun fromPersistedPlaybackState(context: Context): OniWidgetPlaybackState {
-        val prefs = context.applicationContext.getSharedPreferences(SNAPSHOT_PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_INITIALIZED, false)) return OniWidgetPlaybackState()
-        return OniWidgetPlaybackState(
-            songId = prefs.getString(KEY_SONG_ID, null),
-            title = prefs.getString(KEY_TITLE, "No track playing") ?: "No track playing",
-            artist = prefs.getString(KEY_ARTIST, "oniPlayer") ?: "oniPlayer",
-            album = prefs.getString(KEY_ALBUM, "") ?: "",
-            albumArtworkUri = prefs.getString(KEY_ARTWORK_URI, null),
-            isPlaying = prefs.getBoolean(KEY_IS_PLAYING, false),
-            positionMs = prefs.getLong(KEY_POSITION_MS, 0L),
-            durationMs = prefs.getLong(KEY_DURATION_MS, 0L),
-            isShuffle = prefs.getBoolean(KEY_SHUFFLE, false),
-            isRepeat = prefs.getBoolean(KEY_REPEAT, false),
-            activeLyric = prefs.getString(KEY_ACTIVE_LYRIC, null),
-            previousLyric = prefs.getString(KEY_PREVIOUS_LYRIC, null),
-            nextLyric = prefs.getString(KEY_NEXT_LYRIC, null),
-            hasLyrics = prefs.getBoolean(KEY_HAS_LYRICS, false)
-        )
-    }
-
-    private fun resolveLyrics(rawLyrics: String?, positionMs: Long): Triple<String?, String?, String?> {
+    private fun resolveLyrics(
+        rawLyrics: String?,
+        positionMs: Long
+    ): Triple<String?, String?, String?> {
         if (rawLyrics.isNullOrBlank()) return Triple(null, null, null)
+
         if (LyricsHelper.isSynced(rawLyrics)) {
             val lines = LyricsHelper.parseLrc(rawLyrics).filter { it.text.isNotBlank() }
             if (lines.isEmpty()) return Triple(null, null, null)
@@ -139,28 +68,40 @@ object WidgetPlaybackStateAdapter {
                 lines.getOrNull(activeIdx + 1)?.text
             )
         }
-        val lines = rawLyrics.lines().map(String::trim).filter(String::isNotEmpty)
+
+        val lines = rawLyrics.lines()
+            .map(String::trim)
+            .filter(String::isNotEmpty)
         return Triple(lines.getOrNull(0), null, lines.getOrNull(1))
     }
 
     fun loadArtworkBitmap(context: Context, uriString: String?): Bitmap? {
         if (uriString.isNullOrBlank()) return null
-        synchronized(artworkCache) { artworkCache[uriString]?.let { return it } }
+        synchronized(artworkCache) {
+            artworkCache[uriString]?.let { return it }
+        }
+
         return try {
             val uri = Uri.parse(uriString)
             val inputStream: InputStream? = when {
-                uriString.startsWith("content://") -> context.contentResolver.openInputStream(uri)
-                uriString.startsWith("file://") -> uri.path?.let { File(it).inputStream() }
-                File(uriString).exists() -> File(uriString).inputStream()
+                uriString.startsWith("content://") ->
+                    context.contentResolver.openInputStream(uri)
+                uriString.startsWith("file://") ->
+                    uri.path?.let { File(it).inputStream() }
+                File(uriString).exists() ->
+                    File(uriString).inputStream()
                 else -> null
             }
+
             inputStream?.use { stream ->
                 val options = BitmapFactory.Options().apply {
                     inSampleSize = 2
                     inPreferredConfig = Bitmap.Config.RGB_565
                 }
                 BitmapFactory.decodeStream(stream, null, options)?.also { bitmap ->
-                    synchronized(artworkCache) { artworkCache[uriString] = bitmap }
+                    synchronized(artworkCache) {
+                        artworkCache[uriString] = bitmap
+                    }
                 }
             }
         } catch (_: Exception) {
@@ -168,9 +109,10 @@ object WidgetPlaybackStateAdapter {
         }
     }
 
-    fun createOpenAppIntent(context: Context): Intent = Intent(context, MainActivity::class.java).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-    }
+    fun createOpenAppIntent(context: Context): Intent =
+        Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
 
     fun togglePlayPause(context: Context) {
         val engine = OniAudioEngine.getInstance(context)

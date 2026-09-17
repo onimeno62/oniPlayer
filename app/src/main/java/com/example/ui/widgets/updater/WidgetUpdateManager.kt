@@ -3,13 +3,18 @@ package com.example.ui.widgets.updater
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import androidx.glance.appwidget.updateAll
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.updateAppWidgetState
+import com.example.playback.OniAudioEngine
 import com.example.playback.PlaybackState
 import com.example.playback.RepeatMode
+import com.example.ui.widgets.core.OniWidgetPlaybackState
 import com.example.ui.widgets.glance.CompactPlayerGlanceWidget
 import com.example.ui.widgets.glance.DynamicAlbumGlanceWidget
 import com.example.ui.widgets.glance.LyricsGlanceWidget
 import com.example.ui.widgets.glance.NowPlayingGlanceWidget
+import com.example.ui.widgets.glance.WidgetGlanceState
 import com.example.ui.widgets.playback.WidgetPlaybackStateAdapter
 import com.example.ui.widgets.settings.WidgetSettings
 import com.example.ui.widgets.settings.WidgetSettingsStore
@@ -23,11 +28,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Coordinates event-driven Glance updates.
+ * Single coordinator between playback state and all placed Glance widget instances.
  *
- * The playback service remains the source of truth. This manager persists the
- * latest snapshot, coalesces bursts of playback callbacks, serializes Glance
- * update work, and performs a delayed follow-up for late metadata/artwork.
+ * PlaybackController/OniAudioEngine remains the only source of truth. This
+ * coordinator converts that state once, writes it into each widget instance's
+ * Glance Preferences state, and requests an exact-id render.
  */
 object WidgetUpdateManager {
     private const val TAG = "OniWidgetUpdates"
@@ -58,14 +63,14 @@ object WidgetUpdateManager {
         if (settingsContext != null) return
         settingsContext = context.applicationContext
         settingsJob = scope.launch {
-            WidgetSettingsStore.settings(context.applicationContext).collect { settings = it }
+            WidgetSettingsStore.settings(context.applicationContext).collect {
+                settings = it
+            }
         }
     }
 
-    /** Called by the playback service for every playback-state emission. */
     fun onPlaybackStateChanged(context: Context, state: PlaybackState) {
         ensureSettings(context)
-        WidgetPlaybackStateAdapter.persistPlaybackState(context, state)
         if (!settings.widgetsEnabled) return
 
         val now = SystemClock.elapsedRealtime()
@@ -88,10 +93,10 @@ object WidgetUpdateManager {
 
         when {
             songChanged || playStateChanged || shuffleChanged || repeatChanged -> {
-                requestUpdate(context, force = true, followUp = songChanged)
+                requestUpdate(context, state, force = true, followUp = songChanged)
             }
             positionChanged && state.isPlaying && positionDrift >= POSITION_DRIFT_THRESHOLD_MS -> {
-                requestUpdate(context, force = false, followUp = false)
+                requestUpdate(context, state, force = false, followUp = false)
             }
         }
 
@@ -100,56 +105,114 @@ object WidgetUpdateManager {
         }
     }
 
-    /** Forces an update and optionally schedules a second pass for late artwork. */
     fun requestWithFollowUp(context: Context) {
         ensureSettings(context)
         if (!settings.widgetsEnabled) return
-        requestUpdate(context, force = true, followUp = true)
+        val state = OniAudioEngine.getInstance(context).state.value
+        requestUpdate(context, state, force = true, followUp = true)
     }
 
-    /** Cancels pending work. Call this when the playback service is destroyed. */
     fun cancel() {
         pendingUpdateJob?.cancel()
         followUpJob?.cancel()
         settingsJob?.cancel()
     }
 
-    private fun requestUpdate(context: Context, force: Boolean, followUp: Boolean) {
+    private fun requestUpdate(
+        context: Context,
+        state: PlaybackState,
+        force: Boolean,
+        followUp: Boolean
+    ) {
         pendingUpdateJob?.cancel()
         pendingUpdateJob = scope.launch {
             delay(if (force) FORCED_DEBOUNCE_MS else NORMAL_DEBOUNCE_MS)
-            publishWidgets(context.applicationContext)
+            publishWidgets(context.applicationContext, state)
         }
 
         if (followUp) {
             followUpJob?.cancel()
             followUpJob = scope.launch {
                 delay(FOLLOW_UP_DELAY_MS)
-                publishWidgets(context.applicationContext)
+                publishWidgets(
+                    context.applicationContext,
+                    OniAudioEngine.getInstance(context).state.value
+                )
             }
         }
     }
 
-    private suspend fun publishWidgets(context: Context) {
+    private suspend fun publishWidgets(context: Context, state: PlaybackState) {
         updateMutex.withLock {
+            val widgetState = WidgetPlaybackStateAdapter.fromPlaybackState(state)
             val startedAt = SystemClock.elapsedRealtime()
             try {
+                val manager = GlanceAppWidgetManager(context)
                 if (settings.nowPlayingEnabled) {
-                    NowPlayingGlanceWidget().updateAll(context)
+                    publishForProvider(
+                        manager,
+                        context,
+                        NowPlayingGlanceWidget::class.java,
+                        widgetState
+                    )
                 }
                 if (settings.miniPlayerEnabled) {
-                    CompactPlayerGlanceWidget().updateAll(context)
+                    publishForProvider(
+                        manager,
+                        context,
+                        CompactPlayerGlanceWidget::class.java,
+                        widgetState
+                    )
                 }
                 if (settings.lyricsEnabled) {
-                    LyricsGlanceWidget().updateAll(context)
+                    publishForProvider(
+                        manager,
+                        context,
+                        LyricsGlanceWidget::class.java,
+                        widgetState
+                    )
                 }
                 if (settings.dynamicAlbumEnabled) {
-                    DynamicAlbumGlanceWidget().updateAll(context)
+                    publishForProvider(
+                        manager,
+                        context,
+                        DynamicAlbumGlanceWidget::class.java,
+                        widgetState
+                    )
                 }
+
                 lastPublishedPositionMs = lastPositionMs
-                Log.d(TAG, "Published widget updates in ${SystemClock.elapsedRealtime() - startedAt}ms")
+                Log.d(
+                    TAG,
+                    "Published exact widget state in " +
+                        (SystemClock.elapsedRealtime() - startedAt) + "ms"
+                )
             } catch (error: Throwable) {
-                Log.e(TAG, "Failed to publish widget updates", error)
+                Log.e(TAG, "Failed to publish widget state", error)
+            }
+        }
+    }
+
+    private suspend fun <T : GlanceAppWidget> publishForProvider(
+        manager: GlanceAppWidgetManager,
+        context: Context,
+        provider: Class<T>,
+        state: OniWidgetPlaybackState
+    ) {
+        val glanceIds = manager.getGlanceIds(provider)
+        for (glanceId in glanceIds) {
+            updateAppWidgetState(context, glanceId) { preferences ->
+                WidgetGlanceState.writeTo(preferences, state)
+            }
+            when (provider) {
+                NowPlayingGlanceWidget::class.java ->
+                    NowPlayingGlanceWidget().update(context, glanceId)
+                CompactPlayerGlanceWidget::class.java ->
+                    CompactPlayerGlanceWidget().update(context, glanceId)
+                LyricsGlanceWidget::class.java ->
+                    LyricsGlanceWidget().update(context, glanceId)
+                DynamicAlbumGlanceWidget::class.java ->
+                    DynamicAlbumGlanceWidget().update(context, glanceId)
             }
         }
     }
