@@ -39,4 +39,13 @@ class DynamicAlbumGlanceWidget : GlanceAppWidget() {
 
 class DynamicAlbumWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = DynamicAlbumGlanceWidget()
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: android.appwidget.AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        com.example.ui.widgets.updater.WidgetUpdateManager.requestWithFollowUp(context)
+    }
 }
