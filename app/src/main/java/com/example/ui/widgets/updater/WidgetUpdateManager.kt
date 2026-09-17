@@ -39,7 +39,6 @@ object WidgetUpdateManager {
     private const val FORCED_DEBOUNCE_MS = 150L
     private const val NORMAL_DEBOUNCE_MS = 350L
     private const val FOLLOW_UP_DELAY_MS = 500L
-    private const val POSITION_DRIFT_THRESHOLD_MS = 2_000L
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private val updateMutex = Mutex()
@@ -52,38 +51,46 @@ object WidgetUpdateManager {
     private var pendingUpdateJob: Job? = null
     private var followUpJob: Job? = null
 
+    private var pendingPlayerUpdate = false
+    private var pendingLyricsUpdate = false
     private var lastSongId: String? = null
     private var lastIsPlaying: Boolean? = null
     private var lastShuffle: Boolean? = null
     private var lastRepeat: Boolean? = null
     private var lastPositionMs: Long = Long.MIN_VALUE
-    private var lastPublishedPositionMs: Long = Long.MIN_VALUE
+    private var lastPlayerPublishedPositionMs: Long = Long.MIN_VALUE
+    private var lastLyricsPublishedPositionMs: Long = Long.MIN_VALUE
 
     private fun ensureSettings(context: Context) {
         if (settingsContext != null) return
         settingsContext = context.applicationContext
         settingsJob = scope.launch {
-            WidgetSettingsStore.settings(context.applicationContext).collect {
-                settings = it
+            WidgetSettingsStore.settings(context.applicationContext).collect { next ->
+                val wasEnabled = settings.widgetsEnabled
+                settings = next
+                if (!wasEnabled && next.widgetsEnabled) {
+                    requestUpdate(
+                        context = context.applicationContext,
+                        force = true,
+                        player = true,
+                        lyrics = next.lyricsEnabled && next.liveLyricsUpdates,
+                        followUp = false
+                    )
+                }
             }
         }
     }
 
+    /** Called by the single playback-state source for every state emission. */
     fun onPlaybackStateChanged(context: Context, state: PlaybackState) {
         ensureSettings(context)
         if (!settings.widgetsEnabled) return
 
-        val now = SystemClock.elapsedRealtime()
         val songChanged = state.currentSong?.id != lastSongId
         val playStateChanged = state.isPlaying != lastIsPlaying
         val shuffleChanged = state.shuffleEnabled != lastShuffle
         val repeatChanged = (state.repeatMode == RepeatMode.ONE) != lastRepeat
         val positionChanged = state.positionMs != lastPositionMs
-        val positionDrift = if (lastPublishedPositionMs == Long.MIN_VALUE) {
-            Long.MAX_VALUE
-        } else {
-            kotlin.math.abs(state.positionMs - lastPublishedPositionMs)
-        }
 
         lastSongId = state.currentSong?.id
         lastIsPlaying = state.isPlaying
@@ -91,57 +98,96 @@ object WidgetUpdateManager {
         lastRepeat = state.repeatMode == RepeatMode.ONE
         lastPositionMs = state.positionMs
 
-        when {
-            songChanged || playStateChanged || shuffleChanged || repeatChanged -> {
-                requestUpdate(context, state, force = true, followUp = songChanged)
-            }
-            positionChanged && state.isPlaying && positionDrift >= POSITION_DRIFT_THRESHOLD_MS -> {
-                requestUpdate(context, state, force = false, followUp = false)
-            }
+        if (songChanged || playStateChanged || shuffleChanged || repeatChanged) {
+            requestUpdate(
+                context = context.applicationContext,
+                force = true,
+                player = true,
+                lyrics = settings.lyricsEnabled && settings.liveLyricsUpdates,
+                followUp = songChanged
+            )
+            return
         }
 
-        if (now < 0L) {
-            Log.w(TAG, "Unexpected elapsed realtime value: $now")
+        if (!positionChanged || !state.isPlaying) return
+
+        val playerIntervalMs = settings.playerRefreshSeconds.coerceIn(1, 10) * 1_000L
+        val lyricsIntervalMs = settings.lyricsRefreshSeconds.coerceIn(1, 10) * 1_000L
+
+        val playerDrift = if (lastPlayerPublishedPositionMs == Long.MIN_VALUE) {
+            Long.MAX_VALUE
+        } else {
+            kotlin.math.abs(state.positionMs - lastPlayerPublishedPositionMs)
+        }
+
+        val lyricsDrift = if (lastLyricsPublishedPositionMs == Long.MIN_VALUE) {
+            Long.MAX_VALUE
+        } else {
+            kotlin.math.abs(state.positionMs - lastLyricsPublishedPositionMs)
+        }
+
+        val playerDue = playerDrift >= playerIntervalMs
+        val lyricsDue =
+            settings.lyricsEnabled &&
+                settings.liveLyricsUpdates &&
+                lyricsDrift >= lyricsIntervalMs
+
+        if (playerDue || lyricsDue) {
+            requestUpdate(
+                context = context.applicationContext,
+                force = false,
+                player = playerDue,
+                lyrics = lyricsDue,
+                followUp = false
+            )
         }
     }
 
+    /** Forces publication and optionally schedules a second artwork/metadata pass. */
     fun requestWithFollowUp(context: Context) {
         ensureSettings(context)
         if (!settings.widgetsEnabled) return
-        val state = OniAudioEngine.getInstance(context).state.value
-        requestUpdate(context, state, force = true, followUp = true)
+        requestUpdate(
+            context = context.applicationContext,
+            force = true,
+            player = true,
+            lyrics = settings.lyricsEnabled,
+            followUp = true
+        )
     }
 
     fun cancel() {
         pendingUpdateJob?.cancel()
         followUpJob?.cancel()
         settingsJob?.cancel()
+        pendingUpdateJob = null
+        followUpJob = null
+        pendingPlayerUpdate = false
+        pendingLyricsUpdate = false
     }
 
     private fun requestUpdate(
         context: Context,
-        state: PlaybackState,
         force: Boolean,
+        player: Boolean,
+        lyrics: Boolean,
         followUp: Boolean
     ) {
+        pendingPlayerUpdate = pendingPlayerUpdate || player
+        pendingLyricsUpdate = pendingLyricsUpdate || lyrics
+
         if (force) {
             pendingUpdateJob?.cancel()
             pendingUpdateJob = scope.launch {
                 delay(FORCED_DEBOUNCE_MS)
-                publishWidgets(
-                    context.applicationContext,
-                    OniAudioEngine.getInstance(context).state.value
-                )
+                publishPending(context.applicationContext)
             }
         } else if (pendingUpdateJob?.isActive != true) {
-            // Keep one trailing position update alive. Playback emits frequently;
-            // restarting the delay for every emission would starve the update forever.
+            // Keep one trailing update alive. Playback can emit more frequently than
+            // the widget refresh interval; restarting this delay would starve updates.
             pendingUpdateJob = scope.launch {
                 delay(NORMAL_DEBOUNCE_MS)
-                publishWidgets(
-                    context.applicationContext,
-                    OniAudioEngine.getInstance(context).state.value
-                )
+                publishPending(context.applicationContext)
             }
         }
 
@@ -149,57 +195,81 @@ object WidgetUpdateManager {
             followUpJob?.cancel()
             followUpJob = scope.launch {
                 delay(FOLLOW_UP_DELAY_MS)
-                publishWidgets(
-                    context.applicationContext,
-                    OniAudioEngine.getInstance(context).state.value
+                publishNow(
+                    context = context.applicationContext,
+                    player = true,
+                    lyrics = settings.lyricsEnabled
                 )
             }
         }
     }
 
-    private suspend fun publishWidgets(context: Context, state: PlaybackState) {
+    private suspend fun publishPending(context: Context) {
+        val player = pendingPlayerUpdate
+        val lyrics = pendingLyricsUpdate
+        pendingPlayerUpdate = false
+        pendingLyricsUpdate = false
+
+        if (!player && !lyrics) return
+
+        publishNow(context, player, lyrics)
+    }
+
+    private suspend fun publishNow(
+        context: Context,
+        player: Boolean,
+        lyrics: Boolean
+    ) {
         updateMutex.withLock {
-            val widgetState = WidgetPlaybackStateAdapter.fromPlaybackState(state)
+            val widgetState = WidgetPlaybackStateAdapter.fromPlaybackState(
+                OniAudioEngine.getInstance(context).state.value
+            )
             val startedAt = SystemClock.elapsedRealtime()
+
             try {
                 val manager = GlanceAppWidgetManager(context)
-                if (settings.nowPlayingEnabled) {
-                    publishForProvider(
-                        manager,
-                        context,
-                        NowPlayingGlanceWidget::class.java,
-                        widgetState
-                    )
+
+                if (player) {
+                    if (settings.nowPlayingEnabled) {
+                        publishForProvider(
+                            manager,
+                            context,
+                            NowPlayingGlanceWidget::class.java,
+                            widgetState
+                        )
+                    }
+                    if (settings.miniPlayerEnabled) {
+                        publishForProvider(
+                            manager,
+                            context,
+                            CompactPlayerGlanceWidget::class.java,
+                            widgetState
+                        )
+                    }
+                    if (settings.dynamicAlbumEnabled) {
+                        publishForProvider(
+                            manager,
+                            context,
+                            DynamicAlbumGlanceWidget::class.java,
+                            widgetState
+                        )
+                    }
+                    lastPlayerPublishedPositionMs = widgetState.positionMs
                 }
-                if (settings.miniPlayerEnabled) {
-                    publishForProvider(
-                        manager,
-                        context,
-                        CompactPlayerGlanceWidget::class.java,
-                        widgetState
-                    )
-                }
-                if (settings.lyricsEnabled) {
+
+                if (lyrics && settings.lyricsEnabled) {
                     publishForProvider(
                         manager,
                         context,
                         LyricsGlanceWidget::class.java,
                         widgetState
                     )
-                }
-                if (settings.dynamicAlbumEnabled) {
-                    publishForProvider(
-                        manager,
-                        context,
-                        DynamicAlbumGlanceWidget::class.java,
-                        widgetState
-                    )
+                    lastLyricsPublishedPositionMs = widgetState.positionMs
                 }
 
-                lastPublishedPositionMs = lastPositionMs
                 Log.d(
                     TAG,
-                    "Published exact widget state in " +
+                    "Published player=$player lyrics=$lyrics in " +
                         (SystemClock.elapsedRealtime() - startedAt) + "ms"
                 )
             } catch (error: Throwable) {
@@ -215,10 +285,12 @@ object WidgetUpdateManager {
         state: OniWidgetPlaybackState
     ) {
         val glanceIds = manager.getGlanceIds(provider)
+
         for (glanceId in glanceIds) {
             updateAppWidgetState(context, glanceId) { preferences ->
                 WidgetGlanceState.writeTo(preferences, state)
             }
+
             when (provider) {
                 NowPlayingGlanceWidget::class.java ->
                     NowPlayingGlanceWidget().update(context, glanceId)
@@ -228,6 +300,7 @@ object WidgetUpdateManager {
                     LyricsGlanceWidget().update(context, glanceId)
                 DynamicAlbumGlanceWidget::class.java ->
                     DynamicAlbumGlanceWidget().update(context, glanceId)
+                else -> Unit
             }
         }
     }
