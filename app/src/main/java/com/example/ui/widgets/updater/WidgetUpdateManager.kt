@@ -5,7 +5,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.updateAppWidgetState
+import androidx.glance.appwidget.state.updateAppWidgetState
 import com.example.playback.OniAudioEngine
 import com.example.playback.PlaybackState
 import com.example.playback.RepeatMode
