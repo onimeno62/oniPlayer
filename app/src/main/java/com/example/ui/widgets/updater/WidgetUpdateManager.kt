@@ -221,6 +221,7 @@ object WidgetUpdateManager {
         lyrics: Boolean
     ) {
         updateMutex.withLock {
+            if (!settings.widgetsEnabled) return@withLock
             val widgetState = WidgetPlaybackStateAdapter.fromPlaybackState(
                 OniAudioEngine.getInstance(context).state.value
             )
