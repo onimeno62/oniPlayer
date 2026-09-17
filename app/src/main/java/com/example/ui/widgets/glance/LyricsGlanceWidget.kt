@@ -39,4 +39,13 @@ class LyricsGlanceWidget : GlanceAppWidget() {
 
 class LyricsWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = LyricsGlanceWidget()
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: android.appwidget.AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        com.example.ui.widgets.updater.WidgetUpdateManager.requestWithFollowUp(context)
+    }
 }
