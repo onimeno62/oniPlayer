@@ -1,8 +1,17 @@
 package com.example.ui.widgets.manager
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Widgets
@@ -15,10 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.platform.LocalContext
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.screens.SettingDivider
@@ -26,33 +35,28 @@ import com.example.ui.screens.SettingSection
 import com.example.ui.screens.SettingsSubscreenHeader
 import com.example.ui.screens.SwitchSettingRow
 import com.example.ui.theme.OniSkin
-import com.example.ui.widgets.core.OniWidgetRegistry
 import com.example.ui.widgets.defaultpack.DefaultWidgetPack
+import com.example.ui.widgets.settings.WidgetSettings
 import com.example.ui.widgets.settings.WidgetSettingsStore
 import kotlinx.coroutines.launch
 
-/** Complete widget management and refresh settings, backed by persistent DataStore state. */
+/** PixelPlayer-inspired widget controls and refresh settings. */
 @Composable
 fun WidgetsSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by WidgetSettingsStore.settings(context).collectAsStateWithLifecycle(
-        initialValue = com.example.ui.widgets.settings.WidgetSettings()
+        initialValue = WidgetSettings()
     )
 
-    if (OniWidgetRegistry.getAllPacks().isEmpty()) {
-        OniWidgetRegistry.registerPack(DefaultWidgetPack)
-    }
-    val pack = OniWidgetRegistry.getAllPacks().firstOrNull() ?: DefaultWidgetPack
-
-    fun update(transform: (com.example.ui.widgets.settings.WidgetSettings) -> com.example.ui.widgets.settings.WidgetSettings) {
+    fun update(transform: (WidgetSettings) -> WidgetSettings) {
         scope.launch { WidgetSettingsStore.update(context, transform) }
     }
 
-    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
+    Column(Modifier.fillMaxSize().navigationBarsPadding()) {
         SettingsSubscreenHeader(
             title = "Home Screen Widgets",
-            subtitle = "Choose widgets, controls, and update behavior",
+            subtitle = "Control widget visibility and refresh behavior",
             onBack = onBack,
             backButtonTestTag = "widgets_settings_back_button"
         )
@@ -65,62 +69,34 @@ fun WidgetsSettingsScreen(onBack: () -> Unit) {
             item {
                 SettingSection(
                     title = "Widget availability",
-                    description = "These switches control which widget types oniPlayer refreshes. Existing launcher placements remain safe and can be re-enabled anytime."
+                    description = "Enable the widget families you want to keep updated on your launcher."
                 ) {
                     SwitchSettingRow(
                         title = "Enable oniPlayer widgets",
-                        description = "Allow widget updates from the playback service.",
+                        description = "Allow playback and lyrics updates for launcher widgets.",
                         checked = settings.widgetsEnabled,
                         onCheckedChange = { value -> update { it.copy(widgetsEnabled = value) } },
                         testTag = "setting_widgets_enabled"
                     )
                     SettingDivider()
-                    SwitchSettingRow(
-                        title = "Now Playing",
-                        description = "Artwork, title, progress, and full playback controls.",
-                        checked = settings.nowPlayingEnabled,
-                        enabled = settings.widgetsEnabled,
-                        onCheckedChange = { value -> update { it.copy(nowPlayingEnabled = value) } },
-                        testTag = "setting_widget_now_playing"
-                    )
+                    WidgetSwitch("Mini Player", "Compact PixelPlayer-style transport bar.", settings.miniPlayerEnabled, settings.widgetsEnabled, "setting_widget_mini_player") { value -> update { it.copy(miniPlayerEnabled = value) } }
                     SettingDivider()
-                    SwitchSettingRow(
-                        title = "Mini Player",
-                        description = "Compact transport controls for fast access.",
-                        checked = settings.miniPlayerEnabled,
-                        enabled = settings.widgetsEnabled,
-                        onCheckedChange = { value -> update { it.copy(miniPlayerEnabled = value) } },
-                        testTag = "setting_widget_mini_player"
-                    )
+                    WidgetSwitch("Now Playing", "Artwork-led control widget with progress and transport.", settings.nowPlayingEnabled, settings.widgetsEnabled, "setting_widget_now_playing") { value -> update { it.copy(nowPlayingEnabled = value) } }
                     SettingDivider()
-                    SwitchSettingRow(
-                        title = "Dynamic Album",
-                        description = "Artwork-first identity widget with minimal controls.",
-                        checked = settings.dynamicAlbumEnabled,
-                        enabled = settings.widgetsEnabled,
-                        onCheckedChange = { value -> update { it.copy(dynamicAlbumEnabled = value) } },
-                        testTag = "setting_widget_dynamic_album"
-                    )
+                    WidgetSwitch("Dynamic Album", "Artwork-first widget with minimal controls.", settings.dynamicAlbumEnabled, settings.widgetsEnabled, "setting_widget_dynamic_album") { value -> update { it.copy(dynamicAlbumEnabled = value) } }
                     SettingDivider()
-                    SwitchSettingRow(
-                        title = "Lyrics",
-                        description = "Active lyric line with previous and next context.",
-                        checked = settings.lyricsEnabled,
-                        enabled = settings.widgetsEnabled,
-                        onCheckedChange = { value -> update { it.copy(lyricsEnabled = value) } },
-                        testTag = "setting_widget_lyrics"
-                    )
+                    WidgetSwitch("Lyrics", "Lyric-first widget with active-line emphasis.", settings.lyricsEnabled, settings.widgetsEnabled, "setting_widget_lyrics") { value -> update { it.copy(lyricsEnabled = value) } }
                 }
             }
 
             item {
                 SettingSection(
-                    title = "Live updates",
-                    description = "Widgets are event-driven. Faster refresh improves progress accuracy but may use more launcher work."
+                    title = "Update behavior",
+                    description = "Shorter intervals improve progress and lyric freshness but can increase launcher work."
                 ) {
                     SwitchSettingRow(
                         title = "Live lyric updates",
-                        description = "Keep synchronized lyric lines moving while playback is active.",
+                        description = "Refresh synchronized lyric context while a song is playing.",
                         checked = settings.liveLyricsUpdates,
                         enabled = settings.widgetsEnabled && settings.lyricsEnabled,
                         onCheckedChange = { value -> update { it.copy(liveLyricsUpdates = value) } },
@@ -128,21 +104,19 @@ fun WidgetsSettingsScreen(onBack: () -> Unit) {
                     )
                     SettingDivider()
                     RefreshChoiceRow(
-                        title = "Player progress refresh",
-                        values = listOf(1, 2, 5),
+                        title = "Playback refresh interval",
+                        values = listOf(1, 2, 3, 5, 10),
                         selected = settings.playerRefreshSeconds,
                         enabled = settings.widgetsEnabled,
-                        suffix = "s",
                         onSelected = { value -> update { it.copy(playerRefreshSeconds = value) } },
                         testTag = "setting_widget_player_refresh"
                     )
                     SettingDivider()
                     RefreshChoiceRow(
-                        title = "Lyrics refresh",
-                        values = listOf(1, 2, 5),
+                        title = "Lyrics refresh interval",
+                        values = listOf(1, 2, 3, 5, 10),
                         selected = settings.lyricsRefreshSeconds,
                         enabled = settings.widgetsEnabled && settings.lyricsEnabled && settings.liveLyricsUpdates,
-                        suffix = "s",
                         onSelected = { value -> update { it.copy(lyricsRefreshSeconds = value) } },
                         testTag = "setting_widget_lyrics_refresh"
                     )
@@ -151,21 +125,15 @@ fun WidgetsSettingsScreen(onBack: () -> Unit) {
 
             item {
                 SettingSection(
-                    title = "Installed widget pack",
-                    description = "Built-in widgets inherit the active oniPlayer skin."
+                    title = "Default widget pack",
+                    description = "The built-in PixelPlayer-inspired layouts inherit the active oniPlayer skin."
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(OniSkin.spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
-                    ) {
-                        Text(pack.name, style = OniSkin.typography.titleSmall, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.Bold)
-                        Text("${pack.description} Version ${pack.version}", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
-                        pack.widgets.forEach { widget ->
+                    Column(Modifier.fillMaxWidth().padding(OniSkin.spacing.md), verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
+                        Text(DefaultWidgetPack.name, style = OniSkin.typography.titleSmall, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.Bold)
+                        Text("${DefaultWidgetPack.description} Version ${DefaultWidgetPack.version}", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
+                        DefaultWidgetPack.widgets.forEach { widget ->
                             OniSurface(variant = OniSurfaceVariant.Soft, shape = OniSkin.shapes.listItem, modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(OniSkin.spacing.sm),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Row(Modifier.fillMaxWidth().padding(OniSkin.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Widgets, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(22.dp))
                                     Spacer(Modifier.width(OniSkin.spacing.sm))
                                     Column(Modifier.weight(1f)) {
@@ -179,22 +147,27 @@ fun WidgetsSettingsScreen(onBack: () -> Unit) {
                     }
                 }
             }
-
-            item {
-                SettingSection(
-                    title = "How to place a widget",
-                    description = "Android controls widget placement and individual launcher instances."
-                ) {
-                    Text(
-                        text = "Long-press an empty area on your home screen, choose Widgets, select oniPlayer, then drag the size you want. You can place multiple sizes and multiple instances.",
-                        style = OniSkin.typography.bodySmall,
-                        color = OniSkin.colors.textSecondary,
-                        modifier = Modifier.padding(OniSkin.spacing.md)
-                    )
-                }
-            }
         }
     }
+}
+
+@Composable
+private fun WidgetSwitch(
+    title: String,
+    description: String,
+    checked: Boolean,
+    enabled: Boolean,
+    testTag: String,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    SwitchSettingRow(
+        title = title,
+        description = description,
+        checked = checked,
+        enabled = enabled,
+        onCheckedChange = onCheckedChange,
+        testTag = testTag
+    )
 }
 
 @Composable
@@ -203,27 +176,25 @@ private fun RefreshChoiceRow(
     values: List<Int>,
     selected: Int,
     enabled: Boolean,
-    suffix: String,
     onSelected: (Int) -> Unit,
     testTag: String
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm), verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Refresh, contentDescription = null, tint = if (enabled) OniSkin.colors.primary else OniSkin.colors.disabled, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(OniSkin.spacing.xs))
                 Text(title, style = OniSkin.typography.bodyLarge, color = if (enabled) OniSkin.colors.textPrimary else OniSkin.colors.disabled)
             }
-            Text("${selected}${suffix}", style = OniSkin.typography.labelMedium, color = if (enabled) OniSkin.colors.primary else OniSkin.colors.disabled)
+            Text("${selected}s", style = OniSkin.typography.labelMedium, color = if (enabled) OniSkin.colors.primary else OniSkin.colors.disabled)
         }
-        Spacer(Modifier.height(OniSkin.spacing.xs))
         Row(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
             values.forEach { value ->
                 FilterChip(
                     selected = enabled && selected == value,
                     onClick = { if (enabled) onSelected(value) },
                     enabled = enabled,
-                    label = { Text("${value}${suffix}", style = OniSkin.typography.labelMedium) },
+                    label = { Text("${value}s", style = OniSkin.typography.labelMedium) },
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = OniSkin.colors.surfaceVariant,
                         labelColor = OniSkin.colors.textSecondary,
