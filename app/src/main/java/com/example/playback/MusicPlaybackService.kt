@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 class MusicPlaybackService : MediaSessionService() {
     private val TAG = "MusicPlaybackService"
     private var playbackController: PlaybackController? = null
-    private val widgetUpdateScope = CoroutineScope(Dispatchers.Default + Job())
+    private val widgetUpdateScope = CoroutineScope(Dispatchers.Main.immediate + Job())
 
     companion object {
         var isServiceRunning = false

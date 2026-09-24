@@ -3,11 +3,19 @@ package com.example.playback
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -87,7 +95,35 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     )
 
-    val player = ExoPlayer.Builder(context).setHandleAudioBecomingNoisy(true).build()
+    private val renderersFactory = object : DefaultRenderersFactory(context) {
+        override fun buildVideoRenderers(
+            context: Context,
+            extensionRendererMode: Int,
+            mediaCodecSelector: MediaCodecSelector,
+            enableDecoderFallback: Boolean,
+            eventHandler: Handler,
+            eventListener: VideoRendererEventListener,
+            allowedVideoJoiningTimeMs: Long,
+            out: ArrayList<Renderer>
+        ) {
+            // oniPlayer is an audio player; do not instantiate video/codec2 video decoders
+        }
+
+        override fun buildAudioSink(
+            context: Context,
+            enableFloatOutput: Boolean,
+            enableAudioTrackPlaybackParams: Boolean
+        ): AudioSink {
+            return DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(false)
+                .build()
+        }
+    }.apply {
+        setEnableDecoderFallback(true)
+        setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+    }
+
+    val player = ExoPlayer.Builder(context, renderersFactory).setHandleAudioBecomingNoisy(true).build()
     val mediaSession = MediaSession.Builder(service, player)
         .setId("oni_session_${System.identityHashCode(this)}")
         .setCallback(SessionCallback())
@@ -208,11 +244,15 @@ class PlaybackController(private val service: MediaSessionService) {
         if (isReleased) return
         val currentItem = player.currentMediaItem
         if (currentItem?.mediaId == id) {
-            if (!player.isPlaying) player.play()
+            if (!player.isPlaying) {
+                if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                player.play()
+            }
             return
         }
         val index = indexOf(id)
         if (index >= 0) {
+            if (player.playbackState == Player.STATE_IDLE) player.prepare()
             player.seekTo(index, 0L)
             player.play()
             scope.launch { recordPlay(id) }
@@ -242,11 +282,39 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     fun pause() { if (!isReleased) player.pause() }
-    fun resume() { if (!isReleased) player.play() }
-    fun toggle() { if (!isReleased) { if (player.isPlaying) player.pause() else player.play() } }
+    fun resume() {
+        if (!isReleased) {
+            if (player.playbackState == Player.STATE_IDLE) player.prepare()
+            player.play()
+        }
+    }
+    fun toggle() {
+        if (!isReleased) {
+            if (player.isPlaying) {
+                player.pause()
+            } else {
+                if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                player.play()
+            }
+        }
+    }
     fun seek(positionMs: Long) { if (!isReleased) player.seekTo(positionMs.coerceAtLeast(0)) }
-    fun next() { if (!isReleased) { cancelDelay(); player.seekToNextMediaItem(); player.play() } }
-    fun previous() { if (!isReleased) { cancelDelay(); player.seekToPreviousMediaItem(); player.play() } }
+    fun next() {
+        if (!isReleased) {
+            cancelDelay()
+            if (player.playbackState == Player.STATE_IDLE) player.prepare()
+            player.seekToNextMediaItem()
+            player.play()
+        }
+    }
+    fun previous() {
+        if (!isReleased) {
+            cancelDelay()
+            if (player.playbackState == Player.STATE_IDLE) player.prepare()
+            player.seekToPreviousMediaItem()
+            player.play()
+        }
+    }
     fun stop() { if (!isReleased) player.stop() }
 
     suspend fun setShuffle(enabled: Boolean, mode: ShuffleMode, suppliedOrder: IntArray? = null) {
@@ -477,7 +545,7 @@ class PlaybackController(private val service: MediaSessionService) {
             val currentIndex = if (matchedIndex >= 0) matchedIndex else 0
             val restoredPositionMs = if (matchedIndex >= 0) persisted.positionMs else 0L
             val actualCurrentId = songs[currentIndex].id
-            preparing = true
+            preparing = false
             player.setMediaItems(songs.map(::mediaItem), currentIndex, restoredPositionMs)
             if (shuffleEnabled) {
                 player.setShuffleOrder(buildShuffleOrder(songs, actualCurrentId))
@@ -486,7 +554,6 @@ class PlaybackController(private val service: MediaSessionService) {
             }
             player.setShuffleModeEnabled(shuffleEnabled)
             applyRepeatMode()
-            player.prepare()
             player.pause()
             publish(songs)
             if (songs.size != queueIds.size || matchedIndex < 0) {

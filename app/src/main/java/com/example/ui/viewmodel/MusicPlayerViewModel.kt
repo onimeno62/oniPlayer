@@ -446,6 +446,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _selectedThemeOption.value = savedOption
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading saved theme: ${e.message}")
             }
         }
@@ -458,6 +459,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _customAccentColor.value = savedAccent
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading saved accent color: ${e.message}")
             }
         }
@@ -470,6 +472,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _materialYouEnabled.value = savedMaterialYou
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading material you preference: ${e.message}")
             }
         }
@@ -482,6 +485,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _glassEffectEnabled.value = savedGlass
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading glass effect preference: ${e.message}")
             }
         }
@@ -494,6 +498,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _blurStrength.value = savedBlur
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading blur strength preference: ${e.message}")
             }
         }
@@ -506,6 +511,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _cornerRadius.value = savedRadius
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading corner radius preference: ${e.message}")
             }
         }
@@ -518,6 +524,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _backgroundTransparency.value = savedTransparency
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading background transparency preference: ${e.message}")
             }
         }
@@ -530,6 +537,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _reduceMotionEnabled.value = savedReduceMotion
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading reduce motion preference: ${e.message}")
             }
         }
@@ -542,6 +550,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _autoSearchArtistData.value = saved
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading auto search artist data preference: ${e.message}")
             }
         }
@@ -554,6 +563,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _autoSearchWifiOnly.value = saved
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading auto search wifi only preference: ${e.message}")
             }
         }
@@ -566,6 +576,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _isAutoDownloadEnabled.value = saved
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading auto download lyrics preference: ${e.message}")
             }
         }
@@ -578,6 +589,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _nextSongDelaySeconds.value = savedDelay
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading playback delay preference: ${e.message}")
             }
         }
@@ -590,6 +602,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _crossfadeEnabled.value = enabled
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading crossfade enabled preference: ${e.message}")
             }
         }
@@ -602,6 +615,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _crossfadeDurationSeconds.value = duration
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading crossfade duration preference: ${e.message}")
             }
         }
@@ -647,6 +661,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                             }
                         }
                     } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
                         Log.e("MusicPlayerViewModel", "Error in background artist details scan", e)
                     }
                 }

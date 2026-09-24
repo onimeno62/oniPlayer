@@ -42,11 +42,7 @@ object WidgetGlanceHost {
         state: OniWidgetPlaybackState,
         skin: OniSkinTokens
     ) {
-        try {
-            renderer.Render(context, size, state, skin)
-        } catch (_: Throwable) {
-            Fallback(skin)
-        }
+        renderer.Render(context, size, state, skin)
     }
 
     @Composable

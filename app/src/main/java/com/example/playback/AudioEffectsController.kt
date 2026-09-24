@@ -47,7 +47,7 @@ class AudioEffectsController(private val context: Context) {
      * Re-initializes effects and reapplies stored band gains and effect levels.
      */
     fun attachToAudioSession(sessionId: Int) {
-        if (sessionId == 0) return
+        if (sessionId <= 0) return
         if (sessionId == currentSessionId && equalizer != null) return
 
         currentSessionId = sessionId

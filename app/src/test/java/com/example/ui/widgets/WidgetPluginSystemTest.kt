@@ -25,19 +25,22 @@ class WidgetPluginSystemTest {
     @Test
     fun testDefaultWidgetsRegistered() {
         val plugins = OniWidgetRegistry.getAllPlugins()
-        assertEquals(3, plugins.size)
+        assertEquals(4, plugins.size)
 
+        val miniPlayer = OniWidgetRegistry.getPlugin("oni.miniplayer")
         val nowPlaying = OniWidgetRegistry.getPlugin("oni.nowplaying")
-        val compactPlayer = OniWidgetRegistry.getPlugin("oni.compactplayer")
+        val dynamicAlbum = OniWidgetRegistry.getPlugin("oni.dynamicalbum")
         val lyrics = OniWidgetRegistry.getPlugin("oni.lyrics")
 
+        assertNotNull(miniPlayer)
         assertNotNull(nowPlaying)
-        assertNotNull(compactPlayer)
+        assertNotNull(dynamicAlbum)
         assertNotNull(lyrics)
 
+        assertEquals("Mini Player", miniPlayer?.name)
         assertEquals("Now Playing", nowPlaying?.name)
-        assertEquals("Compact Player", compactPlayer?.name)
-        assertEquals("Lyrics & Visualizer", lyrics?.name)
+        assertEquals("Dynamic Album", dynamicAlbum?.name)
+        assertEquals("Lyrics", lyrics?.name)
     }
 
     @Test

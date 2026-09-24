@@ -1,38 +1,35 @@
 package com.example.ui.widgets.glance
 
 import android.content.Context
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
+import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
+import androidx.glance.currentState
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
-import com.example.ui.widgets.core.OniWidgetPlaybackState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.example.ui.widgets.core.WidgetSize
-import com.example.ui.widgets.playback.WidgetPlaybackStateAdapter
 
 class DynamicAlbumGlanceWidget : GlanceAppWidget() {
+    override val stateDefinition = PreferencesGlanceStateDefinition
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val skin = WidgetGlanceHost.resolveSkin(context)
-        val initialState = runCatching {
-            WidgetPlaybackStateAdapter.fromPersistedPlaybackState(context)
-        }.getOrDefault(OniWidgetPlaybackState())
         val plugin = WidgetGlanceHost.resolvePlugin("oni.dynamicalbum") ?: return
         val renderer = plugin.createRenderer()
 
         provideContent {
-            val playbackFlow = remember(context) {
-                WidgetPlaybackStateAdapter.observePersistedPlaybackState(context)
-            }
-            val widgetState = playbackFlow.collectAsState(initial = initialState).value
+            val widgetState = currentState<Preferences>().toPlaybackState()
             val sizeInfo = androidx.glance.LocalSize.current
-            val logicalSize = WidgetSize.fromDimensions(sizeInfo.width.value.toInt(), sizeInfo.height.value.toInt())
+            val logicalSize = WidgetSize.fromDimensions(
+                sizeInfo.width.value.toInt(),
+                sizeInfo.height.value.toInt()
+            )
             Box(modifier = GlanceModifier.fillMaxSize()) {
                 WidgetGlanceHost.RenderSafely(renderer, context, logicalSize, widgetState, skin)
             }
@@ -42,4 +39,13 @@ class DynamicAlbumGlanceWidget : GlanceAppWidget() {
 
 class DynamicAlbumWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = DynamicAlbumGlanceWidget()
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: android.appwidget.AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        com.example.ui.widgets.updater.WidgetUpdateManager.requestWithFollowUp(context)
+    }
 }
