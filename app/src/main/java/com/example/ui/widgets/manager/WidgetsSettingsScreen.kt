@@ -41,7 +41,7 @@ import com.example.ui.widgets.settings.WidgetSettings
 import com.example.ui.widgets.settings.WidgetSettingsStore
 import kotlinx.coroutines.launch
 
-/** PixelPlayer-inspired widget controls and refresh settings. */
+/** Widget visibility and refresh settings for the oniPlayer widget system. */
 @Composable
 fun WidgetsSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -80,11 +80,11 @@ fun WidgetsSettingsScreen(onBack: () -> Unit) {
                         testTag = "setting_widgets_enabled"
                     )
                     SettingDivider()
-                    WidgetSwitch("Mini Player", "Compact PixelPlayer-style transport bar.", settings.miniPlayerEnabled, settings.widgetsEnabled, "setting_widget_mini_player") { value -> update { it.copy(miniPlayerEnabled = value) } }
+                    WidgetSwitch("Mini Player", "Transport-first control strip.", settings.miniPlayerEnabled, settings.widgetsEnabled, "setting_widget_mini_player") { value -> update { it.copy(miniPlayerEnabled = value) } }
                     SettingDivider()
-                    WidgetSwitch("Now Playing", "Artwork-led control widget with progress and transport.", settings.nowPlayingEnabled, settings.widgetsEnabled, "setting_widget_now_playing") { value -> update { it.copy(nowPlayingEnabled = value) } }
+                    WidgetSwitch("Now Playing", "Flagship artwork-led player with progress and transport.", settings.nowPlayingEnabled, settings.widgetsEnabled, "setting_widget_now_playing") { value -> update { it.copy(nowPlayingEnabled = value) } }
                     SettingDivider()
-                    WidgetSwitch("Dynamic Album", "Artwork-first widget with minimal controls.", settings.dynamicAlbumEnabled, settings.widgetsEnabled, "setting_widget_dynamic_album") { value -> update { it.copy(dynamicAlbumEnabled = value) } }
+                    WidgetSwitch("Dynamic Album", "Immersive artwork-first widget with minimal controls.", settings.dynamicAlbumEnabled, settings.widgetsEnabled, "setting_widget_dynamic_album") { value -> update { it.copy(dynamicAlbumEnabled = value) } }
                     SettingDivider()
                     WidgetSwitch("Lyrics", "Lyric-first widget with active-line emphasis.", settings.lyricsEnabled, settings.widgetsEnabled, "setting_widget_lyrics") { value -> update { it.copy(lyricsEnabled = value) } }
                 }
@@ -127,7 +127,7 @@ fun WidgetsSettingsScreen(onBack: () -> Unit) {
             item {
                 SettingSection(
                     title = "Default widget pack",
-                    description = "The built-in PixelPlayer-inspired layouts inherit the active oniPlayer skin."
+                    description = "The built-in widget layouts inherit the active oniPlayer skin."
                 ) {
                     Column(Modifier.fillMaxWidth().padding(OniSkin.spacing.md), verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
                         Text(DefaultWidgetPack.name, style = OniSkin.typography.titleSmall, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.Bold)

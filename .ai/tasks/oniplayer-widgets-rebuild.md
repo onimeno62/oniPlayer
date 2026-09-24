@@ -2,7 +2,7 @@
 
 ## Status
 
-**W1/W2 + first renderer rebuild pushed to `main`.**
+**W1/W2 + first renderer rebuild pushed to `main`. Phase 8 visual redesign implemented on `feat/widgets-visual-redesign` (not yet compiled or device-validated).**
 
 The previous Compact Player renderer and Aurora widget style have been removed. The default pack now registers a new Mini Player, rebuilt Now Playing, new Dynamic Album, and rebuilt Lyrics family using a new Glance-safe skin-aware visual foundation. Build/test and launcher validation remain open.
 
@@ -26,7 +26,7 @@ The previous Compact Player renderer and Aurora widget style have been removed. 
 - [x] Establish Glance-safe surface, control, typography, contrast, and progress rules.
 - [x] Remove Aurora-specific palette dependencies from rebuilt renderers.
 - [x] Keep widget styling independent from playback/state architecture.
-- [ ] Extract additional shared primitives only where they reduce real duplication.
+- [x] Extract additional shared primitives only where they reduce real duplication (Phase 8).
 
 ## Phase W3 — Mini Player
 
@@ -80,6 +80,35 @@ The previous Compact Player renderer and Aurora widget style have been removed. 
 - [ ] Verify play/pause and previous/next actions.
 - [ ] Verify player opening behavior.
 - [x] No duplicate playback state source introduced.
+
+## Phase 8 — Premium Visual Redesign (`feat/widgets-visual-redesign`)
+
+Visual layer only. `OniWidgetPlaybackState`, `WidgetGlanceState`, `WidgetUpdateManager`, `WidgetPlaybackStateAdapter`, widget actions, Glance hosts, and plugin ids/sizes are unchanged.
+
+### Skin / foundation
+
+- [x] Add `OniWidgetTokens` to the skin (`OniSkinDefinition.widgets`, defaulted so other skins compile).
+- [x] Default Skin supplies light/dark widget tokens.
+- [x] `OniWidgetVisualSystem`: frosted / control / glass / tonal surfaces, text-derived rail track, skin artwork radius.
+- [x] `WidgetArtworkAtmosphere`: cached (LRU, 8 MB) capped foreground, softened ambient wash, hero crop with baked skin scrim. Derived from the existing adapter artwork cache; no new decoding path, no network.
+- [x] Shared primitives in `defaultpack/shared/`: canvas + panel, artwork + tinted fallback, primary/secondary/tertiary controls, transport capsule, progress rail / time row / inline progress, typography roles from skin tokens, copy helpers.
+- [x] All widget icons tinted from the skin (previously untinted white vectors, invisible on light skins).
+- [x] Unit tests for progress math, copy/lyric states, and widget tokens.
+
+### Families
+
+- [x] Mini Player: transport capsule signature. 4x1 strip, 4x2 control deck, 4x4 framed art + docked strip.
+- [x] Now Playing: flagship. 4x1 edge rail, 4x2 art + knob rail + weighted transport, 4x4 centred stage.
+- [x] Dynamic Album: 4x1 edge-bleed ribbon, 4x2 full-bleed poster, 4x4 full-bleed cover; glass controls.
+- [x] Lyrics: accent-ticked current line, indented subdued context, tonal controls. 4x1 line, 4x2 verse, 4x4 stage.
+
+### Open
+
+- [ ] Debug compile and `:app:testDebugUnitTest` on the branch.
+- [ ] Launcher validation of every family at 4x1 / 4x2 / 4x4, light and dark.
+- [ ] Confirm layout thresholds (compact breakpoints) on small launchers and large font scale.
+- [ ] Favorite control: not rendered, because the widget state/action contract has no favorite state or action.
+- [ ] Rounded artwork/canvas clipping below API 31 (Glance `cornerRadius` is a no-op there).
 
 ## Phase W8 — Quality and Device Validation
 

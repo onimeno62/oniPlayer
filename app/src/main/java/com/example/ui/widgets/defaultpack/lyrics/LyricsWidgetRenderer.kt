@@ -72,7 +72,7 @@ class LyricsWidgetRenderer : OniWidgetRenderer {
         OniWidgetCanvas(skin, backdrop) {
             when (size) {
                 WidgetSize.SIZE_4X1 -> Line(state, skin, frame, h)
-                WidgetSize.SIZE_4X2 -> Context(state, skin, frame, h)
+                WidgetSize.SIZE_4X2 -> Verse(state, skin, frame, h)
                 WidgetSize.SIZE_4X4 -> {
                     val art = WidgetArtworkAtmosphere.artwork(context, state.albumArtworkUri)
                     Stage(state, skin, frame, art, w, h)
@@ -115,7 +115,7 @@ class LyricsWidgetRenderer : OniWidgetRenderer {
 
     /** 4x2: previous / CURRENT / next, with the play toggle beside the current line. */
     @Composable
-    private fun Context(
+    private fun Verse(
         state: OniWidgetPlaybackState,
         skin: OniSkinTokens,
         frame: OniLyricFrame,
