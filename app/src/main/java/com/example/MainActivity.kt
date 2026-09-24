@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
@@ -18,8 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.example.data.preferences.PlayerSettingsStore
 import com.example.ui.screens.MainAppContainer
 import com.example.ui.viewmodel.MusicPlayerViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -36,6 +40,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val openedForCategory = intent?.hasExtra(EXTRA_CATEGORY_INDEX) == true
         handleIntent(intent)
         enableEdgeToEdge()
         onBackPressedDispatcher.addCallback(this) {
@@ -43,6 +48,27 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             MainAppContainer(viewModel = viewModel)
+        }
+
+        // Start screen preference (only on a fresh launch, never over a widget deep link)
+        if (savedInstanceState == null && !openedForCategory) {
+            lifecycleScope.launch {
+                val startTab = PlayerSettingsStore.current(applicationContext).startTab
+                viewModel.selectTab(startTab)
+            }
+        }
+
+        // Keep screen on preference
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                PlayerSettingsStore.settings(applicationContext)
+                    .map { it.keepScreenOn }
+                    .distinctUntilChanged()
+                    .collect { keepOn ->
+                        if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+            }
         }
 
         // Launch the system consent dialog whenever a rename needs permission to delete
@@ -92,8 +118,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         intent?.let {
-            if (it.hasExtra("com.example.EXTRA_CATEGORY_INDEX")) {
-                val categoryIndex = it.getIntExtra("com.example.EXTRA_CATEGORY_INDEX", -1)
+            if (it.hasExtra(EXTRA_CATEGORY_INDEX)) {
+                val categoryIndex = it.getIntExtra(EXTRA_CATEGORY_INDEX, -1)
                 if (categoryIndex != -1) {
                     viewModel.setActiveCategoryIndex(categoryIndex)
                     viewModel.selectTab(0) // Switch to Songs/Library tab
@@ -101,6 +127,8 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private companion object {
+        const val EXTRA_CATEGORY_INDEX = "com.example.EXTRA_CATEGORY_INDEX"
+    }
 }
-
-

@@ -1,12 +1,16 @@
 package com.example.playback
 
 import android.content.Context
+import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -25,6 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.example.data.database.OniDatabase
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
+import com.example.data.preferences.PlayerSettings
+import com.example.data.preferences.PlayerSettingsStore
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -76,6 +82,8 @@ class PlaybackController(private val service: MediaSessionService) {
         const val SHUFFLE_MODE = "shuffle_mode"
         const val REPEAT_MODE = "repeat_mode"
         const val SHUFFLE_ORDER = "shuffle_order"
+
+        private const val RESTART_ON_PREVIOUS_THRESHOLD_MS = 3_000L
     }
 
     private val context: Context = service.applicationContext
@@ -109,6 +117,21 @@ class PlaybackController(private val service: MediaSessionService) {
             // oniPlayer is an audio player; do not instantiate video/codec2 video decoders
         }
 
+        override fun buildCameraMotionRenderers(
+            context: Context,
+            extensionRendererMode: Int,
+            out: ArrayList<Renderer>
+        ) {
+            // Audio player only; do not instantiate camera motion renderers
+        }
+
+        override fun buildImageRenderers(
+            context: Context,
+            out: ArrayList<Renderer>
+        ) {
+            // Audio player only; do not instantiate image/codec2 decoders
+        }
+
         override fun buildAudioSink(
             context: Context,
             enableFloatOutput: Boolean,
@@ -116,10 +139,11 @@ class PlaybackController(private val service: MediaSessionService) {
         ): AudioSink {
             return DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(false)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                 .build()
         }
     }.apply {
-        setEnableDecoderFallback(true)
+        setEnableDecoderFallback(false)
         setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
     }
 
@@ -137,6 +161,16 @@ class PlaybackController(private val service: MediaSessionService) {
     private var shuffleMode = ShuffleMode.RANDOM
     private var repeatMode = RepeatMode.ALL
     private var preparing = false
+
+    // User player preferences (Settings > Playback / Audio). Applied on the main thread.
+    private var playerSettings = PlayerSettings()
+    private var appliedAudioFocus: Boolean? = null
+    private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var loudnessSessionId = C.AUDIO_SESSION_ID_UNSET
+    private val musicAudioAttributes = AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+        .build()
 
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -170,6 +204,7 @@ class PlaybackController(private val service: MediaSessionService) {
         override fun onAudioSessionIdChanged(id: Int) {
             if (isReleased) return
             audioEffectsController.attachToAudioSession(id)
+            applyLoudnessBoost(id)
         }
         override fun onRepeatModeChanged(playerRepeatMode: Int) {
             if (isReleased) return
@@ -194,6 +229,11 @@ class PlaybackController(private val service: MediaSessionService) {
     init {
         player.addListener(playerListener)
         scope.launch {
+            PlayerSettingsStore.settings(context).collect { settings ->
+                if (!isReleased) applyPlayerSettings(settings)
+            }
+        }
+        scope.launch {
             while (isActive && !isReleased) {
                 if (player.isPlaying) {
                     val pos = player.currentPosition
@@ -210,6 +250,45 @@ class PlaybackController(private val service: MediaSessionService) {
             }
         }
         restorePlaybackState()
+    }
+
+    private fun applyPlayerSettings(settings: PlayerSettings) {
+        playerSettings = settings
+        try {
+            val params = PlaybackParameters(settings.playbackSpeed, settings.playbackPitch)
+            if (player.playbackParameters != params) player.playbackParameters = params
+            if (player.skipSilenceEnabled != settings.skipSilence) player.skipSilenceEnabled = settings.skipSilence
+            if (appliedAudioFocus != settings.handleAudioFocus) {
+                player.setAudioAttributes(musicAudioAttributes, settings.handleAudioFocus)
+                appliedAudioFocus = settings.handleAudioFocus
+            }
+            player.setHandleAudioBecomingNoisy(settings.pauseOnDisconnect)
+        } catch (t: Throwable) {
+            Log.w("PlaybackController", "Failed to apply player settings", t)
+        }
+        applyLoudnessBoost(player.audioSessionId)
+    }
+
+    private fun applyLoudnessBoost(sessionId: Int) {
+        val gainMb = (playerSettings.loudnessBoostDb * 100f).toInt()
+        try {
+            if (gainMb <= 0 || sessionId == C.AUDIO_SESSION_ID_UNSET) {
+                loudnessEnhancer?.setEnabled(false)
+                return
+            }
+            if (loudnessEnhancer == null || loudnessSessionId != sessionId) {
+                loudnessEnhancer?.release()
+                loudnessEnhancer = LoudnessEnhancer(sessionId)
+                loudnessSessionId = sessionId
+            }
+            loudnessEnhancer?.setTargetGain(gainMb)
+            loudnessEnhancer?.setEnabled(true)
+        } catch (t: Throwable) {
+            Log.w("PlaybackController", "LoudnessEnhancer unavailable", t)
+            runCatching { loudnessEnhancer?.release() }
+            loudnessEnhancer = null
+            loudnessSessionId = C.AUDIO_SESSION_ID_UNSET
+        }
     }
 
     suspend fun setQueue(ids: List<String>, startIndex: Int, playImmediately: Boolean) {
@@ -311,7 +390,11 @@ class PlaybackController(private val service: MediaSessionService) {
         if (!isReleased) {
             cancelDelay()
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
-            player.seekToPreviousMediaItem()
+            if (playerSettings.rewindOnPrevious && player.currentPosition > RESTART_ON_PREVIOUS_THRESHOLD_MS) {
+                player.seekTo(0L)
+            } else {
+                player.seekToPreviousMediaItem()
+            }
             player.play()
         }
     }
@@ -527,6 +610,8 @@ class PlaybackController(private val service: MediaSessionService) {
                 persistence.load()
             } ?: return@launch
             if (isReleased) return@launch
+            val rememberPosition = runCatching { PlayerSettingsStore.current(context).rememberPosition }.getOrDefault(true)
+            if (isReleased) return@launch
             val currentSongId = persisted.currentSongId?.takeIf { it.isNotEmpty() }
                 ?: persisted.queueIds.firstOrNull()
                 ?: return@launch
@@ -543,7 +628,7 @@ class PlaybackController(private val service: MediaSessionService) {
             repeatMode = persisted.repeatMode
             val matchedIndex = songs.indexOfFirst { it.id == currentSongId }
             val currentIndex = if (matchedIndex >= 0) matchedIndex else 0
-            val restoredPositionMs = if (matchedIndex >= 0) persisted.positionMs else 0L
+            val restoredPositionMs = if (matchedIndex >= 0 && rememberPosition) persisted.positionMs else 0L
             val actualCurrentId = songs[currentIndex].id
             preparing = false
             player.setMediaItems(songs.map(::mediaItem), currentIndex, restoredPositionMs)
@@ -727,6 +812,8 @@ class PlaybackController(private val service: MediaSessionService) {
         player.removeListener(playerListener)
         playbackDelayController.release()
         audioEffectsController.release()
+        runCatching { loudnessEnhancer?.release() }
+        loudnessEnhancer = null
         mediaSession.release()
         player.release()
         scope.cancel()

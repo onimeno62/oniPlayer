@@ -17,6 +17,7 @@
         <intent>
             <action android:name="androidx.car.app.connection.action.CAR_CONNECTION" />
         </intent>
+        <provider android:authorities="androidx.car.app.connection" />
     </queries>
 
     <application
