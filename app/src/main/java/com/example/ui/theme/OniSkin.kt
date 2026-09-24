@@ -21,6 +21,10 @@ interface OniSkinDefinition {
     val artwork: OniArtworkTokens
     val playbackControls: OniPlaybackControlTokens
     val navigation: OniNavigationTokens
+
+    /** Home-screen widget presentation tokens. Skins that omit them inherit defaults. */
+    val widgets: OniWidgetTokens
+        get() = OniWidgetTokens()
 }
 
 /**
@@ -38,7 +42,8 @@ data class OniSkinTokens(
     override val motion: OniMotionTokens,
     override val artwork: OniArtworkTokens,
     override val playbackControls: OniPlaybackControlTokens,
-    override val navigation: OniNavigationTokens
+    override val navigation: OniNavigationTokens,
+    override val widgets: OniWidgetTokens = OniWidgetTokens()
 ) : OniSkinDefinition
 
 /**
@@ -116,4 +121,9 @@ object OniSkin {
         @Composable
         @ReadOnlyComposable
         get() = LocalOniSkin.current.navigation
+
+    val widgets: OniWidgetTokens
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOniSkin.current.widgets
 }
