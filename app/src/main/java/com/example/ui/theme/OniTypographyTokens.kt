@@ -20,6 +20,14 @@ import androidx.compose.ui.unit.sp
  * - Label Large: 14sp, Medium
  * - Label Medium: 12sp, Medium
  * - Caption: 12sp, Regular
+ *
+ * Lyrics roles (Phase 9):
+ * - Lyric Active: 24sp, Bold — the line currently being sung
+ * - Lyric Inactive: 24sp, Medium — every other synced line
+ *
+ * Both lyric roles intentionally share size and line height. Emphasis comes from weight and
+ * color only, so a line never changes height when it becomes active and the auto-follow focus
+ * position stays stable.
  */
 data class OniTypographyTokens(
     val displayLarge: TextStyle,
@@ -32,7 +40,21 @@ data class OniTypographyTokens(
     val bodySmall: TextStyle,
     val labelLarge: TextStyle,
     val labelMedium: TextStyle,
-    val caption: TextStyle
+    val caption: TextStyle,
+    val lyricActive: TextStyle = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.25).sp
+    ),
+    val lyricInactive: TextStyle = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.25).sp
+    )
 ) {
     /**
      * Maps these tokens to Material 3 [Typography]
@@ -133,6 +155,20 @@ data class OniTypographyTokens(
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
                 letterSpacing = 0.4.sp
+            ),
+            lyricActive = TextStyle(
+                fontFamily = FontFamily.Default,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                lineHeight = 32.sp,
+                letterSpacing = (-0.25).sp
+            ),
+            lyricInactive = TextStyle(
+                fontFamily = FontFamily.Default,
+                fontWeight = FontWeight.Medium,
+                fontSize = 24.sp,
+                lineHeight = 32.sp,
+                letterSpacing = (-0.25).sp
             )
         )
     }
