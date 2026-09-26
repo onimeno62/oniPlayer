@@ -10,12 +10,14 @@ import androidx.compose.ui.unit.dp
  * Playback control visual tokens for oniPlayer skins.
  * Defines sizes, shapes, elevations, and states for:
  * - Primary control (Play/Pause): circular, strong emphasis, soft elevation
+ * - Compact primary control: Play/Pause inside secondary surfaces (e.g. the Lyrics screen)
  * - Secondary control (Previous/Next): medium size, balanced weight
  * - Tertiary control (Shuffle/Repeat): compact, subtle emphasis
  * Specified in Section 17.
  */
 data class OniPlaybackControlTokens(
     val primaryControlSize: Dp = 64.dp,
+    val compactPrimaryControlSize: Dp = 52.dp,
     val secondaryControlSize: Dp = 48.dp,
     val tertiaryControlSize: Dp = 40.dp,
     val primaryShape: Shape = CircleShape,
@@ -32,6 +34,7 @@ data class OniPlaybackControlTokens(
     companion object {
         fun defaultControls(colors: OniColorTokens): OniPlaybackControlTokens = OniPlaybackControlTokens(
             primaryControlSize = 64.dp,
+            compactPrimaryControlSize = 52.dp,
             secondaryControlSize = 48.dp,
             tertiaryControlSize = 40.dp,
             primaryShape = CircleShape,
