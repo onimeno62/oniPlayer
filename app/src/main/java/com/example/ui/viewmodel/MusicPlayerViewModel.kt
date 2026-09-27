@@ -25,7 +25,9 @@ import com.example.data.entity.ArtistSummaryEntity
 import com.example.data.api.GeminiMusicService
 import com.example.data.repository.MusicRepository
 import com.example.playback.OniAudioEngine
+import com.example.playback.RepeatMode
 import com.example.playback.ShuffleMode
+import com.example.playback.ShuffleType
 import com.example.ui.player.model.PlayerUiState
 import com.example.ui.theme.OniTheme
 import kotlinx.coroutines.flow.*
@@ -48,6 +50,7 @@ private val REDUCE_MOTION_KEY = booleanPreferencesKey("reduce_motion_enabled")
 private val AUTO_SEARCH_ARTIST_DATA_KEY = booleanPreferencesKey("auto_search_artist_data")
 private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_only")
 private val AUTO_DOWNLOAD_LYRICS_KEY = booleanPreferencesKey("auto_download_lyrics")
+private val AUTO_DOWNLOAD_LYRICS_WIFI_ONLY_KEY = booleanPreferencesKey("auto_download_lyrics_wifi_only")
 private val PLAYBACK_DELAY_KEY = intPreferencesKey("playback_delay_seconds")
 private val CROSSFADE_ENABLED_KEY = booleanPreferencesKey("crossfade_enabled")
 private val CROSSFADE_DURATION_KEY = intPreferencesKey("crossfade_duration_seconds")
@@ -249,6 +252,15 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _isAutoDownloadEnabled = MutableStateFlow(true)
     val isAutoDownloadEnabled: StateFlow<Boolean> = _isAutoDownloadEnabled.asStateFlow()
 
+    // Only auto-download lyrics on Wi-Fi (default off so existing behaviour is unchanged)
+    private val _isAutoDownloadWifiOnly = MutableStateFlow(false)
+    val isAutoDownloadWifiOnly: StateFlow<Boolean> = _isAutoDownloadWifiOnly.asStateFlow()
+
+    // Songs whose lyrics were already resolved/attempted this session (prevents refetch loops).
+    private val lyricsAttemptedIds = mutableSetOf<String>()
+    // Number of auto lyric downloads currently running (main-thread only).
+    private var lyricsFetchesInFlight = 0
+
     private val _floatingLyricsEnabled = EngineStateFlowDelegate(audioEngine.floatingLyricsEnabled) { audioEngine.setFloatingLyricsEnabled(it) }
     val floatingLyricsEnabled: StateFlow<Boolean> = audioEngine.floatingLyricsEnabled
 
@@ -272,6 +284,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _shuffleMode = EngineStateFlowDelegate(audioEngine.shuffleMode) { audioEngine.setShuffleMode(it) }
     val shuffleMode: StateFlow<ShuffleMode> = audioEngine.shuffleMode
+
+    /** Poweramp-style shuffle scope (songs / albums / songs & albums / whole library). */
+    val shuffleType: StateFlow<ShuffleType> = audioEngine.shuffleType
+
+    /** Poweramp-style repeat mode (off / list / song / single song). */
+    val repeatMode: StateFlow<RepeatMode> = audioEngine.repeatMode
 
     // Search query for library
     private val _searchQuery = MutableStateFlow("")
@@ -358,7 +376,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     private data class EngineQueueState(
         val isShuffle: Boolean,
-        val isRepeat: Boolean,
+        val shuffleType: ShuffleType,
+        val repeatMode: RepeatMode,
         val queue: List<SongEntity>,
         val favoriteIds: Set<String>
     )
@@ -375,8 +394,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         combine(audioEngine.currentSong, audioEngine.isPlaying, audioEngine.position, audioEngine.duration, audioEngine.isPreparing) { song, playing, pos, dur, prep ->
             EnginePlaybackState(song, playing, pos, dur, prep)
         },
-        combine(audioEngine.isShuffle, audioEngine.isRepeat, audioEngine.currentPlaylist, favoriteSongs) { shuf, rep, q, favs ->
-            EngineQueueState(shuf, rep, q, favs.map { it.id }.toSet())
+        combine(audioEngine.isShuffle, audioEngine.shuffleType, audioEngine.repeatMode, audioEngine.currentPlaylist, favoriteSongs) { shuf, shufType, rep, q, favs ->
+            EngineQueueState(shuf, shufType, rep, q, favs.map { it.id }.toSet())
         },
         combine(floatingLyricsEnabled, playbackDelayCountdown, _sleepTimerMinutesLeft, _isSleepTimerRunning, isFetchingLyrics) { floatLrc, delaySec, timerMin, timerRun, fetching ->
             PlayerFeaturesState(floatLrc, delaySec, timerMin, timerRun, fetching)
@@ -389,14 +408,16 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             position = playback.position,
             duration = playback.duration,
             isShuffle = queueState.isShuffle,
-            isRepeat = queueState.isRepeat,
+            isRepeat = queueState.repeatMode == RepeatMode.ONE,
             isFavorite = playback.song != null && queueState.favoriteIds.contains(playback.song.id),
             queue = queueState.queue,
             floatingLyricsEnabled = features.floatingLyrics,
             playbackDelayCountdown = features.delayCountdown,
             sleepTimerMinutesLeft = features.timerMinutes,
             isSleepTimerRunning = features.timerRunning,
-            isFetchingLyrics = features.isFetchingLyrics
+            isFetchingLyrics = features.isFetchingLyrics,
+            shuffleType = queueState.shuffleType,
+            repeatMode = queueState.repeatMode
         )
     }.stateIn(
         scope = viewModelScope,
@@ -584,6 +605,19 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             try {
                 getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[AUTO_DOWNLOAD_LYRICS_WIFI_ONLY_KEY] ?: false }
+                    .collect { saved ->
+                        _isAutoDownloadWifiOnly.value = saved
+                    }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Log.e(TAG, "Error loading auto download lyrics wifi only preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
                     .map { preferences -> preferences[PLAYBACK_DELAY_KEY] ?: 0 }
                     .collect { savedDelay ->
                         _nextSongDelaySeconds.value = savedDelay
@@ -618,6 +652,15 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error loading crossfade duration preference: ${e.message}")
             }
+        }
+
+        // Resolve lyrics whenever the playing track changes (auto-advance, notification, widget,
+        // headset buttons...), not only when a song is tapped in the library.
+        viewModelScope.launch {
+            audioEngine.currentSong
+                .filterNotNull()
+                .distinctUntilChangedBy { it.id }
+                .collect { song -> ensureLyricsFor(song) }
         }
     }
 
@@ -852,32 +895,72 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     audioEngine.setPlaylist(playlist, idx, true)
                 }
             }
-            
-            if (updated.lyrics.isNullOrBlank()) {
-                val localLrc = com.example.ui.lyrics.LyricsHelper.findLocalLrcFile(updated.filePath)
-                if (localLrc != null) {
-                    database.songDao().updateLyrics(updated.id, localLrc)
-                    audioEngine.updateCurrentSongMetadata(updated.copy(lyrics = localLrc))
-                } else if (_isAutoDownloadEnabled.value) {
-                    _isFetchingLyrics.value = true
-                    try {
-                        val fetched = repository.fetchAndCacheLyrics(
-                            songId = updated.id,
-                            title = updated.customTitle ?: updated.title,
-                            artist = updated.customArtist ?: updated.artist
-                        )
-                        if (fetched != null && audioEngine.currentSong.value?.id == updated.id) {
-                            val refreshed = database.songDao().getSongById(updated.id)
-                            if (refreshed != null) {
-                                audioEngine.updateCurrentSongMetadata(refreshed)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Auto lyrics fetch failed: ${e.message}")
-                    } finally {
-                        _isFetchingLyrics.value = false
+
+            ensureLyricsFor(updated)
+        }
+    }
+
+    /**
+     * Makes sure the given song has lyrics: DB copy -> sidecar .lrc -> online (when auto-download is
+     * enabled and, if Wi-Fi only is on, the device is on Wi-Fi). Each song is attempted once per
+     * session. While an online download runs, [isFetchingLyrics] is true so the player can animate
+     * its lyrics indicator.
+     */
+    private fun ensureLyricsFor(song: SongEntity) {
+        if (!lyricsAttemptedIds.add(song.id)) return
+        viewModelScope.launch {
+            try {
+                val dbSong = database.songDao().getSongById(song.id) ?: song
+                if (!dbSong.lyrics.isNullOrBlank()) {
+                    if (song.lyrics.isNullOrBlank() && audioEngine.currentSong.value?.id == dbSong.id) {
+                        audioEngine.updateCurrentSongMetadata(dbSong)
                     }
+                    return@launch
                 }
+
+                val localLrc = withContext(Dispatchers.IO) {
+                    com.example.ui.lyrics.LyricsHelper.findLocalLrcFile(dbSong.filePath)
+                }
+                if (localLrc != null) {
+                    database.songDao().updateLyrics(dbSong.id, localLrc)
+                    if (audioEngine.currentSong.value?.id == dbSong.id) {
+                        audioEngine.updateCurrentSongMetadata(dbSong.copy(lyrics = localLrc))
+                    }
+                    return@launch
+                }
+
+                if (!_isAutoDownloadEnabled.value) {
+                    // Allow a later attempt if the user turns auto-download on.
+                    lyricsAttemptedIds.remove(song.id)
+                    return@launch
+                }
+                if (_isAutoDownloadWifiOnly.value && !isWifiConnected()) {
+                    Log.d(TAG, "Skipping lyrics auto-download for ${dbSong.id}: not on Wi-Fi")
+                    lyricsAttemptedIds.remove(song.id)
+                    return@launch
+                }
+
+                lyricsFetchesInFlight++
+                _isFetchingLyrics.value = true
+                try {
+                    val fetched = repository.fetchAndCacheLyrics(
+                        songId = dbSong.id,
+                        title = dbSong.customTitle ?: dbSong.title,
+                        artist = dbSong.customArtist ?: dbSong.artist
+                    )
+                    if (fetched != null && audioEngine.currentSong.value?.id == dbSong.id) {
+                        val refreshed = database.songDao().getSongById(dbSong.id)
+                        if (refreshed != null) {
+                            audioEngine.updateCurrentSongMetadata(refreshed)
+                        }
+                    }
+                } finally {
+                    lyricsFetchesInFlight = (lyricsFetchesInFlight - 1).coerceAtLeast(0)
+                    _isFetchingLyrics.value = lyricsFetchesInFlight > 0
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Log.e(TAG, "Auto lyrics fetch failed: ${e.message}")
             }
         }
     }
@@ -946,69 +1029,42 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         return playlist.indices.filter { it != excludeIndex }.last()
     }
 
+    /**
+     * Manual next. The playback service owns the (shuffled) play order, so it decides what comes
+     * next; like Poweramp, a manual skip always advances even in "Repeat song" mode.
+     */
     fun skipNext() {
         cancelDelay()
-        val playlist = _currentPlaylist.value
-        val current = audioEngine.currentSong.value ?: return
-        if (playlist.isEmpty()) return
-
-        val currentIndex = playlist.indexOfFirst { it.id == current.id }
-        if (currentIndex == -1) return
-
-        if (_isRepeat.value) {
-            viewModelScope.launch {
-                val dbSong = database.songDao().getSongById(current.id) ?: current
-                audioEngine.play(dbSong)
-            }
-            return
-        }
-
-        val nextIndex = if (_isShuffle.value) {
-            pickShuffleIndex(playlist, currentIndex)
-        } else {
-            (currentIndex + 1) % playlist.size
-        }
-
-        viewModelScope.launch {
-            val nextRaw = playlist[nextIndex]
-            val dbSong = database.songDao().getSongById(nextRaw.id) ?: nextRaw
-            audioEngine.play(dbSong)
-        }
+        audioEngine.skipNext()
     }
 
+    /** Manual previous (restart-if-past-threshold behaviour lives in the service). */
     fun skipPrevious() {
         cancelDelay()
-        val playlist = _currentPlaylist.value
-        val current = audioEngine.currentSong.value ?: return
-        if (playlist.isEmpty()) return
-
-        val currentIndex = playlist.indexOfFirst { it.id == current.id }
-        if (currentIndex == -1) return
-
-        val prevIndex = if (_isShuffle.value) {
-            pickShuffleIndex(playlist, currentIndex)
-        } else {
-            if (currentIndex - 1 < 0) playlist.size - 1 else currentIndex - 1
-        }
-
-        viewModelScope.launch {
-            val prevRaw = playlist[prevIndex]
-            val dbSong = database.songDao().getSongById(prevRaw.id) ?: prevRaw
-            audioEngine.play(dbSong)
-        }
+        audioEngine.skipPrevious()
     }
 
+    /** Poweramp tap cycle: Off -> Songs -> Albums -> Songs & albums -> All songs -> Off. */
     fun toggleShuffle() {
-        _isShuffle.value = !_isShuffle.value
+        audioEngine.toggleShuffle()
+    }
+
+    /** Picks a shuffle scope directly (long-press menu). `null` turns shuffle off. */
+    fun setShuffleType(type: ShuffleType?) {
+        audioEngine.setShuffleType(type)
     }
 
     fun setShuffleMode(mode: ShuffleMode) {
-        _shuffleMode.value = mode
-        _isShuffle.value = true
+        audioEngine.setShuffleMode(mode)
     }
 
+    /** Poweramp tap cycle: Off -> Repeat list -> Repeat song -> Play single song -> Off. */
     fun toggleRepeat() {
-        _isRepeat.value = !_isRepeat.value
+        audioEngine.toggleRepeat()
+    }
+
+    fun setRepeatMode(mode: RepeatMode) {
+        audioEngine.setRepeatMode(mode)
     }
 
     fun toggleFavorite(songId: String) {
@@ -1026,6 +1082,22 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving auto download lyrics preference: ${e.message}")
+            }
+        }
+        if (enabled) {
+            audioEngine.currentSong.value?.let { ensureLyricsFor(it) }
+        }
+    }
+
+    fun setAutoDownloadWifiOnly(enabled: Boolean) {
+        _isAutoDownloadWifiOnly.value = enabled
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().dataStore.edit { preferences ->
+                    preferences[AUTO_DOWNLOAD_LYRICS_WIFI_ONLY_KEY] = enabled
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving auto download lyrics wifi only preference: ${e.message}")
             }
         }
     }
@@ -1064,7 +1136,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     }
                 }
             }
-            _isFetchingLyrics.value = false
+            _isFetchingLyrics.value = lyricsFetchesInFlight > 0
         }
     }
 
@@ -1083,7 +1155,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     audioEngine.updateCurrentSongMetadata(updatedSong)
                 }
             }
-            _isFetchingLyrics.value = false
+            _isFetchingLyrics.value = lyricsFetchesInFlight > 0
         }
     }
 
