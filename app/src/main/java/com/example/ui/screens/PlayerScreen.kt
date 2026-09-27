@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
+import com.example.playback.RepeatMode
+import com.example.playback.ShuffleType
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.lyrics.LyricsHelper
@@ -98,6 +100,8 @@ fun PlayerScreen(
         onOpenSleepTimer = { showSleepTimer = true },
         onOpenTagEditor = { showTagEditor = true },
         onOpenKaraoke = { showKaraoke = true },
+        onSelectShuffleType = { viewModel.setShuffleType(it) },
+        onSelectRepeatMode = { viewModel.setRepeatMode(it) },
         modifier = modifier
     )
 
@@ -178,7 +182,9 @@ fun PlayerContent(
     onOpenSleepTimer: () -> Unit,
     onOpenTagEditor: () -> Unit,
     onOpenKaraoke: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSelectShuffleType: (ShuffleType?) -> Unit = {},
+    onSelectRepeatMode: (RepeatMode) -> Unit = {}
 ) {
     val song = uiState.currentSong
     val scrollState = rememberScrollState()
@@ -342,7 +348,8 @@ fun PlayerContent(
                             currentLyricLine = currentLyricLine,
                             nextLyricLine = nextLyricLine,
                             hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
-                            onClick = onOpenKaraoke
+                            onClick = onOpenKaraoke,
+                            isFetchingLyrics = uiState.isFetchingLyrics
                         )
 
                         Spacer(modifier = Modifier.height(lyricsSpacer))
@@ -367,7 +374,11 @@ fun PlayerContent(
                             onSkipNext = onSkipNext,
                             onSkipPrevious = onSkipPrevious,
                             onToggleShuffle = onToggleShuffle,
-                            onToggleRepeat = onToggleRepeat
+                            onToggleRepeat = onToggleRepeat,
+                            shuffleType = uiState.shuffleType,
+                            repeatMode = uiState.repeatMode,
+                            onSelectShuffleType = onSelectShuffleType,
+                            onSelectRepeatMode = onSelectRepeatMode
                         )
 
                         Spacer(modifier = Modifier.height(controlsSpacer))
@@ -433,7 +444,8 @@ fun PlayerContent(
                                         nextLyricLine = nextLyricLine,
                                         hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
                                         onClick = onOpenKaraoke,
-                                        horizontalPadding = 0.dp
+                                        horizontalPadding = 0.dp,
+                                        isFetchingLyrics = uiState.isFetchingLyrics
                                     )
                                 }
                             }
@@ -475,7 +487,11 @@ fun PlayerContent(
                                     onSkipPrevious = onSkipPrevious,
                                     onToggleShuffle = onToggleShuffle,
                                     onToggleRepeat = onToggleRepeat,
-                                    horizontalPadding = 0.dp
+                                    horizontalPadding = 0.dp,
+                                    shuffleType = uiState.shuffleType,
+                                    repeatMode = uiState.repeatMode,
+                                    onSelectShuffleType = onSelectShuffleType,
+                                    onSelectRepeatMode = onSelectRepeatMode
                                 )
 
                                 PlayerFeatureActions(

@@ -15,11 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.playback.RepeatMode
+import com.example.playback.ShuffleType
 import com.example.ui.components.playback.OniNextButton
 import com.example.ui.components.playback.OniPlayPauseButton
 import com.example.ui.components.playback.OniPreviousButton
-import com.example.ui.components.playback.OniRepeatButton
-import com.example.ui.components.playback.OniShuffleButton
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
@@ -38,7 +38,11 @@ fun PlayerPlaybackControls(
     modifier: Modifier = Modifier,
     playbackDelayCountdown: Int? = null,
     enabled: Boolean = true,
-    horizontalPadding: androidx.compose.ui.unit.Dp = OniSkin.spacing.screenHorizontal
+    horizontalPadding: androidx.compose.ui.unit.Dp = OniSkin.spacing.screenHorizontal,
+    shuffleType: ShuffleType = ShuffleType.SONGS,
+    repeatMode: RepeatMode = if (isRepeat) RepeatMode.ONE else RepeatMode.ALL,
+    onSelectShuffleType: (ShuffleType?) -> Unit = {},
+    onSelectRepeatMode: (RepeatMode) -> Unit = {}
 ) {
     val motion = OniSkin.motion
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -58,11 +62,24 @@ fun PlayerPlaybackControls(
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            OniShuffleButton(isActive = isShuffle, onClick = onToggleShuffle, enabled = enabled, modifier = Modifier.testTag("player_shuffle_button"))
+            ShuffleModeButton(
+                isShuffle = isShuffle,
+                shuffleType = shuffleType,
+                onToggle = onToggleShuffle,
+                onSelect = onSelectShuffleType,
+                enabled = enabled,
+                modifier = Modifier.testTag("player_shuffle_button")
+            )
             OniPreviousButton(onClick = onSkipPrevious, enabled = enabled, modifier = Modifier.testTag("player_previous_button"))
             OniPlayPauseButton(isPlaying = isPlaying, loading = isPreparing, onClick = onTogglePlayPause, enabled = enabled, modifier = Modifier.testTag("player_play_pause_button"))
             OniNextButton(onClick = onSkipNext, enabled = enabled, modifier = Modifier.testTag("player_next_button"))
-            OniRepeatButton(isRepeat = isRepeat, onClick = onToggleRepeat, enabled = enabled, modifier = Modifier.testTag("player_repeat_button"))
+            RepeatModeButton(
+                repeatMode = repeatMode,
+                onToggle = onToggleRepeat,
+                onSelect = onSelectRepeatMode,
+                enabled = enabled,
+                modifier = Modifier.testTag("player_repeat_button")
+            )
         }
     }
 }
