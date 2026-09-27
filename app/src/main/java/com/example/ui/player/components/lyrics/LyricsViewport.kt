@@ -1,7 +1,6 @@
 package com.example.ui.player.components.lyrics
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +29,9 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.preferences.LyricsAlignment
+import com.example.data.preferences.LyricsAppearance
 import com.example.ui.components.button.OniPrimaryButton
 import com.example.ui.components.button.OniSecondaryButton
 import com.example.ui.components.surface.OniSurface
@@ -42,6 +44,8 @@ import java.util.Locale
 /**
  * Synced lyrics list. The lyrics are the surface: no cards, no borders.
  * The active line lands at [LYRICS_FOCUS_FRACTION] via symmetric content padding.
+ * Size, colours and alignment come from the user's lyrics appearance settings; lines other than
+ * the active one are drawn slightly smaller.
  */
 @Composable
 fun SyncedLyricsList(
@@ -53,6 +57,7 @@ fun SyncedLyricsList(
     modifier: Modifier = Modifier
 ) {
     LyricsAutoFollowEffect(followState, activeIndex, lines.size)
+    val appearance by rememberLyricsAppearance()
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
@@ -75,6 +80,7 @@ fun SyncedLyricsList(
                     line = line,
                     emphasis = lyricEmphasisFor(index, activeIndex),
                     accent = accentActiveLine,
+                    appearance = appearance,
                     onClick = { onLineClick(line) }
                 )
             }
@@ -95,28 +101,10 @@ private fun SyncedLyricLine(
     line: LrcLine,
     emphasis: LyricEmphasis,
     accent: Boolean,
+    appearance: LyricsAppearance,
     onClick: () -> Unit
 ) {
-    val colors = OniSkin.colors
-    val motion = OniSkin.motion
     val isActive = emphasis == LyricEmphasis.Active
-
-    val targetColor = when (emphasis) {
-        LyricEmphasis.Active -> if (accent) colors.primary else colors.textPrimary
-        LyricEmphasis.Near -> colors.textSecondary
-        LyricEmphasis.Distant -> colors.textTertiary
-    }
-    val color by animateColorAsState(
-        targetValue = targetColor,
-        animationSpec = tween(
-            durationMillis = motion.componentStateDurationMs,
-            easing = motion.standardEasing
-        ),
-        label = "lyric_line_color"
-    )
-
-    // Active uses a heavier weight (non-color cue); size is identical so layout never jumps.
-    val style = if (isActive) OniSkin.typography.lyricActive else OniSkin.typography.lyricInactive
     val seekLabel = "Seek to ${formatLyricTime(line.timestampMs)}"
 
     Box(
@@ -127,13 +115,13 @@ private fun SyncedLyricLine(
             .clickable(onClickLabel = seekLabel, role = Role.Button, onClick = onClick)
             .semantics { if (isActive) stateDescription = "Current line" }
             .padding(horizontal = OniSkin.spacing.xs, vertical = OniSkin.spacing.xs),
-        contentAlignment = Alignment.Center
+        contentAlignment = if (appearance.alignment == LyricsAlignment.CENTER) Alignment.Center else Alignment.CenterStart
     ) {
-        Text(
+        LyricLineContent(
             text = line.text,
-            style = style.copy(textDirection = TextDirection.Content),
-            color = color,
-            textAlign = TextAlign.Center
+            emphasis = emphasis,
+            appearance = appearance,
+            accentActiveLine = accent
         )
     }
 }
@@ -148,6 +136,9 @@ fun PlainLyricsList(
     modifier: Modifier = Modifier
 ) {
     val lines = remember(text) { LyricsHelper.stripLrcTags(text).lines().map { it.trim() } }
+    val appearance by rememberLyricsAppearance()
+    val plainSize = appearance.fontSizeSp * 0.8f
+    val plainColor = parseHexColor(appearance.textColorHex) ?: OniSkin.colors.textPrimary
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -161,8 +152,12 @@ fun PlainLyricsList(
             } else {
                 Text(
                     text = line,
-                    style = OniSkin.typography.titleMedium.copy(textDirection = TextDirection.Content),
-                    color = OniSkin.colors.textPrimary,
+                    style = OniSkin.typography.titleMedium.copy(
+                        fontSize = plainSize.sp,
+                        lineHeight = (plainSize * 1.4f).sp,
+                        textDirection = TextDirection.Content
+                    ),
+                    color = plainColor,
                     textAlign = TextAlign.Start,
                     modifier = Modifier
                         .fillMaxWidth()
