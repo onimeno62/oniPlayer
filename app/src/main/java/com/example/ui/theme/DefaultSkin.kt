@@ -118,6 +118,7 @@ object DefaultSkin {
         val artwork = OniArtworkTokens.defaultArtwork(shapes)
         val playbackControls = OniPlaybackControlTokens.defaultControls(colors)
         val navigation = OniNavigationTokens.defaultNavigation(colors, shapes)
+        val widgets = OniWidgetTokens.defaultWidgets(isDark)
 
         return OniSkinTokens(
             id = ID,
@@ -131,7 +132,8 @@ object DefaultSkin {
             motion = motion,
             artwork = artwork,
             playbackControls = playbackControls,
-            navigation = navigation
+            navigation = navigation,
+            widgets = widgets
         )
     }
 }
