@@ -45,6 +45,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -54,6 +55,7 @@ class PlaybackController(private val service: MediaSessionService) {
         const val SET_QUEUE = "com.example.oniplayer.SET_QUEUE"
         const val PLAY_SONG = "com.example.oniplayer.PLAY_SONG"
         const val SET_SHUFFLE = "com.example.oniplayer.SET_SHUFFLE"
+        const val SET_REPEAT = "com.example.oniplayer.SET_REPEAT"
         const val ADD_TO_QUEUE = "com.example.oniplayer.ADD_TO_QUEUE"
         const val PLAY_NEXT = "com.example.oniplayer.PLAY_NEXT"
         const val UPDATE_SONG = "com.example.oniplayer.UPDATE_SONG"
@@ -80,6 +82,7 @@ class PlaybackController(private val service: MediaSessionService) {
         const val PRESET_DATA = "preset"
         const val SHUFFLE_ENABLED = "shuffle_enabled"
         const val SHUFFLE_MODE = "shuffle_mode"
+        const val SHUFFLE_TYPE = "shuffle_type"
         const val REPEAT_MODE = "repeat_mode"
         const val SHUFFLE_ORDER = "shuffle_order"
 
@@ -159,8 +162,12 @@ class PlaybackController(private val service: MediaSessionService) {
     private var baseQueue = emptyList<SongEntity>()
     private var shuffleEnabled = false
     private var shuffleMode = ShuffleMode.RANDOM
+    private var shuffleType = ShuffleType.SONGS
     private var repeatMode = RepeatMode.ALL
     private var preparing = false
+
+    /** Queue ids that were playing before "Shuffle all songs" expanded the queue to the library. */
+    private var preShuffleAllQueue: List<String> = emptyList()
 
     // User player preferences (Settings > Playback / Audio). Applied on the main thread.
     private var playerSettings = PlayerSettings()
@@ -208,7 +215,12 @@ class PlaybackController(private val service: MediaSessionService) {
         }
         override fun onRepeatModeChanged(playerRepeatMode: Int) {
             if (isReleased) return
-            repeatMode = if (playerRepeatMode == Player.REPEAT_MODE_ONE) RepeatMode.ONE else RepeatMode.ALL
+            // Media3 cannot express OFF vs SINGLE (or ALL while a delay is armed); keep the logical mode.
+            val reconciled = RepeatMode.reconcile(playerRepeatMode, repeatMode, keepAllWhenOff = playbackDelayController.hasDelay)
+            if (reconciled != repeatMode) {
+                repeatMode = reconciled
+                player.pauseAtEndOfMediaItems = repeatMode == RepeatMode.SINGLE
+            }
             publish()
             savePlaybackState()
         }
@@ -300,22 +312,28 @@ class PlaybackController(private val service: MediaSessionService) {
         }
         if (isReleased || songs.isEmpty()) return
         baseQueue = songs
+        preShuffleAllQueue = emptyList()
         val sourceIndex = startIndex.coerceIn(0, songs.lastIndex)
+        val startId = songs[sourceIndex].id
         preparing = true
         player.setMediaItems(songs.map(::mediaItem), sourceIndex, 0L)
+        if (shuffleEnabled && shuffleType == ShuffleType.ALL) {
+            // Poweramp "Shuffle all songs": the tapped song starts, the whole library follows.
+            expandToLibrary()
+        }
         if (shuffleEnabled) {
-            player.setShuffleOrder(buildShuffleOrder(songs, songs[sourceIndex].id))
+            player.setShuffleOrder(buildShuffleOrder(currentQueue(), startId))
         } else {
-            player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(songs.size))
+            player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
         }
         player.setShuffleModeEnabled(shuffleEnabled)
         applyRepeatMode()
         player.prepare()
         if (playImmediately) {
             player.play()
-            scope.launch { recordPlay(songs[sourceIndex].id) }
+            scope.launch { recordPlay(startId) }
         } else player.pause()
-        publish(songs)
+        publish(currentQueue())
         savePlaybackState()
     }
 
@@ -400,30 +418,98 @@ class PlaybackController(private val service: MediaSessionService) {
     }
     fun stop() { if (!isReleased) player.stop() }
 
-    suspend fun setShuffle(enabled: Boolean, mode: ShuffleMode, suppliedOrder: IntArray? = null) {
+    suspend fun setShuffle(
+        enabled: Boolean,
+        mode: ShuffleMode,
+        type: ShuffleType = shuffleType,
+        suppliedOrder: IntArray? = null
+    ) {
         if (isReleased) return
+        val wasShuffleAll = shuffleEnabled && shuffleType == ShuffleType.ALL
+        val willShuffleAll = enabled && type == ShuffleType.ALL
         shuffleEnabled = enabled
         shuffleMode = mode
+        shuffleType = type
         if (player.mediaItemCount > 0) {
+            if (willShuffleAll && !wasShuffleAll) {
+                expandToLibrary()
+            } else if (wasShuffleAll && !willShuffleAll) {
+                restorePreShuffleAllQueue()
+            }
+            if (isReleased) return
             val currentId = player.currentMediaItem?.mediaId
-            val isValidSuppliedOrder = suppliedOrder != null &&
-                suppliedOrder.size == player.mediaItemCount &&
-                suppliedOrder.toSet().size == player.mediaItemCount &&
-                suppliedOrder.all { it in 0 until player.mediaItemCount }
+            val count = player.mediaItemCount
+            val isValidSuppliedOrder = type == ShuffleType.SONGS &&
+                suppliedOrder != null &&
+                suppliedOrder.size == count &&
+                suppliedOrder.toSet().size == count &&
+                suppliedOrder.all { it in 0 until count }
             val shuffleOrder = if (enabled) {
                 if (isValidSuppliedOrder) {
                     ShuffleOrder.DefaultShuffleOrder(suppliedOrder, System.nanoTime())
                 } else {
-                    buildShuffleOrder(baseQueue, currentId)
+                    buildShuffleOrder(currentQueue(), currentId)
                 }
             } else {
-                ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount)
+                ShuffleOrder.UnshuffledShuffleOrder(count)
             }
             player.setShuffleOrder(shuffleOrder)
             player.setShuffleModeEnabled(enabled)
         }
         publish(currentQueue())
         savePlaybackState()
+    }
+
+    /**
+     * Replaces the queue with the whole library while the current song keeps playing untouched.
+     * Remembers the previous list so turning "Shuffle all" off can restore it.
+     */
+    private suspend fun expandToLibrary() {
+        val currentId = player.currentMediaItem?.mediaId ?: return
+        val before = currentQueue()
+        val library = withContext(Dispatchers.IO) {
+            if (isReleased) emptyList() else runCatching { dao.getAllSongs().first() }.getOrDefault(emptyList())
+        }
+        if (isReleased || library.isEmpty()) return
+        val currentSong = before.find { it.id == currentId } ?: library.find { it.id == currentId } ?: return
+        if (preShuffleAllQueue.isEmpty()) preShuffleAllQueue = before.map { it.id }
+        replaceQueueKeepingCurrent(listOf(currentSong) + library.filter { it.id != currentId })
+    }
+
+    private suspend fun restorePreShuffleAllQueue() {
+        val ids = preShuffleAllQueue
+        preShuffleAllQueue = emptyList()
+        if (ids.isEmpty()) return
+        val currentId = player.currentMediaItem?.mediaId ?: return
+        val songs = withContext(Dispatchers.IO) {
+            if (isReleased) return@withContext emptyList()
+            val byId = dao.getSongsByIds(ids).associateBy { it.id }
+            ids.mapNotNull { byId[it] }
+        }
+        if (isReleased || songs.isEmpty()) return
+        val target = if (songs.any { it.id == currentId }) {
+            songs
+        } else {
+            val current = currentQueue().find { it.id == currentId } ?: return
+            listOf(current) + songs
+        }
+        replaceQueueKeepingCurrent(target)
+    }
+
+    /** Swaps every queue item around the current one without re-preparing the playing item. */
+    private fun replaceQueueKeepingCurrent(target: List<SongEntity>) {
+        val currentId = player.currentMediaItem?.mediaId ?: return
+        val pivot = target.indexOfFirst { it.id == currentId }
+        if (pivot < 0) return
+        val currentIndex = player.currentMediaItemIndex
+        val count = player.mediaItemCount
+        if (currentIndex + 1 < count) player.removeMediaItems(currentIndex + 1, count)
+        if (currentIndex > 0) player.removeMediaItems(0, currentIndex)
+        val before = target.subList(0, pivot)
+        val after = target.subList(pivot + 1, target.size)
+        if (after.isNotEmpty()) player.addMediaItems(1, after.map(::mediaItem))
+        if (before.isNotEmpty()) player.addMediaItems(0, before.map(::mediaItem))
+        baseQueue = target
     }
 
     suspend fun addToQueue(id: String) {
@@ -499,8 +585,12 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     fun setRepeat(one: Boolean) {
+        setRepeatMode(if (one) RepeatMode.ONE else RepeatMode.ALL)
+    }
+
+    fun setRepeatMode(mode: RepeatMode) {
         if (isReleased) return
-        repeatMode = if (one) RepeatMode.ONE else RepeatMode.ALL
+        repeatMode = mode
         applyRepeatMode()
         publish()
         savePlaybackState()
@@ -547,9 +637,12 @@ class PlaybackController(private val service: MediaSessionService) {
         // Keep the transition path hot. Do not replace/reprepare the current MediaItem after a track changes.
     }
 
+    /** Builds a shuffle order over [queue], which must be in player (timeline) order. */
     private fun buildShuffleOrder(queue: List<SongEntity>, currentId: String?): ShuffleOrder {
-        if (queue.isEmpty()) return ShuffleOrder.UnshuffledShuffleOrder(0)
-        val indices = ShuffleCalculator.calculateShuffleIndices(queue, currentId, shuffleMode)
+        if (queue.isEmpty() || queue.size != player.mediaItemCount) {
+            return ShuffleOrder.DefaultShuffleOrder(player.mediaItemCount, System.nanoTime())
+        }
+        val indices = ShuffleCalculator.calculateOrder(queue, currentId, shuffleMode, shuffleType)
         return ShuffleOrder.DefaultShuffleOrder(indices, System.nanoTime())
     }
 
@@ -561,7 +654,20 @@ class PlaybackController(private val service: MediaSessionService) {
             byId[mediaId] ?: _state.value.queue.find { it.id == mediaId }
         }
     }
-    private fun applyRepeatMode() { player.repeatMode = if (repeatMode == RepeatMode.ONE) Player.REPEAT_MODE_ONE else if (playbackDelayController.hasDelay) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ALL }
+
+    /**
+     * Maps the logical (Poweramp-style) repeat mode onto Media3:
+     * ONE -> REPEAT_MODE_ONE, ALL -> REPEAT_MODE_ALL (OFF while an auto-next delay is armed),
+     * OFF -> REPEAT_MODE_OFF, SINGLE -> REPEAT_MODE_OFF + pause at the end of every item.
+     */
+    private fun applyRepeatMode() {
+        player.repeatMode = when {
+            repeatMode == RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+            repeatMode == RepeatMode.ALL && !playbackDelayController.hasDelay -> Player.REPEAT_MODE_ALL
+            else -> Player.REPEAT_MODE_OFF
+        }
+        player.pauseAtEndOfMediaItems = repeatMode == RepeatMode.SINGLE
+    }
 
     private fun updateCurrentMetadata() {
         val i = player.currentMediaItemIndex
@@ -571,7 +677,12 @@ class PlaybackController(private val service: MediaSessionService) {
 
     private fun mediaItem(song: SongEntity) = MediaItem.Builder().setMediaId(song.id).setUri(Uri.parse(song.filePath)).setMediaMetadata(
         MediaMetadata.Builder().setTitle(song.displayTitle).setArtist(song.displayArtist).setAlbumTitle(song.displayAlbum).setArtworkUri(song.albumArtUri?.let(Uri::parse))
-            .setExtras(Bundle().apply { putBoolean(SHUFFLE_ENABLED, shuffleEnabled); putInt(SHUFFLE_MODE, shuffleMode.ordinal); putInt(REPEAT_MODE, repeatMode.ordinal) }).build()
+            .setExtras(Bundle().apply {
+                putBoolean(SHUFFLE_ENABLED, shuffleEnabled)
+                putInt(SHUFFLE_MODE, shuffleMode.ordinal)
+                putInt(SHUFFLE_TYPE, shuffleType.ordinal)
+                putInt(REPEAT_MODE, repeatMode.ordinal)
+            }).build()
     ).build()
 
     private fun savePlaybackState() {
@@ -586,7 +697,9 @@ class PlaybackController(private val service: MediaSessionService) {
         }
         val currentShuffleEnabled = shuffleEnabled
         val currentShuffleMode = shuffleMode
+        val currentShuffleType = shuffleType
         val currentRepeatMode = repeatMode
+        val currentPreShuffleAll = preShuffleAllQueue
         scope.launch(Dispatchers.IO) {
             if (isReleased) return@launch
             persistence.save(
@@ -597,7 +710,9 @@ class PlaybackController(private val service: MediaSessionService) {
                     shuffleEnabled = currentShuffleEnabled,
                     shuffleMode = currentShuffleMode,
                     repeatMode = currentRepeatMode,
-                    queueIds = queueIds
+                    queueIds = queueIds,
+                    shuffleType = currentShuffleType,
+                    preShuffleAllQueueIds = currentPreShuffleAll
                 )
             )
         }
@@ -625,7 +740,9 @@ class PlaybackController(private val service: MediaSessionService) {
             baseQueue = songs
             shuffleEnabled = persisted.shuffleEnabled
             shuffleMode = persisted.shuffleMode
+            shuffleType = persisted.shuffleType
             repeatMode = persisted.repeatMode
+            preShuffleAllQueue = persisted.preShuffleAllQueueIds
             val matchedIndex = songs.indexOfFirst { it.id == currentSongId }
             val currentIndex = if (matchedIndex >= 0) matchedIndex else 0
             val restoredPositionMs = if (matchedIndex >= 0 && rememberPosition) persisted.positionMs else 0L
@@ -663,6 +780,7 @@ class PlaybackController(private val service: MediaSessionService) {
         val autoNextCountdownSeconds: Int?,
         val shuffleEnabled: Boolean,
         val shuffleMode: ShuffleMode,
+        val shuffleType: ShuffleType,
         val repeatMode: RepeatMode,
         val queue: List<SongEntity>
     )
@@ -689,6 +807,7 @@ class PlaybackController(private val service: MediaSessionService) {
         val countdownSeconds = playbackDelayController.countdown.value
         val currentShuffleEnabled = shuffleEnabled
         val currentShuffleMode = shuffleMode
+        val currentShuffleType = shuffleType
         val currentRepeatMode = repeatMode
 
         val snapshot = PlaybackSnapshot(
@@ -704,6 +823,7 @@ class PlaybackController(private val service: MediaSessionService) {
             autoNextCountdownSeconds = countdownSeconds,
             shuffleEnabled = currentShuffleEnabled,
             shuffleMode = currentShuffleMode,
+            shuffleType = currentShuffleType,
             repeatMode = currentRepeatMode,
             queue = q
         )
@@ -720,6 +840,7 @@ class PlaybackController(private val service: MediaSessionService) {
             autoNextCountdownSeconds = snapshot.autoNextCountdownSeconds,
             shuffleEnabled = snapshot.shuffleEnabled,
             shuffleMode = snapshot.shuffleMode,
+            shuffleType = snapshot.shuffleType,
             repeatMode = snapshot.repeatMode,
             queue = snapshot.queue
         )
@@ -735,6 +856,7 @@ class PlaybackController(private val service: MediaSessionService) {
             putInt("auto_next_countdown", snapshot.autoNextCountdownSeconds ?: -1)
             putBoolean(SHUFFLE_ENABLED, snapshot.shuffleEnabled)
             putInt(SHUFFLE_MODE, snapshot.shuffleMode.ordinal)
+            putInt(SHUFFLE_TYPE, snapshot.shuffleType.ordinal)
             putInt(REPEAT_MODE, snapshot.repeatMode.ordinal)
             putStringArrayList("queue_ids", ArrayList(snapshot.queue.map { it.id }))
         }
@@ -759,7 +881,13 @@ class PlaybackController(private val service: MediaSessionService) {
                     when (command.customAction) {
                         SET_QUEUE -> setQueue(args.getStringArrayList(SONG_IDS).orEmpty(), args.getInt(START_INDEX), args.getBoolean(PLAY, true))
                         PLAY_SONG -> playSong(args.getString(SONG_ID) ?: return@withLock)
-                        SET_SHUFFLE -> setShuffle(args.getBoolean(ENABLED), ShuffleMode.entries.getOrElse(args.getInt(MODE)) { shuffleMode }, args.getIntArray(SHUFFLE_ORDER))
+                        SET_SHUFFLE -> setShuffle(
+                            enabled = args.getBoolean(ENABLED),
+                            mode = ShuffleMode.entries.getOrElse(args.getInt(MODE)) { shuffleMode },
+                            type = ShuffleType.entries.getOrElse(args.getInt(SHUFFLE_TYPE, shuffleType.ordinal)) { shuffleType },
+                            suppliedOrder = args.getIntArray(SHUFFLE_ORDER)
+                        )
+                        SET_REPEAT -> setRepeatMode(RepeatMode.entries.getOrElse(args.getInt(MODE, repeatMode.ordinal)) { repeatMode })
                         ADD_TO_QUEUE -> addToQueue(args.getString(SONG_ID) ?: return@withLock)
                         PLAY_NEXT -> playNext(args.getString(SONG_ID) ?: return@withLock)
                         UPDATE_SONG -> updateSong(args.getString(SONG_ID) ?: return@withLock)
@@ -795,6 +923,7 @@ class PlaybackController(private val service: MediaSessionService) {
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                 .add(SessionCommand(SET_QUEUE, Bundle.EMPTY)).add(SessionCommand(PLAY_SONG, Bundle.EMPTY)).add(SessionCommand(SET_SHUFFLE, Bundle.EMPTY))
+                .add(SessionCommand(SET_REPEAT, Bundle.EMPTY))
                 .add(SessionCommand(ADD_TO_QUEUE, Bundle.EMPTY)).add(SessionCommand(PLAY_NEXT, Bundle.EMPTY)).add(SessionCommand(UPDATE_SONG, Bundle.EMPTY))
                 .add(SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY)).add(SessionCommand(EQ_BAND, Bundle.EMPTY)).add(SessionCommand(BASS, Bundle.EMPTY))
                 .add(SessionCommand(VIRTUALIZER, Bundle.EMPTY)).add(SessionCommand(PRESET, Bundle.EMPTY)).add(SessionCommand(SET_DELAY, Bundle.EMPTY))

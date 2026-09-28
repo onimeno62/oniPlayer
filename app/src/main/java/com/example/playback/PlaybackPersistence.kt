@@ -14,7 +14,10 @@ data class PersistedPlaybackState(
     val shuffleEnabled: Boolean = false,
     val shuffleMode: ShuffleMode = ShuffleMode.RANDOM,
     val repeatMode: RepeatMode = RepeatMode.ALL,
-    val queueIds: List<String> = emptyList()
+    val queueIds: List<String> = emptyList(),
+    val shuffleType: ShuffleType = ShuffleType.SONGS,
+    /** The list that was playing before "Shuffle all songs" expanded the queue to the library. */
+    val preShuffleAllQueueIds: List<String> = emptyList()
 )
 
 /**
@@ -33,6 +36,8 @@ class PlaybackPersistence(context: Context) {
         const val KEY_SHUFFLE_MODE = "shuffle_mode"
         const val KEY_REPEAT_MODE = "repeat_mode"
         const val KEY_QUEUE_IDS = "queue_ids"
+        const val KEY_SHUFFLE_TYPE = "shuffle_type"
+        const val KEY_PRE_SHUFFLE_ALL_QUEUE_IDS = "pre_shuffle_all_queue_ids"
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -54,6 +59,8 @@ class PlaybackPersistence(context: Context) {
                     .putInt(KEY_SHUFFLE_MODE, state.shuffleMode.ordinal)
                     .putInt(KEY_REPEAT_MODE, state.repeatMode.ordinal)
                     .putString(KEY_QUEUE_IDS, queueIdsJson)
+                    .putInt(KEY_SHUFFLE_TYPE, state.shuffleType.ordinal)
+                    .putString(KEY_PRE_SHUFFLE_ALL_QUEUE_IDS, serializeQueueIds(state.preShuffleAllQueueIds))
                     .commit()
             } catch (_: Exception) {
                 // Failures in persistence must never crash playback
@@ -96,6 +103,9 @@ class PlaybackPersistence(context: Context) {
                 val shuffleMode = ShuffleMode.entries.getOrElse(rawShuffleMode) { ShuffleMode.RANDOM }
                 val rawRepeatMode = prefs.getInt(KEY_REPEAT_MODE, RepeatMode.ALL.ordinal)
                 val repeatMode = RepeatMode.entries.getOrElse(rawRepeatMode) { RepeatMode.ALL }
+                val rawShuffleType = prefs.getInt(KEY_SHUFFLE_TYPE, ShuffleType.SONGS.ordinal)
+                val shuffleType = ShuffleType.entries.getOrElse(rawShuffleType) { ShuffleType.SONGS }
+                val preShuffleAll = deserializeQueueIds(prefs.getString(KEY_PRE_SHUFFLE_ALL_QUEUE_IDS, null))
 
                 PersistedPlaybackState(
                     currentSongId = currentSongId,
@@ -104,7 +114,9 @@ class PlaybackPersistence(context: Context) {
                     shuffleEnabled = shuffleEnabled,
                     shuffleMode = shuffleMode,
                     repeatMode = repeatMode,
-                    queueIds = queueIds
+                    queueIds = queueIds,
+                    shuffleType = shuffleType,
+                    preShuffleAllQueueIds = preShuffleAll
                 )
             } catch (_: Exception) {
                 null

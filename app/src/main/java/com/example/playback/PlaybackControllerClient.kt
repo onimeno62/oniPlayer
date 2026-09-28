@@ -57,7 +57,8 @@ class PlaybackControllerClient(context: Context) {
             shuffleEnabled = false,
             shuffleMode = ShuffleMode.RANDOM,
             repeatMode = RepeatMode.ALL,
-            queue = emptyList()
+            queue = emptyList(),
+            shuffleType = ShuffleType.SONGS
         )
     )
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
@@ -112,6 +113,10 @@ class PlaybackControllerClient(context: Context) {
                             val shuffleModeOrdinal = args.getInt(
                                 PlaybackController.SHUFFLE_MODE,
                                 _state.value.shuffleMode.ordinal
+                            )
+                            val shuffleTypeOrdinal = args.getInt(
+                                PlaybackController.SHUFFLE_TYPE,
+                                _state.value.shuffleType.ordinal
                             )
                             val repeatModeOrdinal = args.getInt(
                                 PlaybackController.REPEAT_MODE,
@@ -177,6 +182,9 @@ class PlaybackControllerClient(context: Context) {
                                 shuffleEnabled = shuffle,
                                 shuffleMode = ShuffleMode.entries.getOrElse(shuffleModeOrdinal) {
                                     _state.value.shuffleMode
+                                },
+                                shuffleType = ShuffleType.entries.getOrElse(shuffleTypeOrdinal) {
+                                    _state.value.shuffleType
                                 },
                                 repeatMode = RepeatMode.entries.getOrElse(repeatModeOrdinal) {
                                     _state.value.repeatMode
@@ -244,15 +252,14 @@ class PlaybackControllerClient(context: Context) {
     private var cachedQueueIds = emptyList<String>()
     private var cachedQueueSongs = emptyList<SongEntity>()
 
+    /** The service broadcast is authoritative; Media3 only tells us ONE / ALL / "off-ish". */
+    private fun logicalRepeat(c: MediaController): RepeatMode =
+        RepeatMode.reconcile(c.repeatMode, _state.value.repeatMode, keepAllWhenOff = true)
+
     private fun refreshState() {
         val c = controller ?: return
         val ids = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaId }
         val currentId = c.currentMediaItem?.mediaId
-        val logicalRepeat = if (c.repeatMode == Player.REPEAT_MODE_ONE) {
-            RepeatMode.ONE
-        } else {
-            RepeatMode.ALL
-        }
         val posVal = c.currentPosition.coerceAtLeast(0)
         val durationVal = c.duration
             .takeIf { it != androidx.media3.common.C.TIME_UNSET && it >= 0 }
@@ -270,7 +277,7 @@ class PlaybackControllerClient(context: Context) {
                 durationMs = durationVal,
                 bufferedPositionMs = bufferedVal,
                 shuffleEnabled = c.shuffleModeEnabled,
-                repeatMode = logicalRepeat,
+                repeatMode = logicalRepeat(c),
                 queue = cachedQueueSongs
             )
         }
@@ -310,11 +317,7 @@ class PlaybackControllerClient(context: Context) {
                     durationMs = latestDuration,
                     bufferedPositionMs = latest.bufferedPosition.coerceAtLeast(0),
                     shuffleEnabled = latest.shuffleModeEnabled,
-                    repeatMode = if (latest.repeatMode == Player.REPEAT_MODE_ONE) {
-                        RepeatMode.ONE
-                    } else {
-                        RepeatMode.ALL
-                    },
+                    repeatMode = logicalRepeat(latest),
                     queue = queueSongs
                 )
             }
@@ -330,8 +333,13 @@ class PlaybackControllerClient(context: Context) {
     fun resume() = withController { it.play() }
     fun togglePlayPause() = withController { if (it.isPlaying) it.pause() else it.play() }
     fun seekTo(ms: Long) = withController { it.seekTo(ms.coerceAtLeast(0)) }
-    fun next() = withController { it.seekToNextMediaItem() }
-    fun previous() = withController { it.seekToPreviousMediaItem() }
+
+    /** Routed through the service so it cancels a pending auto-next delay and follows the shuffle order. */
+    fun next() = command(PlaybackController.NEXT)
+
+    /** Routed through the service so the "rewind on previous" setting is honoured. */
+    fun previous() = command(PlaybackController.PREVIOUS)
+
     fun stop() = withController { it.stop() }
     fun clearCurrentSource() = stop()
 
@@ -347,66 +355,18 @@ class PlaybackControllerClient(context: Context) {
         }
     )
 
-    fun setShuffle(enabled: Boolean, mode: ShuffleMode) {
-        if (!enabled) {
-            command(
-                PlaybackController.SET_SHUFFLE,
-                Bundle().apply {
-                    putBoolean(PlaybackController.ENABLED, false)
-                    putInt(PlaybackController.MODE, mode.ordinal)
-                }
-            )
-            return
+    /**
+     * Shuffle orders are built by the service (it owns the timeline and the category grouping),
+     * so the client only sends the requested state.
+     */
+    fun setShuffle(enabled: Boolean, mode: ShuffleMode, type: ShuffleType = _state.value.shuffleType) = command(
+        PlaybackController.SET_SHUFFLE,
+        Bundle().apply {
+            putBoolean(PlaybackController.ENABLED, enabled)
+            putInt(PlaybackController.MODE, mode.ordinal)
+            putInt(PlaybackController.SHUFFLE_TYPE, type.ordinal)
         }
-
-        scope.launch(Dispatchers.Default) {
-            val songs = _state.value.queue
-            val currentId = _state.value.currentSong?.id
-            val order = buildShuffleIndices(songs, currentId, mode)
-            command(
-                PlaybackController.SET_SHUFFLE,
-                Bundle().apply {
-                    putBoolean(PlaybackController.ENABLED, true)
-                    putInt(PlaybackController.MODE, mode.ordinal)
-                    putIntArray(PlaybackController.SHUFFLE_ORDER, order)
-                }
-            )
-        }
-    }
-
-    private fun buildShuffleIndices(
-        queue: List<SongEntity>,
-        currentId: String?,
-        mode: ShuffleMode
-    ): IntArray {
-        if (queue.size <= 1) return IntArray(queue.size) { it }
-
-        val currentIndex = queue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
-        val current = queue[currentIndex]
-        val rest = queue.filterNot { it.id == current.id }.toMutableList()
-        val result = mutableListOf(current)
-
-        while (rest.isNotEmpty()) {
-            val weights = rest.map {
-                when (mode) {
-                    ShuffleMode.RANDOM -> 1.0
-                    ShuffleMode.DISCOVER -> 1.0 / (1.0 + it.playCount)
-                    ShuffleMode.FAVORITES_BOOST -> if (it.isFavorite) 4.0 else 1.0
-                }
-            }
-            val total = weights.sum()
-            var roll = Math.random() * total
-            val index = weights.indexOfFirst {
-                roll -= it
-                roll <= 0
-            }.let { if (it < 0) rest.lastIndex else it }
-            result += rest.removeAt(index)
-        }
-
-        return result.map { song ->
-            queue.indexOfFirst { it.id == song.id }
-        }.toIntArray()
-    }
+    )
 
     fun addToQueue(song: SongEntity) = command(
         PlaybackController.ADD_TO_QUEUE,
@@ -425,9 +385,12 @@ class PlaybackControllerClient(context: Context) {
 
     fun setSongWithoutPlaying(song: SongEntity) = updateCurrentSongMetadata(song)
 
-    fun setRepeat(one: Boolean) = withController {
-        it.setRepeatMode(if (one) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL)
-    }
+    fun setRepeat(one: Boolean) = setRepeatMode(if (one) RepeatMode.ONE else RepeatMode.ALL)
+
+    fun setRepeatMode(mode: RepeatMode) = command(
+        PlaybackController.SET_REPEAT,
+        Bundle().apply { putInt(PlaybackController.MODE, mode.ordinal) }
+    )
 
     fun setBandGain(index: Int, gain: Float) = command(
         PlaybackController.EQ_BAND,

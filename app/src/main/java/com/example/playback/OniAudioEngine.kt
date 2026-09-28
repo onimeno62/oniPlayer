@@ -74,6 +74,10 @@ class OniAudioEngine private constructor(context: Context) {
         .map { it.shuffleMode }
         .stateIn(scope, SharingStarted.Eagerly, ShuffleMode.RANDOM)
 
+    val shuffleType: StateFlow<ShuffleType> = state
+        .map { it.shuffleType }
+        .stateIn(scope, SharingStarted.Eagerly, ShuffleType.SONGS)
+
     val repeatMode: StateFlow<RepeatMode> = state
         .map { it.repeatMode }
         .stateIn(scope, SharingStarted.Eagerly, RepeatMode.ALL)
@@ -189,25 +193,46 @@ class OniAudioEngine private constructor(context: Context) {
         client.playNext(song)
     }
 
+    /** Poweramp-style tap cycle: Off -> Songs -> Albums -> Songs & albums -> All songs -> Off. */
     fun toggleShuffle() {
-        client.setShuffle(!state.value.shuffleEnabled, state.value.shuffleMode)
+        val s = state.value
+        val next = ShuffleType.nextAfter(s.shuffleEnabled, s.shuffleType)
+        if (next == null) {
+            client.setShuffle(false, s.shuffleMode, s.shuffleType)
+        } else {
+            client.setShuffle(true, s.shuffleMode, next)
+        }
     }
 
     fun setShuffle(value: Boolean) {
-        client.setShuffle(value, state.value.shuffleMode)
+        client.setShuffle(value, state.value.shuffleMode, state.value.shuffleType)
     }
 
+    /** Selects a shuffle scope directly (long-press menu). `null` turns shuffle off. */
+    fun setShuffleType(type: ShuffleType?) {
+        val s = state.value
+        if (type == null) {
+            client.setShuffle(false, s.shuffleMode, s.shuffleType)
+        } else {
+            client.setShuffle(true, s.shuffleMode, type)
+        }
+    }
+
+    /** Poweramp-style tap cycle: Off -> List -> Song -> Single song -> Off. */
     fun toggleRepeat() {
-        val nextOne = state.value.repeatMode != RepeatMode.ONE
-        client.setRepeat(nextOne)
+        client.setRepeatMode(state.value.repeatMode.next())
     }
 
     fun setRepeat(value: Boolean) {
         client.setRepeat(value)
     }
 
+    fun setRepeatMode(mode: RepeatMode) {
+        client.setRepeatMode(mode)
+    }
+
     fun setShuffleMode(mode: ShuffleMode) {
-        client.setShuffle(true, mode)
+        client.setShuffle(true, mode, state.value.shuffleType)
     }
 
     fun setFloatingLyricsEnabled(enabled: Boolean) {
