@@ -169,6 +169,13 @@ class PlaybackController(private val service: MediaSessionService) {
     /** Queue ids that were playing before "Shuffle all songs" expanded the queue to the library. */
     private var preShuffleAllQueue: List<String> = emptyList()
 
+    /**
+     * True while a multi-step timeline edit is in progress (e.g. shuffle-all queue swap). Player
+     * callbacks fired in the middle of such an edit would publish half-built queues; the caller
+     * publishes once when it is done.
+     */
+    private var publishSuppressed = false
+
     // User player preferences (Settings > Playback / Audio). Applied on the main thread.
     private var playerSettings = PlayerSettings()
     private var appliedAudioFocus: Boolean? = null
@@ -196,7 +203,8 @@ class PlaybackController(private val service: MediaSessionService) {
         }
         override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
             if (isReleased) return
-            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) cancelDelay()
+            // publish() below already carries the cleared countdown; do not emit a second snapshot.
+            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) cancelDelay(publishState = false)
             publish()
             if (item != null && player.playWhenReady && reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
                 scope.launch { recordPlay(item.mediaId) }
@@ -205,7 +213,10 @@ class PlaybackController(private val service: MediaSessionService) {
         }
         override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
             if (isReleased) return
-            publish()
+            // When the item changes, onMediaItemTransition publishes the settled state. Publishing here
+            // too produced two snapshots per skip, which the UI could receive out of order.
+            val itemChanged = oldPosition.mediaItem?.mediaId != newPosition.mediaItem?.mediaId
+            if (!itemChanged) publish()
             savePlaybackState()
         }
         override fun onAudioSessionIdChanged(id: Int) {
@@ -398,7 +409,9 @@ class PlaybackController(private val service: MediaSessionService) {
     fun seek(positionMs: Long) { if (!isReleased) player.seekTo(positionMs.coerceAtLeast(0)) }
     fun next() {
         if (!isReleased) {
-            cancelDelay()
+            // Never publish before the seek: that snapshot still names the old song and used to
+            // arrive after the UI had already switched, flipping it back (prev/next jitter).
+            cancelDelay(publishState = false)
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
             player.seekToNextMediaItem()
             player.play()
@@ -406,7 +419,7 @@ class PlaybackController(private val service: MediaSessionService) {
     }
     fun previous() {
         if (!isReleased) {
-            cancelDelay()
+            cancelDelay(publishState = false)
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
             if (playerSettings.rewindOnPrevious && player.currentPosition > RESTART_ON_PREVIOUS_THRESHOLD_MS) {
                 player.seekTo(0L)
@@ -501,15 +514,20 @@ class PlaybackController(private val service: MediaSessionService) {
         val currentId = player.currentMediaItem?.mediaId ?: return
         val pivot = target.indexOfFirst { it.id == currentId }
         if (pivot < 0) return
-        val currentIndex = player.currentMediaItemIndex
-        val count = player.mediaItemCount
-        if (currentIndex + 1 < count) player.removeMediaItems(currentIndex + 1, count)
-        if (currentIndex > 0) player.removeMediaItems(0, currentIndex)
-        val before = target.subList(0, pivot)
-        val after = target.subList(pivot + 1, target.size)
-        if (after.isNotEmpty()) player.addMediaItems(1, after.map(::mediaItem))
-        if (before.isNotEmpty()) player.addMediaItems(0, before.map(::mediaItem))
-        baseQueue = target
+        publishSuppressed = true
+        try {
+            val currentIndex = player.currentMediaItemIndex
+            val count = player.mediaItemCount
+            if (currentIndex + 1 < count) player.removeMediaItems(currentIndex + 1, count)
+            if (currentIndex > 0) player.removeMediaItems(0, currentIndex)
+            val before = target.subList(0, pivot)
+            val after = target.subList(pivot + 1, target.size)
+            if (after.isNotEmpty()) player.addMediaItems(1, after.map(::mediaItem))
+            if (before.isNotEmpty()) player.addMediaItems(0, before.map(::mediaItem))
+            baseQueue = target
+        } finally {
+            publishSuppressed = false
+        }
     }
 
     suspend fun addToQueue(id: String) {
@@ -603,10 +621,14 @@ class PlaybackController(private val service: MediaSessionService) {
         publish()
     }
 
-    fun cancelDelay() {
+    /**
+     * @param publishState false when the caller is about to change the current item itself; the
+     * transition callback then publishes one settled snapshot instead of a stale pre-seek one.
+     */
+    fun cancelDelay(publishState: Boolean = true) {
         if (isReleased) return
         playbackDelayController.cancelDelay()
-        publish()
+        if (publishState) publish()
     }
 
     fun triggerDelay() {
@@ -786,7 +808,7 @@ class PlaybackController(private val service: MediaSessionService) {
     )
 
     private fun publish(queueOverride: List<SongEntity>? = null) {
-        if (isReleased) return
+        if (isReleased || publishSuppressed) return
         val q = queueOverride ?: currentQueue()
         val revision = nextRevision++
         if (revision < lastPublishedRevision) return

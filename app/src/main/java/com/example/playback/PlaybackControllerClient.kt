@@ -157,6 +157,15 @@ class PlaybackControllerClient(context: Context) {
                             if (revision > 0L) lastAppliedRevision = revision
 
                             val currentController = this@PlaybackControllerClient.controller
+
+                            // A snapshot can be published by the service just before a transition and
+                            // reach us after the MediaController already reports the next item. Such a
+                            // snapshot must never rewind the visible track (that was the prev/next
+                            // flicker). Modes and flags are still applied; track + queue only when the
+                            // snapshot agrees with the controller.
+                            val controllerId = currentController?.currentMediaItem?.mediaId
+                            val trackMatches = currentController == null || controllerId == currentId
+
                             val finalIsPlaying = currentController?.isPlaying ?: isPlaying
                             val finalPos = currentController?.currentPosition?.coerceAtLeast(0) ?: pos
                             val finalDuration = currentController?.duration
@@ -170,8 +179,14 @@ class PlaybackControllerClient(context: Context) {
                                 isPreparing
                             }
 
+                            val resolvedSong = if (currentId != null) {
+                                currentSongEntity ?: queueSongs.find { it.id == currentId }
+                            } else {
+                                null
+                            }
+
                             _state.value = _state.value.copy(
-                                currentSong = if (currentId != null) (currentSongEntity ?: queueSongs.find { it.id == currentId }) else null,
+                                currentSong = if (trackMatches) resolvedSong else _state.value.currentSong,
                                 isPlaying = finalIsPlaying,
                                 positionMs = finalPos,
                                 durationMs = finalDuration,
@@ -189,7 +204,7 @@ class PlaybackControllerClient(context: Context) {
                                 repeatMode = RepeatMode.entries.getOrElse(repeatModeOrdinal) {
                                     _state.value.repeatMode
                                 },
-                                queue = queueSongs
+                                queue = if (trackMatches) queueSongs else _state.value.queue
                             )
                         }
                     }
