@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HearingDisabled
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Translate
@@ -81,7 +82,8 @@ fun LyricsToolsSheet(
     onAdjustTiming: () -> Unit,
     onToggleSingAlong: () -> Unit,
     onToggleVocalCut: () -> Unit,
-    onTranslate: () -> Unit
+    onTranslate: () -> Unit,
+    onOpenLyricsSettings: (() -> Unit)? = null
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -119,6 +121,16 @@ fun LyricsToolsSheet(
                     "Translate",
                     translationLabel?.let { "Showing $it" } ?: "Translate or romanize with AI",
                     onTranslate
+                )
+            }
+
+            if (onOpenLyricsSettings != null) {
+                SectionLabel("Settings")
+                ToolRow(
+                    Icons.Default.Settings,
+                    "Lyrics settings",
+                    "Text size, colours, alignment, auto-download",
+                    onOpenLyricsSettings
                 )
             }
         }

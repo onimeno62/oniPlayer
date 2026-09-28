@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
 import com.example.ui.components.state.OniLoadingState
 import com.example.ui.lyrics.LyricsHelper
+import com.example.ui.navigation.SettingsNavigator
 import com.example.ui.player.components.lyrics.CompactLyricsPlayer
 import com.example.ui.player.components.lyrics.LyricsEmptyState
 import com.example.ui.player.components.lyrics.LyricsHeader
@@ -58,6 +59,10 @@ import com.example.ui.viewmodel.MusicPlayerViewModel
 /** Mutually exclusive secondary surfaces of the lyrics screen (null = none open). */
 private enum class LyricsSurface { Tools, Search, Editor, SyncEditor, AdjustTiming, Translate }
 
+/** Settings tab index in MainAppContainer and the Player tab we return to. */
+private const val SETTINGS_TAB = 3
+private const val PLAYER_TAB = 1
+
 /**
  * Full-screen lyrics experience (Default Skin), Phase 9.
  *
@@ -66,7 +71,8 @@ private enum class LyricsSurface { Tools, Search, Editor, SyncEditor, AdjustTimi
  * - Synced | Plain only when synced lyrics exist
  * - Viewport: active line at the upper-middle focus position; drag pauses follow; Resume chip
  * - Compact player: progress + previous / play-pause / next
- * - Tools sheet: search, edit, sync editor, adjust timing, sing along, vocal cut, translate
+ * - Tools sheet: search, edit, sync editor, adjust timing, sing along, vocal cut, translate,
+ *   and a shortcut to Settings > Lyrics
  *
  * State ownership is unchanged: playback, lyrics persistence, vocal cut and translation stay in
  * [MusicPlayerViewModel]; the mic stays in its engine; follow/scroll state is UI-only.
@@ -144,6 +150,12 @@ fun PlayerKaraokeDialog(
     val dismiss: () -> Unit = {
         micEngine.stopMic()
         onDismiss()
+    }
+    val openLyricsSettings: () -> Unit = {
+        activeSurface = null
+        dismiss()
+        SettingsNavigator.open(subScreen = "lyrics", returnTab = PLAYER_TAB)
+        viewModel.selectTab(SETTINGS_TAB)
     }
 
     // Ensure the microphone is stopped when the screen leaves composition
@@ -255,7 +267,8 @@ fun PlayerKaraokeDialog(
             onAdjustTiming = { activeSurface = LyricsSurface.AdjustTiming },
             onToggleSingAlong = toggleSingAlong,
             onToggleVocalCut = toggleVocalCut,
-            onTranslate = { activeSurface = LyricsSurface.Translate }
+            onTranslate = { activeSurface = LyricsSurface.Translate },
+            onOpenLyricsSettings = openLyricsSettings
         )
 
         LyricsSurface.Search -> ManualSearchDialog(

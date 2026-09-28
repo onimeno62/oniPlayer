@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.navigation.SettingsNavigator
 import com.example.ui.theme.LocalReduceMotion
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
@@ -57,6 +58,16 @@ private object SettingsTints {
 @Composable
 fun SettingsScreen(viewModel: MusicPlayerViewModel) {
     var activeSubScreen by rememberSaveable { mutableStateOf<String?>(null) }
+    // Tab to return to when the sub-screen was opened from elsewhere (Lyrics tools, Library menu).
+    var returnTabOnBack by rememberSaveable { mutableStateOf<Int?>(null) }
+
+    val pendingRequest by SettingsNavigator.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingRequest) {
+        val request = pendingRequest ?: return@LaunchedEffect
+        activeSubScreen = request.subScreen
+        returnTabOnBack = request.returnTab
+        SettingsNavigator.consume()
+    }
 
     val selectedThemeOption by viewModel.selectedThemeOption.collectAsStateWithLifecycle()
     val nextSongDelaySeconds by viewModel.nextSongDelaySeconds.collectAsStateWithLifecycle()
@@ -119,7 +130,14 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
         )
     }
 
-    BackHandler(enabled = activeSubScreen != null) { activeSubScreen = null }
+    val closeSubScreen: () -> Unit = {
+        val returnTab = returnTabOnBack
+        activeSubScreen = null
+        returnTabOnBack = null
+        if (returnTab != null) viewModel.selectTab(returnTab)
+    }
+
+    BackHandler(enabled = activeSubScreen != null) { closeSubScreen() }
 
     val layoutDirection = LocalLayoutDirection.current
     val motion = OniSkin.motion
@@ -143,7 +161,7 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
         },
         label = "Settings Navigation"
     ) { subScreen ->
-        val back: () -> Unit = { activeSubScreen = null }
+        val back: () -> Unit = closeSubScreen
         if (subScreen == null) {
             SettingsList(categories) { activeSubScreen = it }
         } else {
