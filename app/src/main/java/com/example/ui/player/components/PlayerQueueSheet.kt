@@ -10,7 +10,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -24,7 +26,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.entity.SongEntity
@@ -34,16 +35,17 @@ import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
 
 /**
- * Clean Queue sheet for the Player screen in Default Skin.
+ * Queue sheet for the Player screen in Default Skin.
  *
- * Displays the active queue with current playing track indicator.
- * Consumes [OniSkin] typography, surfaces, and color tokens.
+ * Displays the active queue with current playing track indicator,
+ * remove-from-queue buttons, and drag handles for reordering.
  */
 @Composable
 fun PlayerQueueSheet(
     queue: List<SongEntity>,
     currentSong: SongEntity?,
     onPlaySong: (SongEntity) -> Unit,
+    onRemoveFromQueue: ((SongEntity) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -172,9 +174,19 @@ fun PlayerQueueSheet(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            .padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        // Drag handle for reordering
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Reorder",
+                                            tint = OniSkin.colors.textTertiary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
                                         OniArtwork(
                                             artworkUri = song.albumArtUri,
                                             contentDescription = null,
@@ -204,13 +216,29 @@ fun PlayerQueueSheet(
                                         }
 
                                         if (isCurrent) {
-                                            Spacer(modifier = Modifier.width(8.dp))
                                             Icon(
                                                 imageVector = Icons.Default.Equalizer,
                                                 contentDescription = "Currently playing",
                                                 tint = OniSkin.colors.primary,
                                                 modifier = Modifier.size(20.dp)
                                             )
+                                        }
+
+                                        // Remove from queue button (not for currently playing)
+                                        if (onRemoveFromQueue != null && !isCurrent) {
+                                            IconButton(
+                                                onClick = { onRemoveFromQueue(song) },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.RemoveCircleOutline,
+                                                    contentDescription = "Remove from queue",
+                                                    tint = OniSkin.colors.error.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        } else if (onRemoveFromQueue == null || isCurrent) {
+                                            Spacer(modifier = Modifier.width(8.dp))
                                         }
                                     }
                                 }
