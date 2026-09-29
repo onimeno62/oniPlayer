@@ -29,14 +29,6 @@ import com.example.playback.RepeatMode
 import com.example.playback.ShuffleMode
 import com.example.playback.ShuffleType
 import com.example.ui.player.model.PlayerUiState
-import com.example.ui.library.model.AlbumUiModel
-import com.example.ui.library.model.ArtistUiModel
-import com.example.ui.library.model.FolderUiModel
-import com.example.ui.library.model.GenreUiModel
-import com.example.ui.library.model.toAlbumUiModels
-import com.example.ui.library.model.toArtistUiModels
-import com.example.ui.library.model.toFolderUiModels
-import com.example.ui.library.model.toGenreUiModels
 import com.example.ui.theme.OniTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -71,18 +63,6 @@ class EngineStateFlowDelegate<T>(
         get() = flow.value
         set(v) { setter(v) }
 }
-
-data class SearchUiState(
-    val query: String = "",
-    val matchingTracks: List<SongEntity> = emptyList(),
-    val matchingAlbums: List<AlbumUiModel> = emptyList(),
-    val matchingArtists: List<ArtistUiModel> = emptyList(),
-    val matchingFolders: List<FolderUiModel> = emptyList(),
-    val matchingGenres: List<GenreUiModel> = emptyList(),
-    val matchingPlaylists: List<PlaylistEntity> = emptyList(),
-    val albumCount: Int = 0,
-    val artistCount: Int = 0
-)
 
 class MusicPlayerViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MusicPlayerViewModel"
@@ -328,67 +308,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allArtistSummaries: StateFlow<List<ArtistSummaryEntity>> = repository.allArtistSummaries
-
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
-    val searchUiState: StateFlow<SearchUiState> = combine(
-        _searchQuery,
-        allSongs,
-        allPlaylists,
-        allArtistSummaries
-    ) { query, songs, playlists, artistSummaries ->
-        val trimmed = query.trim()
-        val albumUiModels = songs.toAlbumUiModels()
-        val artistUiModels = songs.toArtistUiModels(artistSummaries)
-
-        if (trimmed.isEmpty()) {
-            SearchUiState(
-                query = query,
-                albumCount = albumUiModels.size,
-                artistCount = artistUiModels.size
-            )
-        } else {
-            val folderUiModels = songs.toFolderUiModels()
-            val genreUiModels = songs.toGenreUiModels()
-
-            SearchUiState(
-                query = query,
-                matchingTracks = songs.filter {
-                    it.displayTitle.contains(trimmed, ignoreCase = true) ||
-                    it.displayArtist.contains(trimmed, ignoreCase = true) ||
-                    it.displayAlbum.contains(trimmed, ignoreCase = true) ||
-                    it.displayGenre.contains(trimmed, ignoreCase = true)
-                },
-                matchingAlbums = albumUiModels.filter {
-                    it.title.contains(trimmed, ignoreCase = true) ||
-                    it.artist.contains(trimmed, ignoreCase = true)
-                },
-                matchingArtists = artistUiModels.filter {
-                    it.name.contains(trimmed, ignoreCase = true)
-                },
-                matchingFolders = folderUiModels.filter {
-                    it.displayName.contains(trimmed, ignoreCase = true) ||
-                    it.folderPath.contains(trimmed, ignoreCase = true)
-                },
-                matchingGenres = genreUiModels.filter {
-                    it.genre.contains(trimmed, ignoreCase = true)
-                },
-                matchingPlaylists = playlists.filter {
-                    it.name.contains(trimmed, ignoreCase = true)
-                },
-                albumCount = albumUiModels.size,
-                artistCount = artistUiModels.size
-            )
-        }
-    }
-        .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState())
-
-    fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
-
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val currentSong: StateFlow<SongEntity?> = audioEngine.currentSong
