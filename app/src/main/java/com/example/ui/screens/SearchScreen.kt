@@ -46,6 +46,7 @@ import com.example.ui.library.model.toGenreUiModels
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import java.io.File
+import org.json.JSONArray
 
 private const val PREFS_RECENT_SEARCHES_KEY = "poweramp_recent_searches"
 private const val MAX_RECENT_SEARCHES = 10
@@ -79,8 +80,25 @@ fun SearchScreen(viewModel: MusicPlayerViewModel) {
     }
 
     var recentSearches by remember {
-        val saved = sharedPrefs.getStringSet(PREFS_RECENT_SEARCHES_KEY, emptySet()) ?: emptySet()
-        mutableStateOf(saved.toList().sorted())
+        val saved = sharedPrefs.getString(PREFS_RECENT_SEARCHES_KEY, null)
+        val ordered = runCatching {
+            if (saved.isNullOrBlank()) {
+                emptyList()
+            } else {
+                JSONArray(saved).let { array ->
+                    buildList(array.length()) {
+                        for (index in 0 until array.length()) add(array.getString(index))
+                    }
+                }
+            }
+        }.getOrDefault(emptyList())
+        mutableStateOf(ordered.take(MAX_RECENT_SEARCHES))
+    }
+
+    fun persistRecentSearches(items: List<String>) {
+        sharedPrefs.edit()
+            .putString(PREFS_RECENT_SEARCHES_KEY, JSONArray(items).toString())
+            .apply()
     }
 
     fun saveRecentSearch(query: String) {
@@ -89,13 +107,13 @@ fun SearchScreen(viewModel: MusicPlayerViewModel) {
         val updated = (listOf(trimmed) + recentSearches.filterNot { it.equals(trimmed, ignoreCase = true) })
             .take(MAX_RECENT_SEARCHES)
         recentSearches = updated
-        sharedPrefs.edit().putStringSet(PREFS_RECENT_SEARCHES_KEY, updated.toSet()).apply()
+        persistRecentSearches(updated)
     }
 
     fun removeRecentSearch(query: String) {
         val updated = recentSearches.filterNot { it.equals(query, ignoreCase = true) }
         recentSearches = updated
-        sharedPrefs.edit().putStringSet(PREFS_RECENT_SEARCHES_KEY, updated.toSet()).apply()
+        persistRecentSearches(updated)
     }
 
     fun clearAllRecentSearches() {
