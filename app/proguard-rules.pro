@@ -19,6 +19,5 @@
     @com.squareup.moshi.Json <fields>;
 }
 
-# Keep ExoPlayer internals
+# Media3 ships its own consumer/R8 rules; avoid keeping the entire library.
 -dontwarn androidx.media3.**
--keep class androidx.media3.** { *; }
