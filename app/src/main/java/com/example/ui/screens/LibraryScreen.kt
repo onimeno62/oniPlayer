@@ -767,6 +767,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             isSortAscending = isSortAscending,
             onSortAscendingChange = { isSortAscending = it },
             onRescan = triggerScanWithPermission,
+            onOpenSearchTab = { viewModel.selectTab(2) },
             onDismiss = { showOptionsMenu = false }
         )
     }
@@ -1397,6 +1398,7 @@ fun LibraryOptionsMenu(
     isSortAscending: Boolean,
     onSortAscendingChange: (Boolean) -> Unit,
     onRescan: () -> Unit,
+    onOpenSearchTab: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1458,7 +1460,7 @@ fun LibraryOptionsMenu(
                                 color = OniSkin.colors.textPrimary
                             )
                             Text(
-                                text = "Preferences, layout, and scanner settings",
+                                text = "Preferences, layout, search, and scanner",
                                 style = OniSkin.typography.caption,
                                 color = OniSkin.colors.textSecondary
                             )
@@ -1477,11 +1479,11 @@ fun LibraryOptionsMenu(
                 }
             }
 
-            // Scanner action row
+            // Quick Actions: Search & Scanner
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                     Text(
-                        text = "LIBRARY SCANNER",
+                        text = "QUICK ACTIONS",
                         style = OniSkin.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = OniSkin.colors.primary
@@ -1489,48 +1491,95 @@ fun LibraryOptionsMenu(
                     OniSurface(
                         variant = OniSurfaceVariant.Soft,
                         shape = OniSkin.shapes.card,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .defaultMinSize(minHeight = 48.dp)
-                            .clickable {
-                                onRescan()
-                                onDismiss()
-                            }
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    contentDescription = null,
-                                    tint = OniSkin.colors.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
-                                Column {
-                                    Text(
-                                        text = "Scan Local Storage",
-                                        style = OniSkin.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = OniSkin.colors.textPrimary
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .clickable {
+                                        onDismiss()
+                                        onOpenSearchTab()
+                                    }
+                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = OniSkin.colors.primary,
+                                        modifier = Modifier.size(20.dp)
                                     )
-                                    Text(
-                                        text = "Detect newly added or modified tracks",
-                                        style = OniSkin.typography.caption,
-                                        color = OniSkin.colors.textSecondary
-                                    )
+                                    Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                                    Column {
+                                        Text(
+                                            text = "Search Library",
+                                            style = OniSkin.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = OniSkin.colors.textPrimary
+                                        )
+                                        Text(
+                                            text = "Open universal Poweramp-style search",
+                                            style = OniSkin.typography.caption,
+                                            color = OniSkin.colors.textSecondary
+                                        )
+                                    }
                                 }
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = OniSkin.colors.textTertiary
+                                )
                             }
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = OniSkin.colors.textTertiary
+
+                            HorizontalDivider(
+                                color = OniSkin.colors.outline.copy(alpha = 0.15f),
+                                modifier = Modifier.padding(horizontal = OniSkin.spacing.md)
                             )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .clickable {
+                                        onRescan()
+                                        onDismiss()
+                                    }
+                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        tint = OniSkin.colors.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                                    Column {
+                                        Text(
+                                            text = "Scan Local Storage",
+                                            style = OniSkin.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = OniSkin.colors.textPrimary
+                                        )
+                                        Text(
+                                            text = "Detect newly added or modified tracks",
+                                            style = OniSkin.typography.caption,
+                                            color = OniSkin.colors.textSecondary
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = OniSkin.colors.textTertiary
+                                )
+                            }
                         }
                     }
                 }
@@ -2041,92 +2090,73 @@ fun SongStaticDataCard(song: SongEntity) {
                         MetadataKeyValue(label = "Genre", value = song.displayGenre)
                     }
                     if (trackDiscStr.isNotBlank()) {
-                        MetadataKeyValue(label = "Track", value = trackDiscStr)
+                        MetadataKeyValue(label = "Track / Disc", value = trackDiscStr)
                     }
-                    if (song.displayAlbumArtist.isNotBlank() && song.displayAlbumArtist != song.displayArtist) {
-                        MetadataKeyValue(label = "Album Artist", value = song.displayAlbumArtist)
-                    }
-                    MetadataKeyValue(
-                        label = "Plays",
-                        value = if (song.playCount > 0) "${song.playCount} times" else "Unplayed"
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (song.displayYear.isNotBlank()) {
                         MetadataKeyValue(label = "Year", value = song.displayYear)
                     }
-                    if (song.displayBpm.isNotBlank()) {
-                        MetadataKeyValue(label = "BPM", value = "${song.displayBpm} BPM")
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    MetadataKeyValue(label = "Play Count", value = "${song.playCount} times")
+                    MetadataKeyValue(label = "Last Played", value = lastPlayedStr)
+                    if (ratingStr != null) {
+                        MetadataKeyValue(label = "Rating", value = ratingStr)
+                    }
+                }
+            }
+
+            // 3. Expandable Section for Technical & File Details
+            AnimatedVisibility(visible = isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = OniSkin.spacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    HorizontalDivider(
+                        color = OniSkin.colors.outline.copy(alpha = 0.2f),
+                        modifier = Modifier.padding(vertical = OniSkin.spacing.xxs)
+                    )
+                    MetadataKeyValue(label = "File Name", value = fileName)
+                    MetadataKeyValue(label = "File Path", value = song.filePath)
+                    if (dateAddedStr != null) {
+                        MetadataKeyValue(label = "Date Added", value = dateAddedStr)
+                    }
+                    if (lastModifiedStr != null) {
+                        MetadataKeyValue(label = "Last Modified", value = lastModifiedStr)
                     }
                     if (song.displayComposer.isNotBlank()) {
                         MetadataKeyValue(label = "Composer", value = song.displayComposer)
                     }
-                    if (lastPlayedStr != "Never") {
-                        MetadataKeyValue(label = "Last Played", value = lastPlayedStr)
-                    } else if (dateAddedStr != null) {
-                        MetadataKeyValue(label = "Added", value = dateAddedStr)
+                    if (song.displayBpm.isNotBlank()) {
+                        MetadataKeyValue(label = "BPM", value = song.displayBpm)
+                    }
+                    if (song.displayComment.isNotBlank()) {
+                        MetadataKeyValue(label = "Comment", value = song.displayComment)
                     }
                 }
             }
 
-            // 3. Extended Details (Rating, Comments, Date Added, Last Modified)
-            if (isExpanded) {
-                SettingDivider()
-
-                if (ratingStr != null) {
-                    MetadataKeyValue(label = "Rating", value = ratingStr)
-                }
-
-                if (song.displayComment.isNotBlank()) {
-                    MetadataKeyValue(label = "Comment", value = song.displayComment)
-                }
-
-                if (dateAddedStr != null && lastPlayedStr != "Never") {
-                    MetadataKeyValue(label = "Date Added", value = dateAddedStr)
-                }
-
-                if (lastModifiedStr != null) {
-                    MetadataKeyValue(label = "File Modified", value = lastModifiedStr)
-                }
-
-                MetadataKeyValue(label = "File Name", value = fileName)
-            }
-
-            // 4. File Path row with toggle button
+            // 4. Show More / Show Less Toggle Button
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(vertical = OniSkin.spacing.xxs),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Folder,
-                        contentDescription = null,
-                        tint = OniSkin.colors.textTertiary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                    Text(
-                        text = song.filePath,
-                        style = OniSkin.typography.caption,
-                        color = OniSkin.colors.textTertiary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
                 Text(
-                    text = if (isExpanded) "Less" else "More",
-                    style = OniSkin.typography.caption,
-                    fontWeight = FontWeight.Bold,
+                    text = if (isExpanded) "Show Less" else "Technical Details",
+                    style = OniSkin.typography.labelSmall,
                     color = OniSkin.colors.primary,
-                    modifier = Modifier
-                        .clickable { isExpanded = !isExpanded }
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                    fontWeight = FontWeight.SemiBold
+                )
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = OniSkin.colors.primary,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -2134,47 +2164,19 @@ fun SongStaticDataCard(song: SongEntity) {
 }
 
 @Composable
-private fun MetadataKeyValue(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "$label: ",
-            style = OniSkin.typography.caption,
-            fontWeight = FontWeight.Bold,
-            color = OniSkin.colors.textSecondary
-        )
-        Text(
-            text = value,
-            style = OniSkin.typography.caption,
-            color = OniSkin.colors.textPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun StaticDataChip(
+fun StaticDataChip(
     text: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     isHighlight: Boolean = false
 ) {
     OniSurface(
-        variant = OniSurfaceVariant.Flat,
-        shape = OniSkin.shapes.full,
-        containerColor = if (isHighlight) OniSkin.colors.primary.copy(alpha = 0.15f) else OniSkin.colors.surfaceElevated,
-        modifier = Modifier.height(26.dp)
+        variant = if (isHighlight) OniSurfaceVariant.Elevated else OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.chip,
+        containerColor = if (isHighlight) OniSkin.colors.primaryContainer else OniSkin.colors.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            modifier = Modifier.padding(horizontal = OniSkin.spacing.xs, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             if (icon != null) {
                 Icon(
@@ -2189,54 +2191,66 @@ private fun StaticDataChip(
                 text = text,
                 style = OniSkin.typography.caption,
                 fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Medium,
-                color = if (isHighlight) OniSkin.colors.primary else OniSkin.colors.textPrimary
+                color = if (isHighlight) OniSkin.colors.primary else OniSkin.colors.textSecondary
             )
         }
     }
 }
 
 @Composable
-fun SettingDivider() {
-    HorizontalDivider(
-        color = OniSkin.colors.outline.copy(alpha = 0.15f),
-        modifier = Modifier.padding(vertical = OniSkin.spacing.xxs)
-    )
+fun MetadataKeyValue(label: String, value: String) {
+    Column {
+        Text(
+            text = label.uppercase(),
+            style = OniSkin.typography.caption,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            color = OniSkin.colors.textTertiary,
+            letterSpacing = 0.5.sp
+        )
+        Text(
+            text = value,
+            style = OniSkin.typography.bodySmall,
+            color = OniSkin.colors.textPrimary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
 @Composable
 fun TrackMenuActionTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconTint: Color? = null,
-    textColor: Color? = null
+    textColor: Color? = null,
+    onClick: () -> Unit
 ) {
     OniSurface(
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.card,
         modifier = modifier
             .defaultMinSize(minHeight = 48.dp)
-            .clickable(onClick = onClick),
-        variant = OniSurfaceVariant.Soft,
-        shape = OniSkin.shapes.button
+            .clickable(onClick = onClick)
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                .padding(vertical = OniSkin.spacing.sm, horizontal = OniSkin.spacing.xs),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconTint ?: OniSkin.colors.primary,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(24.dp)
             )
-            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = title,
-                style = OniSkin.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = OniSkin.typography.caption,
+                fontWeight = FontWeight.Medium,
                 color = textColor ?: OniSkin.colors.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

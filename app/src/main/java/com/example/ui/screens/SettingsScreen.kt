@@ -187,6 +187,26 @@ fun SettingsScreen(viewModel: MusicPlayerViewModel) {
 }
 
 @Composable
+fun AudioEqualizerSettingsScreen(
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+    ) {
+        SettingsSubscreenHeader(
+            title = "Audio & Equalizer",
+            subtitle = "Acoustic tuning, parametric filter, and soundstage presets",
+            onBack = onBack,
+            backButtonTestTag = "audio_eq_back_button"
+        )
+        EqualizerScreen(viewModel = viewModel)
+    }
+}
+
+@Composable
 fun SettingsList(categories: List<SettingCategory>, onCategoryClick: (String) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val trimmed = query.trim()

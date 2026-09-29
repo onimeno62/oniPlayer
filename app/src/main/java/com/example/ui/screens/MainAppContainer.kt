@@ -3,10 +3,10 @@ package com.example.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,7 +49,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         listOf(
             OniNavigationDestination(0, "Library", Icons.Default.LibraryMusic, Icons.Outlined.LibraryMusic, "nav_library"),
             OniNavigationDestination(1, "Player", Icons.Default.PlayCircle, Icons.Outlined.PlayCircle, "nav_player"),
-            OniNavigationDestination(2, "Equalizer", Icons.Default.Tune, Icons.Outlined.Tune, "nav_equalizer"),
+            OniNavigationDestination(2, "Search", Icons.Default.Search, Icons.Outlined.Search, "nav_search"),
             OniNavigationDestination(3, "Settings", Icons.Default.Settings, Icons.Outlined.Settings, "nav_settings")
         )
     }
@@ -122,7 +122,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     when (tab) {
                         0 -> LibraryScreen(viewModel = viewModel)
                         1 -> PlayerScreen(viewModel = viewModel)
-                        2 -> EqualizerScreen(viewModel = viewModel)
+                        2 -> SearchScreen(viewModel = viewModel)
                         3 -> SettingsScreen(viewModel = viewModel)
                     }
                 }
