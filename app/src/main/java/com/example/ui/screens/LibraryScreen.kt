@@ -2148,7 +2148,7 @@ fun SongStaticDataCard(song: SongEntity) {
             ) {
                 Text(
                     text = if (isExpanded) "Show Less" else "Technical Details",
-                    style = OniSkin.typography.labelSmall,
+                    style = OniSkin.typography.caption,
                     color = OniSkin.colors.primary,
                     fontWeight = FontWeight.SemiBold
                 )
