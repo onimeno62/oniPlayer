@@ -193,6 +193,10 @@ class OniAudioEngine private constructor(context: Context) {
         client.playNext(song)
     }
 
+    fun removeFromQueue(song: SongEntity) {
+        client.removeFromQueue(song)
+    }
+
     /** Poweramp-style tap cycle: Off -> Songs -> Albums -> Songs & albums -> All songs -> Off. */
     fun toggleShuffle() {
         val s = state.value
