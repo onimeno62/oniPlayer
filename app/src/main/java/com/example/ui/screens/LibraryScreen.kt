@@ -436,7 +436,7 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                         .size(48.dp)
                         .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f), CircleShape)
                 ) {
-                    Icon(Icons.Default.SettingsSuggest, contentDescription = "Library Settings", tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.SettingsSuggest, contentDescription = "Library Menu", tint = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -666,26 +666,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             isSortAscending = isSortAscending,
             onSortAscendingChange = { isSortAscending = it },
             onRescan = triggerScanWithPermission,
-            onPlayAll = {
-                if (songs.isNotEmpty()) {
-                    viewModel.playSong(songs.first(), songs)
-                    Toast.makeText(context, "Playing all songs", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "No songs to play", Toast.LENGTH_SHORT).show()
-                }
-            },
-            onShuffleAll = {
-                if (songs.isNotEmpty()) {
-                    if (!viewModel.isShuffle.value) {
-                        viewModel.toggleShuffle()
-                    }
-                    val startSong = viewModel.pickShuffleStartSong(songs) ?: songs.first()
-                    viewModel.playSong(startSong, songs)
-                    Toast.makeText(context, "Shuffling all songs", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "No songs to play", Toast.LENGTH_SHORT).show()
-                }
-            },
             onDismiss = { showOptionsMenu = false }
         )
     }
@@ -1303,7 +1283,7 @@ fun TagEditorDialog(
     AdvancedTagEditorDialog(song, viewModel, onDismiss)
 }
 
-// Library Settings — modern bottom sheet (No Shuffle Mode configuration)
+// Library Menu — configuration and settings bottom sheet
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryOptionsMenu(
@@ -1316,8 +1296,6 @@ fun LibraryOptionsMenu(
     isSortAscending: Boolean,
     onSortAscendingChange: (Boolean) -> Unit,
     onRescan: () -> Unit,
-    onPlayAll: () -> Unit,
-    onShuffleAll: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1373,13 +1351,13 @@ fun LibraryOptionsMenu(
                         Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
                         Column {
                             Text(
-                                text = "Library Settings",
+                                text = "Library Menu",
                                 style = OniSkin.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = OniSkin.colors.textPrimary
                             )
                             Text(
-                                text = "Scan, layout, and playback preferences",
+                                text = "Preferences, layout, and scanner settings",
                                 style = OniSkin.typography.caption,
                                 color = OniSkin.colors.textSecondary
                             )
@@ -1391,64 +1369,67 @@ fun LibraryOptionsMenu(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close settings",
+                            contentDescription = "Close menu",
                             tint = OniSkin.colors.textSecondary
                         )
                     }
                 }
             }
 
-            // Quick Actions (Play All, Shuffle All, Scan Library)
+            // Scanner action row
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                     Text(
-                        text = "QUICK ACTIONS",
+                        text = "LIBRARY SCANNER",
                         style = OniSkin.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = OniSkin.colors.primary
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
-                    ) {
-                        Button(
-                            onClick = {
-                                onPlayAll()
-                                onDismiss()
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            shape = OniSkin.shapes.button,
-                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.primary)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Text("Play All", style = OniSkin.typography.labelMedium, maxLines = 1)
-                        }
-                        Button(
-                            onClick = {
-                                onShuffleAll()
-                                onDismiss()
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            shape = OniSkin.shapes.button,
-                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.surfaceElevated, contentColor = OniSkin.colors.textPrimary)
-                        ) {
-                            Icon(Icons.Default.Shuffle, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Text("Shuffle", style = OniSkin.typography.labelMedium, maxLines = 1)
-                        }
-                        Button(
-                            onClick = {
+                    OniSurface(
+                        variant = OniSurfaceVariant.Soft,
+                        shape = OniSkin.shapes.card,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clickable {
                                 onRescan()
                                 onDismiss()
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            shape = OniSkin.shapes.button,
-                            colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.surfaceElevated, contentColor = OniSkin.colors.textPrimary)
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, tint = OniSkin.colors.primary, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                            Text("Scan", style = OniSkin.typography.labelMedium, maxLines = 1)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    tint = OniSkin.colors.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                                Column {
+                                    Text(
+                                        text = "Scan Local Storage",
+                                        style = OniSkin.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = OniSkin.colors.textPrimary
+                                    )
+                                    Text(
+                                        text = "Detect newly added or modified tracks",
+                                        style = OniSkin.typography.caption,
+                                        color = OniSkin.colors.textSecondary
+                                    )
+                                }
+                            }
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = OniSkin.colors.textTertiary
+                            )
                         }
                     }
                 }
@@ -2114,427 +2095,51 @@ private fun StaticDataChip(
 }
 
 @Composable
-fun TrackMenuActionTile(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    modifier: Modifier = Modifier,
-    iconTint: Color? = null,
-    containerColor: Color? = null,
-    textColor: Color? = null,
-    onClick: () -> Unit
-) {
-    OniSurface(
-        variant = OniSurfaceVariant.Soft,
-        shape = OniSkin.shapes.card,
-        containerColor = containerColor,
-        modifier = modifier
-            .defaultMinSize(minHeight = 68.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = OniSkin.spacing.sm, horizontal = OniSkin.spacing.xxs),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint ?: OniSkin.colors.primary,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
-            Text(
-                text = title,
-                style = OniSkin.typography.caption,
-                fontWeight = FontWeight.Medium,
-                color = textColor ?: OniSkin.colors.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-    }
+fun SettingDivider() {
+    HorizontalDivider(
+        color = OniSkin.colors.outline.copy(alpha = 0.15f),
+        modifier = Modifier.padding(vertical = OniSkin.spacing.xxs)
+    )
 }
 
 @Composable
-fun TrackMenuActionRow(
+fun TrackMenuActionTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
-    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     iconTint: Color? = null,
-    onClick: () -> Unit
+    textColor: Color? = null
 ) {
     OniSurface(
-        variant = OniSurfaceVariant.Soft,
-        shape = OniSkin.shapes.small,
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .defaultMinSize(minHeight = 48.dp)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        variant = OniSurfaceVariant.Soft,
+        shape = OniSkin.shapes.button
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconTint ?: OniSkin.colors.primary,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = OniSkin.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = OniSkin.colors.textPrimary
-                )
-                Text(
-                    text = subtitle,
-                    style = OniSkin.typography.caption,
-                    color = OniSkin.colors.textSecondary
-                )
-            }
-        }
-    }
-}
-
-/**
- * Dedicated Playlist Picker Bottom Sheet allowing song addition or creating a new playlist on the fly.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PlaylistPickerBottomSheet(
-    song: SongEntity,
-    playlists: List<PlaylistEntity>,
-    viewModel: MusicPlayerViewModel,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    var showCreateDialog by remember { mutableStateOf(false) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = OniSkin.colors.surface,
-        shape = OniSkin.shapes.bottomSheet,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(top = OniSkin.spacing.xs, bottom = OniSkin.spacing.xxs)
-                    .width(40.dp)
-                    .height(4.dp)
-                    .clip(OniSkin.shapes.full)
-                    .background(OniSkin.colors.outline.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+            Text(
+                text = title,
+                style = OniSkin.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor ?: OniSkin.colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = OniSkin.spacing.screenHorizontal)
-                .padding(bottom = OniSkin.spacing.screenVertical),
-            verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Add to Playlist",
-                        style = OniSkin.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.textPrimary
-                    )
-                    Text(
-                        text = "Choose target playlist for \"${song.displayTitle}\"",
-                        style = OniSkin.typography.caption,
-                        color = OniSkin.colors.textSecondary
-                    )
-                }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = OniSkin.colors.textSecondary)
-                }
-            }
-
-            // Create New Playlist option
-            OniSurface(
-                variant = OniSurfaceVariant.Elevated,
-                shape = OniSkin.shapes.small,
-                containerColor = OniSkin.colors.primaryContainer,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = 48.dp)
-                    .clickable { showCreateDialog = true }
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = OniSkin.colors.primary)
-                    Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-                    Text(
-                        text = "Create New Playlist",
-                        style = OniSkin.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.primary
-                    )
-                }
-            }
-
-            SettingDivider()
-
-            if (playlists.isEmpty()) {
-                Text(
-                    text = "No custom playlists found. Tap above to create your first playlist.",
-                    style = OniSkin.typography.bodySmall,
-                    color = OniSkin.colors.textSecondary,
-                    modifier = Modifier.padding(vertical = OniSkin.spacing.md)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
-                ) {
-                    items(playlists, key = { it.id }) { playlist ->
-                        val containsSong = remember(playlist.songIdsJson, song.id) {
-                            try {
-                                val arr = org.json.JSONArray(playlist.songIdsJson)
-                                (0 until arr.length()).any { arr.getString(it) == song.id }
-                            } catch (e: Exception) {
-                                false
-                            }
-                        }
-
-                        OniSurface(
-                            variant = OniSurfaceVariant.Soft,
-                            shape = OniSkin.shapes.small,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = 48.dp)
-                                .clickable {
-                                    if (containsSong) {
-                                        Toast.makeText(context, "Song is already in \"${playlist.name}\"", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        viewModel.addSongToPlaylist(song.id, playlist.id)
-                                        Toast.makeText(context, "Added to \"${playlist.name}\"", Toast.LENGTH_SHORT).show()
-                                        onDismiss()
-                                    }
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = OniSkin.colors.primary)
-                                    Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-                                    Text(
-                                        text = playlist.name,
-                                        style = OniSkin.typography.bodyLarge,
-                                        fontWeight = FontWeight.Medium,
-                                        color = OniSkin.colors.textPrimary
-                                    )
-                                }
-                                if (containsSong) {
-                                    Text(
-                                        text = "Added",
-                                        style = OniSkin.typography.caption,
-                                        color = OniSkin.colors.textTertiary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showCreateDialog) {
-        var playlistName by remember { mutableStateOf("") }
-        var errorMessage by remember { mutableStateOf<String?>(null) }
-
-        AlertDialog(
-            onDismissRequest = { showCreateDialog = false },
-            title = {
-                Text(
-                    text = "New Playlist",
-                    style = OniSkin.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = OniSkin.colors.textPrimary
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
-                    Text(
-                        text = "Enter a name for the new playlist. \"${song.displayTitle}\" will be added automatically.",
-                        style = OniSkin.typography.bodySmall,
-                        color = OniSkin.colors.textSecondary
-                    )
-                    OutlinedTextField(
-                        value = playlistName,
-                        onValueChange = {
-                            playlistName = it
-                            errorMessage = null
-                        },
-                        placeholder = { Text("Playlist name", color = OniSkin.colors.textSecondary) },
-                        singleLine = true,
-                        isError = errorMessage != null,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = OniSkin.shapes.button,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OniSkin.colors.primary,
-                            unfocusedBorderColor = OniSkin.colors.outline,
-                            focusedTextColor = OniSkin.colors.textPrimary,
-                            unfocusedTextColor = OniSkin.colors.textPrimary
-                        )
-                    )
-                    if (errorMessage != null) {
-                        Text(
-                            text = errorMessage!!,
-                            style = OniSkin.typography.caption,
-                            color = OniSkin.colors.error
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val trimmed = playlistName.trim()
-                        if (trimmed.isEmpty()) {
-                            errorMessage = "Playlist name cannot be empty."
-                        } else {
-                            viewModel.createPlaylist(name = trimmed, initialSongIds = listOf(song.id))
-                            Toast.makeText(context, "Created \"$trimmed\" and added song!", Toast.LENGTH_SHORT).show()
-                            showCreateDialog = false
-                            onDismiss()
-                        }
-                    },
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                ) {
-                    Text("Create", color = OniSkin.colors.primary, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showCreateDialog = false },
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                ) {
-                    Text("Cancel", color = OniSkin.colors.textSecondary)
-                }
-            },
-            containerColor = OniSkin.colors.surface,
-            shape = OniSkin.shapes.dialog
-        )
     }
 }
-
-@Composable
-fun borderStrokeDefault(): BorderStroke {
-    return BorderStroke(
-        width = 1.dp,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-    )
-}
-
-// Shared, theme-driven corner radius tiers for the dashboard. All three scale together
-// whenever the user's corner-radius setting (LocalCornerRadius) changes, instead of each
-// card picking its own hardcoded value.
-@Composable
-fun dashboardRadiusLarge(): Dp = (LocalCornerRadius.current * 1.5f).dp
-
-@Composable
-fun dashboardRadiusMedium(): Dp = LocalCornerRadius.current.dp
-
-@Composable
-fun dashboardRadiusSmall(): Dp = (LocalCornerRadius.current * 0.75f).dp
-
-fun formatDuration(ms: Long): String {
-    val sec = (ms / 1000) % 60
-    val min = (ms / (1000 * 60)) % 60
-    val hr = (ms / (1000 * 60 * 60)) % 24
-    return if (hr > 0) {
-        String.format("%d:%02d:%02d", hr, min, sec)
-    } else {
-        String.format("%d:%02d", min, sec)
-    }
-}
-
-fun greetingForTime(): String {
-    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    return when {
-        hour < 5 -> "LATE NIGHT TUNES"
-        hour < 12 -> "GOOD MORNING"
-        hour < 17 -> "GOOD AFTERNOON"
-        hour < 21 -> "GOOD EVENING"
-        else -> "GOOD NIGHT"
-    }
-}
-
-@Composable
-fun PlayingEqualizerWave(
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "wave")
-    
-    val heightScale1 by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(420, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar1"
-    )
-    val heightScale2 by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(310, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar2"
-    )
-    val heightScale3 by infiniteTransition.animateFloat(
-        initialValue = 0.15f,
-        targetValue = 0.75f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(520, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar3"
-    )
-    val heightScale4 by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.95f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(380, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar4"
-    )
-
-    Row(
-        modifier = modifier.height(18.dp).width(20.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale1).clip(RoundedCornerShape(1.dp)).background(color))
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale2).clip(RoundedCornerShape(1.dp)).background(color))
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale3).clip(RoundedCornerShape(1.dp)).background(color))
-        Box(modifier = Modifier.weight(1f).fillMaxHeight(heightScale4).clip(RoundedCornerShape(1.dp)).background(color))
-    }
-}
-
