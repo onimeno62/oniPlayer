@@ -114,6 +114,36 @@ class PlaybackQueueConsistencyTest {
     }
 
     @Test
+    fun removeFromQueue_currentTrack_advancesToNextAndKeepsQueueConsistent() = runBlocking {
+        controller.setQueue(listOf("song_1", "song_2", "song_3"), 0, false)
+
+        controller.removeFromQueue("song_1")
+
+        assertEquals(listOf("song_2", "song_3"), controller.state.value.queue.map { it.id })
+        assertEquals("song_2", controller.state.value.currentSong?.id)
+        assertEquals(
+            listOf("song_2", "song_3"),
+            (0 until controller.player.mediaItemCount).map { controller.player.getMediaItemAt(it).mediaId }
+        )
+        assertEquals(
+            listOf("song_2", "song_3"),
+            awaitPersistedQueue(listOf("song_2", "song_3"))?.queueIds
+        )
+    }
+
+    @Test
+    fun removeFromQueue_lastTrack_stopsAndClearsQueue() = runBlocking {
+        controller.setQueue(listOf("song_1"), 0, false)
+
+        controller.removeFromQueue("song_1")
+
+        assertTrue(controller.state.value.queue.isEmpty())
+        assertNull(controller.state.value.currentSong)
+        assertEquals(0, controller.player.mediaItemCount)
+        assertEquals(false, controller.player.isPlaying)
+    }
+
+    @Test
     fun setQueue_updatesQueueAndPersistsState() = runBlocking {
         controller.setQueue(listOf("song_1", "song_2"), 0, false)
 
