@@ -48,7 +48,7 @@ import com.example.ui.viewmodel.MusicPlayerViewModel
 import java.io.File
 import org.json.JSONArray
 
-private const val PREFS_RECENT_SEARCHES_KEY = "poweramp_recent_searches"
+private const val PREFS_RECENT_SEARCHES_KEY = "poweramp_recent_searches_v2"
 private const val MAX_RECENT_SEARCHES = 10
 
 enum class SearchCategory(val label: String, val icon: ImageVector) {
