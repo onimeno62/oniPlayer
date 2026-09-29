@@ -158,11 +158,6 @@ class PlaybackControllerClient(context: Context) {
 
                             val currentController = this@PlaybackControllerClient.controller
 
-                            // A snapshot can be published by the service just before a transition and
-                            // reach us after the MediaController already reports the next item. Such a
-                            // snapshot must never rewind the visible track (that was the prev/next
-                            // flicker). Modes and flags are still applied; track + queue only when the
-                            // snapshot agrees with the controller.
                             val controllerId = currentController?.currentMediaItem?.mediaId
                             val trackMatches = currentController == null || controllerId == currentId
 
@@ -240,10 +235,6 @@ class PlaybackControllerClient(context: Context) {
                 )
             }
 
-        // Position remains part of PlaybackState, so consumers never observe a
-        // second position flow. The ticker only refreshes that single state while
-        // playback is active; structural state still comes from MediaController
-        // callbacks and STATE_CHANGED commands.
         scope.launch {
             while (true) {
                 val c = controller
@@ -267,7 +258,6 @@ class PlaybackControllerClient(context: Context) {
     private var cachedQueueIds = emptyList<String>()
     private var cachedQueueSongs = emptyList<SongEntity>()
 
-    /** The service broadcast is authoritative; Media3 only tells us ONE / ALL / "off-ish". */
     private fun logicalRepeat(c: MediaController): RepeatMode =
         RepeatMode.reconcile(c.repeatMode, _state.value.repeatMode, keepAllWhenOff = true)
 
@@ -281,8 +271,6 @@ class PlaybackControllerClient(context: Context) {
             ?: 0
         val bufferedVal = c.bufferedPosition.coerceAtLeast(0)
 
-        // Publish immediately when the queue is already cached. Do not put a Room read
-        // in front of a playback transition reaching Compose.
         if (ids == cachedQueueIds && cachedQueueSongs.isNotEmpty()) {
             val current = if (currentId != null) cachedQueueSongs.find { it.id == currentId } else null
             _state.value = _state.value.copy(
@@ -349,10 +337,7 @@ class PlaybackControllerClient(context: Context) {
     fun togglePlayPause() = withController { if (it.isPlaying) it.pause() else it.play() }
     fun seekTo(ms: Long) = withController { it.seekTo(ms.coerceAtLeast(0)) }
 
-    /** Routed through the service so it cancels a pending auto-next delay and follows the shuffle order. */
     fun next() = command(PlaybackController.NEXT)
-
-    /** Routed through the service so the "rewind on previous" setting is honoured. */
     fun previous() = command(PlaybackController.PREVIOUS)
 
     fun stop() = withController { it.stop() }
@@ -370,10 +355,6 @@ class PlaybackControllerClient(context: Context) {
         }
     )
 
-    /**
-     * Shuffle orders are built by the service (it owns the timeline and the category grouping),
-     * so the client only sends the requested state.
-     */
     fun setShuffle(enabled: Boolean, mode: ShuffleMode, type: ShuffleType = _state.value.shuffleType) = command(
         PlaybackController.SET_SHUFFLE,
         Bundle().apply {
@@ -390,6 +371,15 @@ class PlaybackControllerClient(context: Context) {
 
     fun playNext(song: SongEntity) = command(
         PlaybackController.PLAY_NEXT,
+        Bundle().apply { putString(PlaybackController.SONG_ID, song.id) }
+    )
+
+    /**
+     * Removes a song from the active queue. If the song is currently playing,
+     * playback advances to the next track automatically.
+     */
+    fun removeFromQueue(song: SongEntity) = command(
+        PlaybackController.REMOVE_FROM_QUEUE,
         Bundle().apply { putString(PlaybackController.SONG_ID, song.id) }
     )
 
