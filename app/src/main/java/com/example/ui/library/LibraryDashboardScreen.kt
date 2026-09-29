@@ -67,9 +67,13 @@ fun LibraryDashboardScreen(
         contentPadding = PaddingValues(bottom = OniSkin.spacing.lg),
         verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.lg)
     ) {
-        // 1. Dashboard Header (with SettingsSuggest trigger)
+        // 1. Dashboard Header (with rescan left of Library Menu)
         item(key = "dashboard_header") {
-            LibraryDashboardHeader(showOptionsMenu = showOptionsMenu)
+            LibraryDashboardHeader(
+                isScanning = isScanning,
+                onRescan = onRescan,
+                showOptionsMenu = showOptionsMenu
+            )
         }
 
         if (searchQuery.isNotBlank()) {
@@ -288,6 +292,8 @@ fun LibraryDashboardScreen(
 
 @Composable
 private fun LibraryDashboardHeader(
+    isScanning: Boolean,
+    onRescan: () -> Unit,
     showOptionsMenu: () -> Unit
 ) {
     Row(
@@ -322,19 +328,51 @@ private fun LibraryDashboardHeader(
             )
         }
 
-        OniSurface(
-            variant = OniSurfaceVariant.Soft,
-            shape = OniSkin.shapes.full
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
         ) {
-            IconButton(
-                onClick = showOptionsMenu,
-                modifier = Modifier.size(48.dp)
+            // Rescan button placed directly to the left of Library Menu
+            OniSurface(
+                variant = OniSurfaceVariant.Soft,
+                shape = OniSkin.shapes.full
             ) {
-                Icon(
-                    imageVector = Icons.Default.SettingsSuggest,
-                    contentDescription = "Library settings",
-                    tint = OniSkin.colors.primary
-                )
+                IconButton(
+                    onClick = onRescan,
+                    modifier = Modifier.size(48.dp),
+                    enabled = !isScanning
+                ) {
+                    if (isScanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = OniSkin.colors.primary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Scan library",
+                            tint = OniSkin.colors.primary
+                        )
+                    }
+                }
+            }
+
+            // Library Menu button
+            OniSurface(
+                variant = OniSurfaceVariant.Soft,
+                shape = OniSkin.shapes.full
+            ) {
+                IconButton(
+                    onClick = showOptionsMenu,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SettingsSuggest,
+                        contentDescription = "Library Menu",
+                        tint = OniSkin.colors.primary
+                    )
+                }
             }
         }
     }
