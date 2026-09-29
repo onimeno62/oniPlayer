@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.Icon
@@ -38,7 +37,7 @@ import com.example.ui.theme.OniSkin
  * Queue sheet for the Player screen in Default Skin.
  *
  * Displays the active queue with current playing track indicator,
- * remove-from-queue buttons, and drag handles for reordering.
+ * remove-from-queue buttons and current-track indication.
  */
 @Composable
 fun PlayerQueueSheet(
@@ -177,16 +176,6 @@ fun PlayerQueueSheet(
                                             .padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // Drag handle for reordering
-                                        Icon(
-                                            imageVector = Icons.Default.DragHandle,
-                                            contentDescription = "Reorder",
-                                            tint = OniSkin.colors.textTertiary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-
-                                        Spacer(modifier = Modifier.width(8.dp))
-
                                         OniArtwork(
                                             artworkUri = song.albumArtUri,
                                             contentDescription = null,
@@ -224,8 +213,8 @@ fun PlayerQueueSheet(
                                             )
                                         }
 
-                                        // Remove from queue button (not for currently playing)
-                                        if (onRemoveFromQueue != null && !isCurrent) {
+                                        // The playback controller handles current-track removal by advancing safely.
+                                        if (onRemoveFromQueue != null) {
                                             IconButton(
                                                 onClick = { onRemoveFromQueue(song) },
                                                 modifier = Modifier.size(36.dp)
@@ -237,7 +226,7 @@ fun PlayerQueueSheet(
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
-                                        } else if (onRemoveFromQueue == null || isCurrent) {
+                                        } else {
                                             Spacer(modifier = Modifier.width(8.dp))
                                         }
                                     }
