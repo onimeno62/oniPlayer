@@ -79,6 +79,7 @@ import com.example.ui.library.GenresScreen
 import com.example.ui.library.AlbumDetailScreen
 import com.example.ui.library.ArtistDetailScreen
 import com.example.ui.library.components.HorizontalSongCard
+import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryStatsStrip
 import com.example.ui.library.model.toAlbumUiModels
 import com.example.ui.library.model.toArtistUiModels
@@ -479,23 +480,73 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                     }
                                 }
 
-                                Column {
+                                val heroArtwork = songsInGroup.firstNotNullOfOrNull { it.albumArtUri?.takeIf { uri -> uri.isNotBlank() } }
+                                val heroSubtitle = if (songsInGroup.size == 1) "1 song" else "${songsInGroup.size} songs"
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = OniSkin.spacing.screenHorizontal)
+                                ) {
+                                    LibraryCategoryHero(
+                                        title = currentGroup,
+                                        subtitle = heroSubtitle,
+                                        artworkUri = heroArtwork,
+                                        icon = Icons.Default.Folder,
+                                        modifier = Modifier.padding(vertical = OniSkin.spacing.md)
+                                    )
+
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { viewModel.setSelectedGroup(null) }
-                                            .padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .padding(bottom = OniSkin.spacing.md),
+                                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                                     ) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        Text(
-                                            text = currentGroup,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 18.sp,
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
+                                        Button(
+                                            onClick = {
+                                                if (sortedSongsInGroup.isNotEmpty()) {
+                                                    viewModel.playSong(sortedSongsInGroup.first(), sortedSongsInGroup)
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = OniSkin.shapes.button,
+                                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = OniSkin.colors.primary,
+                                                contentColor = OniSkin.colors.onPrimary
+                                            )
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                                            Text("Play All", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        FilledTonalButton(
+                                            onClick = {
+                                                if (sortedSongsInGroup.isNotEmpty()) {
+                                                    val startSong = sortedSongsInGroup.random()
+                                                    viewModel.playSong(startSong, sortedSongsInGroup.shuffled())
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = OniSkin.shapes.button,
+                                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                containerColor = OniSkin.colors.surfaceVariant,
+                                                contentColor = OniSkin.colors.textPrimary
+                                            )
+                                        ) {
+                                            Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                                            Text("Shuffle", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
+                                        }
                                     }
+
+                                    HorizontalDivider(
+                                        color = OniSkin.colors.outline.copy(alpha = 0.2f),
+                                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
+                                    )
+
                                     SongsListView(
                                         songs = sortedSongsInGroup,
                                         viewModel = viewModel,
@@ -590,23 +641,73 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
                                     }
                                 }
 
-                                Column {
+                                val heroArtwork = songsInGroup.firstNotNullOfOrNull { it.albumArtUri?.takeIf { uri -> uri.isNotBlank() } }
+                                val heroSubtitle = if (songsInGroup.size == 1) "1 song" else "${songsInGroup.size} songs"
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = OniSkin.spacing.screenHorizontal)
+                                ) {
+                                    LibraryCategoryHero(
+                                        title = currentGroup,
+                                        subtitle = heroSubtitle,
+                                        artworkUri = heroArtwork,
+                                        icon = Icons.Default.Category,
+                                        modifier = Modifier.padding(vertical = OniSkin.spacing.md)
+                                    )
+
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { viewModel.setSelectedGroup(null) }
-                                            .padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .padding(bottom = OniSkin.spacing.md),
+                                        horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
                                     ) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        Text(
-                                            text = currentGroup,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 18.sp,
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
+                                        Button(
+                                            onClick = {
+                                                if (sortedSongsInGroup.isNotEmpty()) {
+                                                    viewModel.playSong(sortedSongsInGroup.first(), sortedSongsInGroup)
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = OniSkin.shapes.button,
+                                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = OniSkin.colors.primary,
+                                                contentColor = OniSkin.colors.onPrimary
+                                            )
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                                            Text("Play All", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        FilledTonalButton(
+                                            onClick = {
+                                                if (sortedSongsInGroup.isNotEmpty()) {
+                                                    val startSong = sortedSongsInGroup.random()
+                                                    viewModel.playSong(startSong, sortedSongsInGroup.shuffled())
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = OniSkin.shapes.button,
+                                            contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                containerColor = OniSkin.colors.surfaceVariant,
+                                                contentColor = OniSkin.colors.textPrimary
+                                            )
+                                        ) {
+                                            Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                                            Text("Shuffle", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
+                                        }
                                     }
+
+                                    HorizontalDivider(
+                                        color = OniSkin.colors.outline.copy(alpha = 0.2f),
+                                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
+                                    )
+
                                     SongsListView(
                                         songs = sortedSongsInGroup,
                                         viewModel = viewModel,
