@@ -1,7 +1,10 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -13,7 +16,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +36,7 @@ import com.example.ui.player.components.*
 import com.example.ui.player.model.PlayerUiState
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
+import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
 /**
@@ -113,6 +119,9 @@ fun PlayerScreen(
             onPlaySong = { selectedSong ->
                 viewModel.playSong(selectedSong, uiState.queue)
             },
+            onRemoveFromQueue = { songToRemove ->
+                viewModel.removeFromQueue(songToRemove)
+            },
             onDismiss = { showQueueSheet = false }
         )
     }
@@ -162,6 +171,7 @@ fun PlayerScreen(
  * Pure presentation layout for the Player Screen.
  *
  * Implemented with Default Skin tokens and components.
+ * Includes swipe-down-on-artwork gesture to navigate back to library.
  */
 @Composable
 fun PlayerContent(
@@ -190,6 +200,13 @@ fun PlayerContent(
     val scrollState = rememberScrollState()
     val layoutDirection = LocalLayoutDirection.current
     val isRtl = layoutDirection == LayoutDirection.Rtl
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    // Swipe-down-on-artwork state: tracks vertical drag offset for dismiss gesture
+    val artworkDragOffsetY = remember { Animatable(0f) }
+    // Threshold in pixels: ~120dp converted to px
+    val dismissThresholdPx = with(density) { 120.dp.toPx() }
 
     Surface(
         color = OniSkin.colors.background,
@@ -303,6 +320,12 @@ fun PlayerContent(
                     val controlsSpacer = if (isCompactHeight) 8.dp else 14.dp
                     val featureBtnHeight = 48.dp
 
+                    // Calculate visual feedback from artwork drag
+                    val dragProgress = (artworkDragOffsetY.value / dismissThresholdPx).coerceIn(0f, 1.5f)
+                    val artworkTranslateY = artworkDragOffsetY.value.coerceAtLeast(0f)
+                    val artworkDragScale = 1f - (dragProgress * 0.08f).coerceAtMost(0.12f)
+                    val artworkDragAlpha = 1f - (dragProgress * 0.3f).coerceAtMost(0.45f)
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -322,13 +345,66 @@ fun PlayerContent(
 
                         Spacer(modifier = Modifier.height(topSpacer))
 
-                        // 2. Responsive Album Artwork with subtle playback motion
-                        PlayerArtwork(
-                            song = song,
-                            isPlaying = uiState.isPlaying,
-                            maxSize = artworkMaxSize,
-                            onClick = onTogglePlayPause
-                        )
+                        // 2. Album Artwork with swipe-down-to-dismiss gesture
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    translationY = artworkTranslateY
+                                    scaleX = artworkDragScale
+                                    scaleY = artworkDragScale
+                                    alpha = artworkDragAlpha
+                                }
+                                .pointerInput(Unit) {
+                                    detectVerticalDragGestures(
+                                        onDragStart = {
+                                            // Reset offset at drag start
+                                        },
+                                        onDragEnd = {
+                                            if (artworkDragOffsetY.value > dismissThresholdPx) {
+                                                // Threshold reached: navigate back to library
+                                                onNavigateBack()
+                                                scope.launch {
+                                                    artworkDragOffsetY.snapTo(0f)
+                                                }
+                                            } else {
+                                                // Snap back with spring animation
+                                                scope.launch {
+                                                    artworkDragOffsetY.animateTo(
+                                                        targetValue = 0f,
+                                                        animationSpec = spring(
+                                                            dampingRatio = 0.6f,
+                                                            stiffness = 400f
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onDragCancel = {
+                                            scope.launch {
+                                                artworkDragOffsetY.animateTo(0f, spring())
+                                            }
+                                        },
+                                        onVerticalDrag = { change, dragAmount ->
+                                            // Only track downward drags (positive Y)
+                                            if (dragAmount > 0 || artworkDragOffsetY.value > 0) {
+                                                change.consume()
+                                                scope.launch {
+                                                    val newValue = (artworkDragOffsetY.value + dragAmount)
+                                                        .coerceAtLeast(0f)
+                                                    artworkDragOffsetY.snapTo(newValue)
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+                        ) {
+                            PlayerArtwork(
+                                song = song,
+                                isPlaying = uiState.isPlaying,
+                                maxSize = artworkMaxSize,
+                                onClick = onTogglePlayPause
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(artSpacer))
 
