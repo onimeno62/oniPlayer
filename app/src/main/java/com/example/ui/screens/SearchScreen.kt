@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -329,7 +330,7 @@ fun SearchScreen(viewModel: MusicPlayerViewModel) {
                             TextButton(onClick = { clearAllRecentSearches() }) {
                                 Text(
                                     text = "Clear all",
-                                    style = OniSkin.typography.labelSmall,
+                                    style = OniSkin.typography.caption,
                                     color = OniSkin.colors.textTertiary
                                 )
                             }
