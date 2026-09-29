@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
