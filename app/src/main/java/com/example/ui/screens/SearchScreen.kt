@@ -40,10 +40,6 @@ import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.components.SongRow
-import com.example.ui.library.model.toAlbumUiModels
-import com.example.ui.library.model.toArtistUiModels
-import com.example.ui.library.model.toFolderUiModels
-import com.example.ui.library.model.toGenreUiModels
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import java.io.File
@@ -65,123 +61,16 @@ enum class SearchCategory(val label: String, val icon: ImageVector) {
 @Composable
 fun SearchScreen(viewModel: MusicPlayerViewModel) {
     val songs by viewModel.allSongs.collectAsStateWithLifecycle()
-    val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
-    val artistSummaries by viewModel.allArtistSummaries.collectAsStateWithLifecycle()
-    val currentSong by viewModel.audioEngine.currentSong.collectAsStateWithLifecycle()
-    val isPlaying by viewModel.audioEngine.isPlaying.collectAsStateWithLifecycle()
-
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var selectedCategory by rememberSaveable { mutableStateOf(SearchCategory.ALL) }
-    var songForMenu by remember { mutableStateOf<SongEntity?>(null) }
-    var songToEdit by remember { mutableStateOf<SongEntity?>(null) }
-
-    val context = LocalContext.current
-    val sharedPrefs = remember(context) {
-        context.getSharedPreferences("oniplayer_search_prefs", android.content.Context.MODE_PRIVATE)
-    }
-
-    var recentSearches by remember {
-        val saved = sharedPrefs.getString(PREFS_RECENT_SEARCHES_KEY, null)
-        val ordered = runCatching {
-            if (saved.isNullOrBlank()) {
-                emptyList()
-            } else {
-                JSONArray(saved).let { array ->
-                    buildList(array.length()) {
-                        for (index in 0 until array.length()) add(array.getString(index))
-                    }
-                }
-            }
-        }.getOrDefault(emptyList())
-        mutableStateOf(ordered.take(MAX_RECENT_SEARCHES))
-    }
-
-    fun persistRecentSearches(items: List<String>) {
-        sharedPrefs.edit()
-            .putString(PREFS_RECENT_SEARCHES_KEY, JSONArray(items).toString())
-            .apply()
-    }
-
-    fun saveRecentSearch(query: String) {
-        val trimmed = query.trim()
-        if (trimmed.length < 2) return
-        val updated = (listOf(trimmed) + recentSearches.filterNot { it.equals(trimmed, ignoreCase = true) })
-            .take(MAX_RECENT_SEARCHES)
-        recentSearches = updated
-        persistRecentSearches(updated)
-    }
-
-    fun removeRecentSearch(query: String) {
-        val updated = recentSearches.filterNot { it.equals(query, ignoreCase = true) }
-        recentSearches = updated
-        persistRecentSearches(updated)
-    }
-
-    fun clearAllRecentSearches() {
-        recentSearches = emptyList()
-        sharedPrefs.edit().remove(PREFS_RECENT_SEARCHES_KEY).apply()
-    }
-
+    val searchUiState by viewModel.searchUiState.collectAsStateWithLifecycle()
+    val searchQuery = searchUiState.query
     val trimmedQuery = searchQuery.trim()
 
-    val albumUiModels = remember(songs) { songs.toAlbumUiModels() }
-    val artistUiModels = remember(songs, artistSummaries) { songs.toArtistUiModels(artistSummaries) }
-    val folderUiModels = remember(songs) { songs.toFolderUiModels() }
-    val genreUiModels = remember(songs) { songs.toGenreUiModels() }
-
-    // Scoped search results
-    val matchingTracks = remember(songs, trimmedQuery) {
-        if (trimmedQuery.isEmpty()) emptyList() else {
-            songs.filter {
-                it.displayTitle.contains(trimmedQuery, ignoreCase = true) ||
-                it.displayArtist.contains(trimmedQuery, ignoreCase = true) ||
-                it.displayAlbum.contains(trimmedQuery, ignoreCase = true) ||
-                it.displayGenre.contains(trimmedQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    val matchingAlbums = remember(albumUiModels, trimmedQuery) {
-        if (trimmedQuery.isEmpty()) emptyList() else {
-            albumUiModels.filter {
-                it.title.contains(trimmedQuery, ignoreCase = true) ||
-                it.artist.contains(trimmedQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    val matchingArtists = remember(artistUiModels, trimmedQuery) {
-        if (trimmedQuery.isEmpty()) emptyList() else {
-            artistUiModels.filter {
-                it.name.contains(trimmedQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    val matchingFolders = remember(folderUiModels, trimmedQuery) {
-        if (trimmedQuery.isEmpty()) emptyList() else {
-            folderUiModels.filter {
-                it.displayName.contains(trimmedQuery, ignoreCase = true) ||
-                it.folderPath.contains(trimmedQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    val matchingGenres = remember(genreUiModels, trimmedQuery) {
-        if (trimmedQuery.isEmpty()) emptyList() else {
-            genreUiModels.filter {
-                it.genre.contains(trimmedQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    val matchingPlaylists = remember(playlists, trimmedQuery) {
-        if (trimmedQuery.isEmpty()) emptyList() else {
-            playlists.filter {
-                it.name.contains(trimmedQuery, ignoreCase = true)
-            }
-        }
-    }
+    val matchingTracks = searchUiState.matchingTracks
+    val matchingAlbums = searchUiState.matchingAlbums
+    val matchingArtists = searchUiState.matchingArtists
+    val matchingFolders = searchUiState.matchingFolders
+    val matchingGenres = searchUiState.matchingGenres
+    val matchingPlaylists = searchUiState.matchingPlaylists
 
     val totalMatches = matchingTracks.size + matchingAlbums.size + matchingArtists.size +
         matchingFolders.size + matchingGenres.size + matchingPlaylists.size
@@ -202,7 +91,7 @@ fun SearchScreen(viewModel: MusicPlayerViewModel) {
         ) {
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
+                onValueChange = viewModel::setSearchQuery,
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester)
@@ -344,7 +233,7 @@ fun SearchScreen(viewModel: MusicPlayerViewModel) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 48.dp)
-                                .clickable { searchQuery = queryItem }
+                                .clickable { viewModel.setSearchQuery(queryItem) }
                         ) {
                             Row(
                                 modifier = Modifier
@@ -404,7 +293,7 @@ fun SearchScreen(viewModel: MusicPlayerViewModel) {
                             )
                             Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
                             Text(
-                                text = "Quickly search across ${songs.size} tracks, ${albumUiModels.size} albums, ${artistUiModels.size} artists, folders and playlists",
+                                text = "Quickly search across ${songs.size} tracks, ${searchUiState.albumCount} albums, ${searchUiState.artistCount} artists, folders and playlists",
                                 style = OniSkin.typography.bodySmall,
                                 color = OniSkin.colors.textSecondary,
                                 modifier = Modifier.padding(horizontal = OniSkin.spacing.lg),
