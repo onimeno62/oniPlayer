@@ -18,14 +18,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.SongEntity
-import com.example.ui.components.music.OniArtwork
+import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.components.SongRow
 import com.example.ui.screens.formatDuration
@@ -49,63 +47,29 @@ fun PlaylistDetailScreen(
         songsInPlaylist.firstNotNullOfOrNull { it.albumArtUri?.takeIf { uri -> uri.isNotBlank() } }
     }
 
+    val subtitle = buildString {
+        val songText = if (songsInPlaylist.size == 1) "1 track" else "${songsInPlaylist.size} tracks"
+        append(songText)
+        if (totalDurationMs > 0) {
+            append(" · ${formatDuration(totalDurationMs)}")
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = OniSkin.spacing.screenHorizontal)
     ) {
-        // Hero Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = OniSkin.spacing.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OniArtwork(
-                artworkUri = artworkUri,
-                size = 100.dp,
-                shape = OniSkin.artwork.shape,
-                contentDescription = "Cover art for ${playlist.name}",
-                placeholder = {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                            contentDescription = null,
-                            tint = OniSkin.colors.primary.copy(alpha = 0.7f),
-                            modifier = Modifier.size(44.dp)
-                        )
-                    }
-                }
-            )
+        // Shared hero banner
+        LibraryCategoryHero(
+            title = playlist.name,
+            subtitle = subtitle,
+            artworkUri = artworkUri,
+            icon = Icons.AutoMirrored.Filled.QueueMusic,
+            modifier = Modifier.padding(vertical = OniSkin.spacing.md)
+        )
 
-            Spacer(modifier = Modifier.width(OniSkin.spacing.md))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = playlist.name,
-                    style = OniSkin.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = OniSkin.colors.textPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
-                val songText = if (songsInPlaylist.size == 1) "1 track" else "${songsInPlaylist.size} tracks"
-                val durationText = if (totalDurationMs > 0) " • ${formatDuration(totalDurationMs)}" else ""
-                Text(
-                    text = "$songText$durationText",
-                    style = OniSkin.typography.bodyMedium,
-                    color = OniSkin.colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        // Action Buttons Row
+        // Action Buttons Row (outside hero for consistent list rhythm)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
