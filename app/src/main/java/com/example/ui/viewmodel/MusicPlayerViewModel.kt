@@ -981,6 +981,10 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         audioEngine.playNext(song)
     }
 
+    fun removeFromQueue(song: SongEntity) {
+        audioEngine.removeFromQueue(song)
+    }
+
     fun addToQueue(song: SongEntity) {
         audioEngine.addToQueue(song)
     }
