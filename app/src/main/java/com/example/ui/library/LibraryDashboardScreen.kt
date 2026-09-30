@@ -148,6 +148,18 @@ fun LibraryDashboardScreen(
                 }
             }
 
+            // 3b. Play All / Shuffle directly under the hero (whole library)
+            item(key = "play_all_shuffle") {
+                PlayAllShuffleRow(
+                    onPlayAll = { songs.firstOrNull()?.let { onPlaySong(it, songs) } },
+                    onShuffle = {
+                        val shuffled = songs.shuffled()
+                        shuffled.firstOrNull()?.let { onPlaySong(it, shuffled) }
+                    },
+                    songCount = songs.size
+                )
+            }
+
             // 4. Browse your library (Cards contain ONLY category icon and name)
             item(key = "library_shortcuts") {
                 LibrarySection(title = "Browse your library") {
