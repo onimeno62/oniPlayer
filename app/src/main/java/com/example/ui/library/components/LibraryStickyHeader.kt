@@ -239,7 +239,13 @@ private fun HeaderSearchField(
     val keyboard = LocalSoftwareKeyboardController.current
     var lastSent by remember { mutableStateOf(initialQuery) }
 
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(focus) { focus.requestFocus() }
+    LaunchedEffect(initialQuery) {
+        if (text != initialQuery) {
+            text = initialQuery
+            lastSent = initialQuery
+        }
+    }
     LaunchedEffect(text) {
         delay(300)
         if (text != lastSent) {
