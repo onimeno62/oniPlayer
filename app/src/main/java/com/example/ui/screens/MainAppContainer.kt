@@ -75,8 +75,10 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         Manifest.permission.READ_EXTERNAL_STORAGE
     }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) viewModel.rescanLibrary()
-        LibraryPreferencesStore.setOnboardingDone(context)
+        if (granted) {
+            viewModel.rescanLibrary()
+            LibraryPreferencesStore.setOnboardingDone(context)
+        }
     }
     val startScanFromOnboarding = {
         val has = ContextCompat.checkSelfPermission(context, audioPermission) == PackageManager.PERMISSION_GRANTED
