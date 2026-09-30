@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -17,10 +22,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.preferences.LibraryPreferencesStore
 import com.example.ui.components.navigation.OniFloatingNavigation
 import com.example.ui.components.navigation.OniNavigationDestination
 import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.onboarding.OnboardingScreen
 import com.example.ui.theme.OniPlayerTheme
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
@@ -37,6 +47,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
     val backgroundTransparency by viewModel.backgroundTransparency.collectAsState()
     val reduceMotion by viewModel.reduceMotionEnabled.collectAsState()
     val isSystemDark = isSystemInDarkTheme()
+    val context = LocalContext.current
 
     LaunchedEffect(selectedThemeOption, isSystemDark) {
         viewModel.updateThemeFromOption(selectedThemeOption, isSystemDark)
@@ -44,6 +55,38 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
 
     val currentTab by viewModel.currentTab.collectAsState()
     val currentSong by viewModel.audioEngine.currentSong.collectAsState()
+
+    // ---- first-run onboarding ----------------------------------------------------------------
+    val onboardingDone by LibraryPreferencesStore.onboardingDone(context)
+        .collectAsStateWithLifecycle<Boolean?>(initialValue = null)
+    val allSongs by viewModel.allSongs.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+
+    // Existing users who already have a library never see the slider
+    LaunchedEffect(onboardingDone, allSongs.isNotEmpty()) {
+        if (onboardingDone == false && allSongs.isNotEmpty()) {
+            LibraryPreferencesStore.setOnboardingDone(context)
+        }
+    }
+
+    val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.rescanLibrary()
+        LibraryPreferencesStore.setOnboardingDone(context)
+    }
+    val startScanFromOnboarding = {
+        val has = ContextCompat.checkSelfPermission(context, audioPermission) == PackageManager.PERMISSION_GRANTED
+        if (has) {
+            viewModel.rescanLibrary()
+            LibraryPreferencesStore.setOnboardingDone(context)
+        } else {
+            permissionLauncher.launch(audioPermission)
+        }
+    }
 
     val destinations = remember {
         listOf(
@@ -66,6 +109,17 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         reduceMotion = reduceMotion
     ) {
         val motion = OniSkin.motion
+
+        if (onboardingDone == false && allSongs.isEmpty()) {
+            OnboardingScreen(
+                onScanLibrary = startScanFromOnboarding,
+                onSkip = { LibraryPreferencesStore.setOnboardingDone(context) },
+                isScanning = isScanning,
+                reduceMotion = reduceMotion
+            )
+            return@OniPlayerTheme
+        }
+
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing.only(
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal
@@ -120,7 +174,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     label = "Screen transition"
                 ) { tab ->
                     when (tab) {
-                        0 -> LibraryScreen(viewModel = viewModel)
+                        0 -> LibraryHostScreen(viewModel = viewModel)
                         1 -> PlayerScreen(viewModel = viewModel)
                         2 -> SearchScreen(viewModel = viewModel)
                         3 -> SettingsScreen(viewModel = viewModel)
