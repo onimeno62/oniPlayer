@@ -41,6 +41,7 @@ import com.example.ui.library.model.toFolderUiModels
 import com.example.ui.library.model.toGenreUiModels
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import java.io.File
+import org.json.JSONArray
 
 // Category indices (same as the legacy LibraryScreen categoryList)
 private const val CAT_ALL = 0
@@ -231,10 +232,35 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
         }
     }
 
-    // Songs currently visible in a song list: contextual search + persisted sort
-    val visibleSongs: List<SongEntity> = remember(baseSongs, searchQuery, sortBy, isSortAscending, activeCategoryIndex) {
-        val filtered = hostFilterSongs(baseSongs, searchQuery)
-        if (activeCategoryIndex == CAT_MOST_PLAYED || activeCategoryIndex == CAT_RECENT) filtered
+    // Songs currently visible in a song list: contextual search + persisted sort.
+    // Detail/header playback uses the same authoritative song set as the body.
+    val playlistSongs = remember(activePlaylist, songs) {
+        val playlist = activePlaylist ?: return@remember emptyList()
+        val ids = runCatching {
+            val json = JSONArray(playlist.songIdsJson)
+            List(json.length()) { index -> json.getString(index) }
+        }.getOrDefault(emptyList())
+        val byId = songs.associateBy { it.id }
+        ids.mapNotNull(byId::get)
+    }
+    val smartPlaylistSongs = remember(activeSmartPlaylistType, songs, favorites) {
+        when (activeSmartPlaylistType) {
+            "Recently Played" -> songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }
+            "Favorites" -> favorites
+            "High Rating" -> songs.filter { it.rating >= 4 }.sortedByDescending { it.rating }
+            "Never Played" -> songs.filter { it.playCount == 0 }
+            else -> emptyList()
+        }
+    }
+    val headerBaseSongs = when {
+        activePlaylist != null -> playlistSongs
+        activeSmartPlaylistType != null -> smartPlaylistSongs
+        activeCategoryIndex == CAT_PLAYLISTS || activeCategoryIndex == CAT_SMART -> emptyList()
+        else -> baseSongs
+    }
+    val visibleSongs: List<SongEntity> = remember(headerBaseSongs, searchQuery, sortBy, isSortAscending, activeCategoryIndex, activePlaylist, activeSmartPlaylistType) {
+        val filtered = hostFilterSongs(headerBaseSongs, searchQuery)
+        if (activeCategoryIndex == CAT_MOST_PLAYED || activeCategoryIndex == CAT_RECENT || activeSmartPlaylistType == "Recently Played") filtered
         else hostSortSongs(filtered, sortBy, isSortAscending)
     }
 
@@ -387,7 +413,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                                 onMenu
                             )
                         } else {
-                            LaunchedEffect(Unit) { viewModel.setSelectedGroup(null) }
+                            LaunchedEffect(group) { viewModel.setSelectedGroup(null) }
                         }
                     } else {
                         AlbumsScreen(
