@@ -26,6 +26,7 @@ import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import com.example.data.database.OniDatabase
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
@@ -97,6 +98,7 @@ class PlaybackController(private val service: MediaSessionService) {
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     internal val commandMutex = Mutex()
     private val _isReleased = AtomicBoolean(false)
+    private val persistenceRevision = AtomicLong(0L)
     val isReleased: Boolean get() = _isReleased.get()
     private val playbackDelayController = PlaybackDelayController(
         scope = scope,
@@ -699,6 +701,7 @@ class PlaybackController(private val service: MediaSessionService) {
 
     private fun savePlaybackState() {
         if (isReleased) return
+        val revision = persistenceRevision.incrementAndGet()
         val currentId = player.currentMediaItem?.mediaId
         val currentPosition = player.currentPosition
         val isPlaying = player.isPlaying
@@ -713,7 +716,7 @@ class PlaybackController(private val service: MediaSessionService) {
         val currentRepeatMode = repeatMode
         val currentPreShuffleAll = preShuffleAllQueue
         scope.launch(Dispatchers.IO) {
-            if (isReleased) return@launch
+            if (isReleased || revision != persistenceRevision.get()) return@launch
             persistence.save(
                 PersistedPlaybackState(
                     currentSongId = currentId,
