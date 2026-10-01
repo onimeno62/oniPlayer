@@ -58,6 +58,8 @@ fun ArtistDetailScreen(
     onShowTrackMenu: (SongEntity) -> Unit,
     layoutMode: String,
     viewModel: com.example.ui.viewmodel.MusicPlayerViewModel,
+    artworkActionRequest: Int = 0,
+    onArtworkActionHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showImagePickerDialog by remember { mutableStateOf(false) }
@@ -104,148 +106,16 @@ fun ArtistDetailScreen(
     Box(
         modifier = modifier.fillMaxSize()
     ) {
-        // Full Width Background Image / Gradient
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-        ) {
-            if (artworkToDisplay != null) {
-                AsyncImage(
-                    model = artworkToDisplay,
-                    contentDescription = "Background for ${artist.name}",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    accentColor.copy(alpha = 0.4f),
-                                    accentColor.copy(alpha = 0.05f)
-                                )
-                            )
-                        )
-                )
-            }
-
-            // Dark/dimming gradient overlay
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.1f),
-                                Color.Black.copy(alpha = 0.4f),
-                                MaterialTheme.colorScheme.background
-                            )
-                        )
-                    )
-            )
-        }
-
-        // Main content column over the background
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            Spacer(modifier = Modifier.height(110.dp))
-
-            // Artist Information Overlay Header Section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp, horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .clickable {
-                            viewModel.fetchOnlineArtistImages(artist.name)
-                            showImagePickerDialog = true
-                        }
-                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = artist.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = "Change picture",
-                        tint = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
-                val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
-                Box(
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "$albumText • $songText",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                }
-            }
-
-        // Action Buttons
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Button(
-                onClick = onPlayAll,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = LocalAccentColor.current,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Play All", fontWeight = FontWeight.Bold)
-            }
-
-            FilledTonalButton(
-                onClick = onShufflePlay,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Shuffle,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Shuffle", fontWeight = FontWeight.Bold)
+        LaunchedEffect(artworkActionRequest) {
+            if (artworkActionRequest > 0) {
+                viewModel.fetchOnlineArtistImages(artist.name)
+                showImagePickerDialog = true
+                onArtworkActionHandled()
             }
         }
+
+        // The sticky library header owns the artist artwork action and all playback actions.
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Biography / Artist Summary Section
         val accentColor = LocalAccentColor.current

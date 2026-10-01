@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.components.OniSectionHeader
 import com.example.ui.library.components.PlaylistCard
@@ -51,9 +50,6 @@ fun PlaylistsScreen(
     var playlistToRename by remember { mutableStateOf<PlaylistUiModel?>(null) }
     var playlistToDelete by remember { mutableStateOf<PlaylistUiModel?>(null) }
 
-    val heroArtwork = playlists.firstNotNullOfOrNull { it.artworkUri }
-    val totalTracks = playlists.sumOf { it.songCount }
-    val heroSubtitle = if (playlists.size == 1) "1 playlist • $totalTracks tracks" else "${playlists.size} playlists • $totalTracks tracks"
 
     Box(modifier = modifier.fillMaxSize()) {
         if (layoutMode == "grid") {
@@ -80,21 +76,6 @@ fun PlaylistsScreen(
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        LibraryCategoryHero(
-                            title = "Playlists",
-                            subtitle = heroSubtitle,
-                            artworkUri = heroArtwork,
-                            icon = Icons.AutoMirrored.Filled.QueueMusic,
-                            modifier = Modifier.padding(bottom = OniSkin.spacing.sm)
-                        )
-
-                        PlaylistsActionRow(
-                            onCreateClick = { showCreateDialog = true },
-                            onImportClick = { showImportDialog = true }
-                        )
-
-                        Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
-
                         OniSectionHeader(
                             title = "Your Playlists",
                             modifier = Modifier.padding(top = OniSkin.spacing.xs, bottom = OniSkin.spacing.xxs)
@@ -147,21 +128,6 @@ fun PlaylistsScreen(
             ) {
                 item(key = "playlists_hero") {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        LibraryCategoryHero(
-                            title = "Playlists",
-                            subtitle = heroSubtitle,
-                            artworkUri = heroArtwork,
-                            icon = Icons.AutoMirrored.Filled.QueueMusic,
-                            modifier = Modifier.padding(bottom = OniSkin.spacing.sm)
-                        )
-
-                        PlaylistsActionRow(
-                            onCreateClick = { showCreateDialog = true },
-                            onImportClick = { showImportDialog = true }
-                        )
-
-                        Spacer(modifier = Modifier.height(OniSkin.spacing.xs))
-
                         OniSectionHeader(
                             title = "Your Playlists",
                             modifier = Modifier.padding(top = OniSkin.spacing.xs, bottom = OniSkin.spacing.xxs)
