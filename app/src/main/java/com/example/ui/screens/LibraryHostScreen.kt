@@ -420,6 +420,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                                 { viewModel.playSong(it, baseSongs) },
                                 onMenu,
                                 artworkActionRequest = albumArtworkActionRequest,
+                                onArtworkActionHandled = { albumArtworkActionRequest = 0 },
                                 viewModel = viewModel
                             )
                         } else {
@@ -451,7 +452,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.first(), baseSongs) },
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.random(), baseSongs) },
                                 { viewModel.playSong(it, baseSongs) },
-                                onMenu, categoryStyle, viewModel, artistArtworkActionRequest
+                                onMenu, categoryStyle, viewModel, artistArtworkActionRequest, { artistArtworkActionRequest = 0 }
                             )
                         } else {
                             LaunchedEffect(Unit) { viewModel.setSelectedGroup(null) }
