@@ -313,6 +313,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
 
         // header content
         val categoryTitle = categoryList.getOrNull(index)?.title ?: "Library"
+        val activeAlbum = if (index == CAT_ALBUMS && group != null) albumUiModels.find { it.albumKey == group } else null
         val title = when {
             group != null -> when (index) {
                 CAT_ALBUMS -> albumUiModels.find { it.albumKey == group }?.title ?: group
@@ -377,7 +378,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                     onOpenMenu = { showOptionsMenu = true },
                     onArtworkAction = when {
                         index == CAT_ARTISTS && group != null -> ({ artistArtworkActionRequest++ })
-                        index == CAT_ALBUMS && group != null -> ({ albumArtworkActionRequest++ })
+                        index == CAT_ALBUMS && group != null -> ({ activeAlbum?.let { viewModel.downloadAlbumArtwork(it.title, it.artist, baseSongs.map { song -> song.id }) } })
                         else -> null
                     },
                     playlistActions = index == CAT_PLAYLISTS && activePlaylist == null,
@@ -417,8 +418,6 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.random(), baseSongs) },
                                 { viewModel.playSong(it, baseSongs) },
                                 onMenu,
-                                artworkActionRequest = albumArtworkActionRequest,
-                                onArtworkActionHandled = { albumArtworkActionRequest = 0 },
                                 viewModel = viewModel
                             )
                         } else {
