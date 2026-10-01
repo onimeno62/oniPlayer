@@ -377,7 +377,11 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                     searchQuery = searchQuery,
                     onSearchQueryChange = { viewModel.updateSearchQuery(it) },
                     onOpenMenu = { showOptionsMenu = true },
-                    onArtworkAction = if (index == CAT_ARTISTS && group != null) ({ artistArtworkActionRequest++ }) else null,
+                    onArtworkAction = when {
+                        index == CAT_ARTISTS && group != null -> ({ artistArtworkActionRequest++ })
+                        index == CAT_ALBUMS && group != null -> ({ albumArtworkActionRequest++ })
+                        else -> null
+                    },
                     playlistActions = index == CAT_PLAYLISTS && activePlaylist == null,
                     onNewPlaylist = { showNewPlaylistDialog = true },
                     onImportPlaylist = { importPlaylistLauncher.launch(arrayOf("audio/x-mpegurl", "audio/mpegurl", "application/octet-stream", "text/plain")) }
@@ -414,7 +418,9 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.first(), baseSongs) },
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.random(), baseSongs) },
                                 { viewModel.playSong(it, baseSongs) },
-                                onMenu
+                                onMenu,
+                                artworkActionRequest = albumArtworkActionRequest,
+                                viewModel = viewModel
                             )
                         } else {
                             LaunchedEffect(group) { viewModel.setSelectedGroup(null) }
