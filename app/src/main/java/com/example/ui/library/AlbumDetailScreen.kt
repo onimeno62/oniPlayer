@@ -14,6 +14,8 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -21,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.entity.SongEntity
-import com.example.ui.library.components.LibraryCategoryHero
+import com.example.ui.viewmodel.MusicPlayerViewModel
 import com.example.ui.library.components.SongRow
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.screens.formatDuration
@@ -37,7 +39,9 @@ fun AlbumDetailScreen(
     onShufflePlay: () -> Unit,
     onSongClick: (SongEntity) -> Unit,
     onShowTrackMenu: (SongEntity) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    artworkActionRequest: Int = 0,
+    viewModel: MusicPlayerViewModel? = null
 ) {
     val sortedSongs = remember(songsInAlbum) {
         songsInAlbum.sortedWith(
@@ -61,51 +65,22 @@ fun AlbumDetailScreen(
             .fillMaxSize()
             .padding(horizontal = OniSkin.spacing.screenHorizontal)
     ) {
-        // Shared hero banner
-        LibraryCategoryHero(
-            title = album.title,
-            subtitle = subtitle,
-            artworkUri = album.artworkUri,
-            icon = Icons.Default.Album,
-            modifier = Modifier.padding(vertical = OniSkin.spacing.md)
-        )
-
-        // Action Buttons Row (outside hero for consistent list rhythm)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = OniSkin.spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)
-        ) {
-            Button(
-                onClick = onPlayAll,
-                modifier = Modifier.weight(1f),
-                shape = OniSkin.shapes.button,
-                contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = OniSkin.colors.primary,
-                    contentColor = OniSkin.colors.onPrimary
+        val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                viewModel?.batchUpdateTags(
+                    songIds = songsInAlbum.map { it.id },
+                    albumArtUri = uri.toString(),
+                    removeArt = false,
+                    artist = "", album = "", albumArtist = "", genre = "", composer = "",
+                    disc = "", track = "", year = "", comment = "", bpm = "", rating = null
                 )
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                Text("Play All", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
-            }
-            FilledTonalButton(
-                onClick = onShufflePlay,
-                modifier = Modifier.weight(1f),
-                shape = OniSkin.shapes.button,
-                contentPadding = PaddingValues(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = OniSkin.colors.surfaceVariant,
-                    contentColor = OniSkin.colors.textPrimary
-                )
-            ) {
-                Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
-                Text("Shuffle", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
+        LaunchedEffect(artworkActionRequest) {
+            if (artworkActionRequest > 0 && viewModel != null) imagePickerLauncher.launch("image/*")
+        }
+
+        Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
         HorizontalDivider(
             color = OniSkin.colors.outline.copy(alpha = 0.2f),
