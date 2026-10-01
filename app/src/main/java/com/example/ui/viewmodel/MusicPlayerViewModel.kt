@@ -1968,6 +1968,35 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun downloadAlbumArtwork(album: String, artist: String, songIds: List<String>) {
+        viewModelScope.launch {
+            runCatching {
+                val results = GeminiMusicService.searchTagsOnlineMulti(album, artist, "All Sources")
+                val artwork = results.firstNotNullOfOrNull { it.albumArtUri?.takeIf(String::isNotBlank) }
+                if (!artwork.isNullOrBlank() && songIds.isNotEmpty()) {
+                    batchUpdateTags(
+                        songIds = songIds,
+                        artist = "",
+                        album = "",
+                        albumArtist = "",
+                        genre = "",
+                        composer = "",
+                        disc = "",
+                        track = "",
+                        year = "",
+                        comment = "",
+                        bpm = "",
+                        rating = null,
+                        albumArtUri = artwork,
+                        removeArt = false
+                    )
+                }
+            }.onFailure { error ->
+                Log.e("MusicPlayerViewModel", "Error downloading album artwork", error)
+            }
+        }
+    }
+
     fun fetchOnlineArtistImages(artistName: String) {
         viewModelScope.launch {
             _isFetchingArtistImages.value = true
