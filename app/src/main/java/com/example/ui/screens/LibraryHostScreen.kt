@@ -172,6 +172,27 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
     var showOptionsMenu by remember { mutableStateOf(false) }
     var songToEdit by remember { mutableStateOf<SongEntity?>(null) }
     var songForMenu by remember { mutableStateOf<SongEntity?>(null) }
+    var showNewPlaylistDialog by remember { mutableStateOf(false) }
+    var artistArtworkActionRequest by remember { mutableIntStateOf(0) }
+    val playlistScope = rememberCoroutineScope()
+    val importPlaylistLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            playlistScope.launch {
+                val content = withContext(Dispatchers.IO) {
+                    runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+                }
+                if (content != null) {
+                    val matchedIds = withContext(Dispatchers.Default) {
+                        content.lines().asSequence().map(String::trim).filter { it.isNotEmpty() && !it.startsWith("#") }.mapNotNull { line ->
+                            songs.firstOrNull { song -> song.filePath.endsWith(line.substringAfterLast('/')) || song.filePath.contains(line) || song.title.equals(line, ignoreCase = true) }?.id
+                        }.distinct().toList()
+                    }
+                    viewModel.createPlaylist("Imported Playlist", matchedIds)
+                    Toast.makeText(context, "Imported playlist (" + matchedIds.size + " matched tracks)", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     // ---- derived data ------------------------------------------------------------------------
     val uniqueFolders = remember(songs) { songs.groupBy { File(it.filePath).parentFile?.name ?: "Internal" } }
