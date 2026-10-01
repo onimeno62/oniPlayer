@@ -446,8 +446,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.first(), baseSongs) },
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.random(), baseSongs) },
                                 { viewModel.playSong(it, baseSongs) },
-                                onMenu,
-                                viewModel = viewModel
+                                onMenu
                             )
                         } else {
                             LaunchedEffect(group) { viewModel.setSelectedGroup(null) }
