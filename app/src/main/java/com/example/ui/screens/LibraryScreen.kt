@@ -1389,8 +1389,6 @@ fun TagEditorDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryOptionsMenu(
-    searchQuery: String = "",
-    onSearchQueryChange: (String) -> Unit = {},
     layoutMode: String,
     onLayoutChange: (String) -> Unit,
     sortBy: String,
