@@ -59,6 +59,7 @@ fun ArtistDetailScreen(
     layoutMode: String,
     viewModel: com.example.ui.viewmodel.MusicPlayerViewModel,
     artworkActionRequest: Int = 0,
+    onArtworkActionHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showImagePickerDialog by remember { mutableStateOf(false) }
@@ -109,6 +110,7 @@ fun ArtistDetailScreen(
             if (artworkActionRequest > 0) {
                 viewModel.fetchOnlineArtistImages(artist.name)
                 showImagePickerDialog = true
+                onArtworkActionHandled()
             }
         }
 
