@@ -59,15 +59,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
     // ---- first-run onboarding ----------------------------------------------------------------
     val onboardingDone by LibraryPreferencesStore.onboardingDone(context)
         .collectAsStateWithLifecycle<Boolean?>(initialValue = null)
-    val allSongs by viewModel.allSongs.collectAsStateWithLifecycle()
     val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
-
-    // Existing users who already have a library never see the slider
-    LaunchedEffect(onboardingDone, allSongs.isNotEmpty()) {
-        if (onboardingDone == false && allSongs.isNotEmpty()) {
-            LibraryPreferencesStore.setOnboardingDone(context)
-        }
-    }
 
     val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_AUDIO
@@ -112,7 +104,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
     ) {
         val motion = OniSkin.motion
 
-        if (onboardingDone == false && allSongs.isEmpty()) {
+        if (onboardingDone == false) {
             OnboardingScreen(
                 onScanLibrary = startScanFromOnboarding,
                 onSkip = { LibraryPreferencesStore.setOnboardingDone(context) },
