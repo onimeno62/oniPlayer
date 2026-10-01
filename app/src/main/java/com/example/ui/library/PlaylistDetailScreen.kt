@@ -23,7 +23,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.SongEntity
-import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.components.SongRow
 import com.example.ui.screens.formatDuration
@@ -60,68 +59,21 @@ fun PlaylistDetailScreen(
             .fillMaxSize()
             .padding(horizontal = OniSkin.spacing.screenHorizontal)
     ) {
-        // Shared hero banner
-        LibraryCategoryHero(
-            title = playlist.name,
-            subtitle = subtitle,
-            artworkUri = artworkUri,
-            icon = Icons.AutoMirrored.Filled.QueueMusic,
-            modifier = Modifier.padding(vertical = OniSkin.spacing.md)
-        )
-
-        // Action Buttons Row (outside hero for consistent list rhythm)
+        // Playback actions are owned by LibraryStickyHeader. Keep only playlist-specific export here.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = OniSkin.spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
+                .padding(vertical = OniSkin.spacing.sm),
+            horizontalArrangement = Arrangement.End
         ) {
-            Button(
-                onClick = onPlayAll,
-                enabled = songsInPlaylist.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-                shape = OniSkin.shapes.button,
-                contentPadding = PaddingValues(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = OniSkin.colors.primary,
-                    contentColor = OniSkin.colors.onPrimary
-                )
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(OniSkin.spacing.xxs))
-                Text("Play All", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1)
-            }
-
-            FilledTonalButton(
-                onClick = onShufflePlay,
-                enabled = songsInPlaylist.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-                shape = OniSkin.shapes.button,
-                contentPadding = PaddingValues(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = OniSkin.colors.surfaceVariant,
-                    contentColor = OniSkin.colors.textPrimary
-                )
-            ) {
-                Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(OniSkin.spacing.xxs))
-                Text("Shuffle", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1)
-            }
-
             FilledTonalButton(
                 onClick = onExportM3U,
                 enabled = songsInPlaylist.isNotEmpty(),
-                modifier = Modifier.weight(1f),
-                shape = OniSkin.shapes.button,
-                contentPadding = PaddingValues(horizontal = OniSkin.spacing.sm, vertical = OniSkin.spacing.xs),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = OniSkin.colors.surfaceVariant,
-                    contentColor = OniSkin.colors.textPrimary
-                )
+                shape = OniSkin.shapes.button
             ) {
-                Icon(Icons.Default.Output, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Output, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(OniSkin.spacing.xxs))
-                Text("Export", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text("Export", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
 
