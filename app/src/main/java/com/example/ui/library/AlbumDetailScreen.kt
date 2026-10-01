@@ -41,6 +41,7 @@ fun AlbumDetailScreen(
     onShowTrackMenu: (SongEntity) -> Unit,
     modifier: Modifier = Modifier,
     artworkActionRequest: Int = 0,
+    onArtworkActionHandled: () -> Unit = {},
     viewModel: MusicPlayerViewModel? = null
 ) {
     val sortedSongs = remember(songsInAlbum) {
@@ -77,7 +78,10 @@ fun AlbumDetailScreen(
             }
         }
         LaunchedEffect(artworkActionRequest) {
-            if (artworkActionRequest > 0 && viewModel != null) imagePickerLauncher.launch("image/*")
+            if (artworkActionRequest > 0 && viewModel != null) {
+                imagePickerLauncher.launch("image/*")
+                onArtworkActionHandled()
+            }
         }
 
         Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
