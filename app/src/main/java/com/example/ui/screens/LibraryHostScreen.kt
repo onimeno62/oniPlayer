@@ -282,8 +282,6 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
             uniqueArtistsCount = uniqueArtists.size,
             uniqueAlbumsCount = uniqueAlbums.size,
             favoritesCount = favorites.size,
-            searchQuery = searchQuery,
-            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
             isScanning = isScanning,
             showOptionsMenu = { showOptionsMenu = true },
             onRescan = triggerScanWithPermission,
@@ -502,8 +500,6 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
         // isSongScreen decides which shared style the Library menu edits
         if (showOptionsMenu) {
             LibraryOptionsMenu(
-                searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.updateSearchQuery(it) },
                 layoutMode = if (isSongScreen) songStyle else categoryStyle,
                 onLayoutChange = {
                     if (isSongScreen) LibraryPreferencesStore.setSongLayoutStyle(context, it)
