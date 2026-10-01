@@ -545,8 +545,6 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
     // Dashboard menu (index == null) + shared dialogs
     if (index == null && showOptionsMenu) {
         LibraryOptionsMenu(
-            searchQuery = searchQuery,
-            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
             layoutMode = categoryStyle,
             onLayoutChange = { LibraryPreferencesStore.setCategoryLayoutStyle(context, it) },
             sortBy = sortBy,
