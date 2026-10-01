@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SettingsSuggest
@@ -65,7 +66,11 @@ fun LibraryStickyHeader(
     modifier: Modifier = Modifier,
     overline: String? = null,
     collapsed: Boolean = false,
-    actionsEnabled: Boolean = true
+    actionsEnabled: Boolean = true,
+    onArtworkAction: (() -> Unit)? = null,
+    playlistActions: Boolean = false,
+    onNewPlaylist: (() -> Unit)? = null,
+    onImportPlaylist: (() -> Unit)? = null
 ) {
     val height by animateDpAsState(if (collapsed) 128.dp else 244.dp, label = "headerHeight")
     var searchOpen by rememberSaveable { mutableStateOf(searchQuery.isNotBlank()) }
@@ -125,6 +130,10 @@ fun LibraryStickyHeader(
                         modifier = Modifier.weight(1f)
                     )
                 }
+                if (onArtworkAction != null) {
+                    Spacer(Modifier.width(OniSkin.spacing.xs))
+                    HeaderIconButton(Icons.Default.CloudDownload, "Artwork", onArtworkAction)
+                }
             }
 
             // Middle: icon + name + static data (expanded only)
@@ -169,13 +178,32 @@ fun LibraryStickyHeader(
                 }
             }
 
-            // Bottom: Play All, Shuffle, Search, Library menu
+            // Bottom actions are contextual to the current library destination.
             Row(
                 modifier = Modifier.fillMaxWidth().animateContentSize(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)
             ) {
-                if (searchOpen) {
+                if (playlistActions) {
+                    Button(
+                        onClick = { onNewPlaylist?.invoke() },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = OniSkin.shapes.button,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OniSkin.colors.primary,
+                            contentColor = OniSkin.colors.onPrimary
+                        )
+                    ) {
+                        Text("New Playlist", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = { onImportPlaylist?.invoke() },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = OniSkin.shapes.button
+                    ) {
+                        Text("Import", style = OniSkin.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    }
+                } else if (searchOpen) {
                     HeaderSearchField(
                         initialQuery = searchQuery,
                         onQueryChange = onSearchQueryChange,
