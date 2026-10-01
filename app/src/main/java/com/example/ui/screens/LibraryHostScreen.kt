@@ -376,7 +376,11 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                     },
                     searchQuery = searchQuery,
                     onSearchQueryChange = { viewModel.updateSearchQuery(it) },
-                    onOpenMenu = { showOptionsMenu = true }
+                    onOpenMenu = { showOptionsMenu = true },
+                    onArtworkAction = if (index == CAT_ARTISTS && group != null) ({ artistArtworkActionRequest++ }) else null,
+                    playlistActions = index == CAT_PLAYLISTS && activePlaylist == null,
+                    onNewPlaylist = { showNewPlaylistDialog = true },
+                    onImportPlaylist = { importPlaylistLauncher.launch(arrayOf("audio/x-mpegurl", "audio/mpegurl", "application/octet-stream", "text/plain")) }
                 )
             }
 
@@ -441,7 +445,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.first(), baseSongs) },
                                 { if (baseSongs.isNotEmpty()) viewModel.playSong(baseSongs.random(), baseSongs) },
                                 { viewModel.playSong(it, baseSongs) },
-                                onMenu, categoryStyle, viewModel
+                                onMenu, categoryStyle, viewModel, artistArtworkActionRequest
                             )
                         } else {
                             LaunchedEffect(Unit) { viewModel.setSelectedGroup(null) }
@@ -502,8 +506,6 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                 onSortByChange = { LibraryPreferencesStore.setSortBy(context, it) },
                 isSortAscending = isSortAscending,
                 onSortAscendingChange = { LibraryPreferencesStore.setSortAscending(context, it) },
-                onRescan = triggerScanWithPermission,
-                onOpenSearchTab = { viewModel.selectTab(2) },
                 onDismiss = { showOptionsMenu = false }
             )
         }
@@ -520,9 +522,20 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
             onSortByChange = { LibraryPreferencesStore.setSortBy(context, it) },
             isSortAscending = isSortAscending,
             onSortAscendingChange = { LibraryPreferencesStore.setSortAscending(context, it) },
-            onRescan = triggerScanWithPermission,
-            onOpenSearchTab = { viewModel.selectTab(2) },
             onDismiss = { showOptionsMenu = false }
+        )
+    }
+
+    if (showNewPlaylistDialog) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showNewPlaylistDialog = false },
+            title = { Text("New Playlist") },
+            text = { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Playlist name") }, singleLine = true) },
+            confirmButton = {
+                Button(onClick = { val trimmed = name.trim(); if (trimmed.isNotBlank()) { viewModel.createPlaylist(trimmed); showNewPlaylistDialog = false } }, enabled = name.trim().isNotBlank()) { Text("Create") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { showNewPlaylistDialog = false }) { Text("Cancel") } }
         )
     }
 
