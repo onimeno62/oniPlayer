@@ -34,6 +34,7 @@ import com.example.ui.library.FoldersScreen
 import com.example.ui.library.GenresScreen
 import com.example.ui.library.LibraryDashboardScreen
 import com.example.ui.library.components.LibraryStickyHeader
+import com.example.ui.library.components.SongsListView
 import com.example.ui.library.components.libraryStatsLine
 import com.example.ui.library.model.toAlbumUiModels
 import com.example.ui.library.model.toArtistUiModels
@@ -84,8 +85,10 @@ private fun hostFilterSongs(list: List<SongEntity>, query: String): List<SongEnt
  * - Two shared, persistent layout styles (category lists / song lists) from [LibraryPreferencesStore].
  * - Sort order is persisted too.
  * - Search in the header is contextual: it filters whatever list is currently shown.
+ * - Song lists use com.example.ui.library.components.SongsListView (swipe actions + fast scroller),
+ *   which is imported explicitly and therefore shadows the legacy same-named function in this package.
  *
- * Legacy helpers (SongsListView, PlaylistsView, dialogs, LibraryOptionsMenu, CategoryInfo, ...) are reused
+ * Legacy helpers (PlaylistsView, dialogs, LibraryOptionsMenu, CategoryInfo, ...) are reused
  * from the old LibraryScreen.kt / LibraryExtensions.kt until they are migrated.
  */
 @Composable
