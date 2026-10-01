@@ -1397,8 +1397,6 @@ fun LibraryOptionsMenu(
     onSortByChange: (String) -> Unit,
     isSortAscending: Boolean,
     onSortAscendingChange: (Boolean) -> Unit,
-    onRescan: () -> Unit,
-    onOpenSearchTab: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1475,112 +1473,6 @@ fun LibraryOptionsMenu(
                             contentDescription = "Close menu",
                             tint = OniSkin.colors.textSecondary
                         )
-                    }
-                }
-            }
-
-            // Quick Actions: Search & Scanner
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
-                    Text(
-                        text = "QUICK ACTIONS",
-                        style = OniSkin.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.primary
-                    )
-                    OniSurface(
-                        variant = OniSurfaceVariant.Soft,
-                        shape = OniSkin.shapes.card,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 48.dp)
-                                    .clickable {
-                                        onDismiss()
-                                        onOpenSearchTab()
-                                    }
-                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = OniSkin.colors.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
-                                    Column {
-                                        Text(
-                                            text = "Search Library",
-                                            style = OniSkin.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = OniSkin.colors.textPrimary
-                                        )
-                                        Text(
-                                            text = "Open universal Poweramp-style search",
-                                            style = OniSkin.typography.caption,
-                                            color = OniSkin.colors.textSecondary
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = OniSkin.colors.textTertiary
-                                )
-                            }
-
-                            HorizontalDivider(
-                                color = OniSkin.colors.outline.copy(alpha = 0.15f),
-                                modifier = Modifier.padding(horizontal = OniSkin.spacing.md)
-                            )
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 48.dp)
-                                    .clickable {
-                                        onRescan()
-                                        onDismiss()
-                                    }
-                                    .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Refresh,
-                                        contentDescription = null,
-                                        tint = OniSkin.colors.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
-                                    Column {
-                                        Text(
-                                            text = "Scan Local Storage",
-                                            style = OniSkin.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = OniSkin.colors.textPrimary
-                                        )
-                                        Text(
-                                            text = "Detect newly added or modified tracks",
-                                            style = OniSkin.typography.caption,
-                                            color = OniSkin.colors.textSecondary
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = OniSkin.colors.textTertiary
-                                )
-                            }
-                        }
                     }
                 }
             }
