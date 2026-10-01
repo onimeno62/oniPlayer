@@ -14,8 +14,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -23,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.entity.SongEntity
-import com.example.ui.viewmodel.MusicPlayerViewModel
 import com.example.ui.library.components.SongRow
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.screens.formatDuration
@@ -39,10 +36,7 @@ fun AlbumDetailScreen(
     onShufflePlay: () -> Unit,
     onSongClick: (SongEntity) -> Unit,
     onShowTrackMenu: (SongEntity) -> Unit,
-    modifier: Modifier = Modifier,
-    artworkActionRequest: Int = 0,
-    onArtworkActionHandled: () -> Unit = {},
-    viewModel: MusicPlayerViewModel? = null
+    modifier: Modifier = Modifier
 ) {
     val sortedSongs = remember(songsInAlbum) {
         songsInAlbum.sortedWith(
@@ -66,24 +60,6 @@ fun AlbumDetailScreen(
             .fillMaxSize()
             .padding(horizontal = OniSkin.spacing.screenHorizontal)
     ) {
-        val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null) {
-                viewModel?.batchUpdateTags(
-                    songIds = songsInAlbum.map { it.id },
-                    albumArtUri = uri.toString(),
-                    removeArt = false,
-                    artist = "", album = "", albumArtist = "", genre = "", composer = "",
-                    disc = "", track = "", year = "", comment = "", bpm = "", rating = null
-                )
-            }
-        }
-        LaunchedEffect(artworkActionRequest) {
-            if (artworkActionRequest > 0 && viewModel != null) {
-                imagePickerLauncher.launch("image/*")
-                onArtworkActionHandled()
-            }
-        }
-
         Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
         HorizontalDivider(
