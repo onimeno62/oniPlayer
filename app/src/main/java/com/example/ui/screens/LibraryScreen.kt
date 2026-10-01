@@ -1456,7 +1456,7 @@ fun LibraryOptionsMenu(
                                 color = OniSkin.colors.textPrimary
                             )
                             Text(
-                                text = "Preferences, layout, search, and scanner",
+                                text = "Preferences, layout, and sorting",
                                 style = OniSkin.typography.caption,
                                 color = OniSkin.colors.textSecondary
                             )
