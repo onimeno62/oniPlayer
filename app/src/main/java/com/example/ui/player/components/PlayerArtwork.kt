@@ -23,6 +23,8 @@ import com.example.data.entity.SongEntity
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.player.ApplyArtworkEffects
+import com.example.ui.player.AudioAnalyzerEffect
 import com.example.ui.theme.OniSkin
 
 /**
@@ -32,7 +34,7 @@ import com.example.ui.theme.OniSkin
  * caching, and placeholder display across the application.
  *
  * Responsive dimension constraints and subtle, calm motion tied to playback state.
- * Consumes [OniSkin.artwork], [OniSkin.shapes], [OniSkin.motion], and [OniSkin.colors] tokens.
+ * Supports Ken Burns zoom, ambient glow, and real-time beat analyzer effects.
  */
 @Composable
 fun PlayerArtwork(
@@ -41,7 +43,10 @@ fun PlayerArtwork(
     isPlaying: Boolean = false,
     maxSize: Dp? = null,
     horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    artworkEffectsEnabled: Boolean = false,
+    audioAnalyzerEnabled: Boolean = false,
+    beatEnergy: Float = 0.5f
 ) {
     val formatBadge = song?.let { s ->
         val path = s.filePath.lowercase()
@@ -106,40 +111,50 @@ fun PlayerArtwork(
                 .aspectRatio(1f)
         }
 
-        Box(
-            modifier = dimensionModifier
-                .graphicsLayer {
-                    scaleX = artworkScale
-                    scaleY = artworkScale
-                }
-                .clip(artworkShape)
-                .then(clickModifier),
-            contentAlignment = Alignment.Center
+        AudioAnalyzerEffect(
+            beatEnergy = beatEnergy,
+            enabled = audioAnalyzerEnabled && isPlaying
         ) {
-            OniArtwork(
-                artworkUri = song?.albumArtUri,
-                contentDescription = song?.title?.let { "Album art for $it" } ?: "Album artwork",
-                shape = artworkShape,
-                elevation = shadowElevation,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // Audio Quality / Format badge in top-right corner
-            if (formatBadge != null) {
-                OniSurface(
-                    variant = OniSurfaceVariant.Frosted,
-                    shape = OniSkin.shapes.small,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp)
+            ApplyArtworkEffects(
+                enableKenBurns = artworkEffectsEnabled && isPlaying,
+                enableGlow = artworkEffectsEnabled
+            ) {
+                Box(
+                    modifier = dimensionModifier
+                        .graphicsLayer {
+                            scaleX = artworkScale
+                            scaleY = artworkScale
+                        }
+                        .clip(artworkShape)
+                        .then(clickModifier),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = formatBadge,
-                        style = OniSkin.typography.caption,
-                        fontWeight = FontWeight.Bold,
-                        color = OniSkin.colors.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    OniArtwork(
+                        artworkUri = song?.albumArtUri,
+                        contentDescription = song?.title?.let { "Album art for $it" } ?: "Album artwork",
+                        shape = artworkShape,
+                        elevation = shadowElevation,
+                        modifier = Modifier.fillMaxSize()
                     )
+
+                    // Audio Quality / Format badge in top-right corner
+                    if (formatBadge != null) {
+                        OniSurface(
+                            variant = OniSurfaceVariant.Frosted,
+                            shape = OniSkin.shapes.small,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = formatBadge,
+                                style = OniSkin.typography.caption,
+                                fontWeight = FontWeight.Bold,
+                                color = OniSkin.colors.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
