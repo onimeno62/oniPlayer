@@ -1,21 +1,26 @@
 package com.example.ui.player.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ui.components.music.OniFavoriteAction
 import com.example.ui.theme.OniSkin
 
 /**
  * Track title, artist, album, and favorite toggle for the Player screen in Default Skin.
  *
+ * Supports Serif typography option for elegant editorial Canvas layout.
  * Emphasizes typography hierarchy and primary text contrast.
  * Uses shared [OniFavoriteAction] for consistent favorite toggling behavior and tokens.
  */
@@ -27,7 +32,9 @@ fun PlayerTrackInfo(
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
-    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal
+    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
+    useSerifFont: Boolean = false,
+    qualityBadge: String? = null
 ) {
     Row(
         modifier = modifier
@@ -43,7 +50,15 @@ fun PlayerTrackInfo(
         ) {
             Text(
                 text = title.ifBlank { "Unknown Title" },
-                style = OniSkin.typography.titleLarge,
+                style = if (useSerifFont) {
+                    OniSkin.typography.titleLarge.copy(
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp
+                    )
+                } else {
+                    OniSkin.typography.titleLarge
+                },
                 fontWeight = FontWeight.Bold,
                 color = OniSkin.colors.textPrimary,
                 maxLines = 2,
@@ -59,6 +74,16 @@ fun PlayerTrackInfo(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
+            if (!qualityBadge.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = qualityBadge,
+                    style = OniSkin.typography.caption,
+                    fontWeight = FontWeight.SemiBold,
+                    color = OniSkin.colors.primary
+                )
+            }
         }
 
         OniFavoriteAction(
