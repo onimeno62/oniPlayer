@@ -382,6 +382,14 @@ class PlaybackControllerClient(context: Context) {
         PlaybackController.REMOVE_FROM_QUEUE,
         Bundle().apply { putString(PlaybackController.SONG_ID, song.id) }
     )
+    fun moveInQueue(fromIndex: Int, toIndex: Int) = command(
+        PlaybackController.MOVE_IN_QUEUE,
+        Bundle().apply {
+            putInt(PlaybackController.FROM_INDEX, fromIndex)
+            putInt(PlaybackController.TO_INDEX, toIndex)
+        }
+    )
+
 
     fun updateCurrentSongMetadata(song: SongEntity) = command(
         PlaybackController.UPDATE_SONG,
