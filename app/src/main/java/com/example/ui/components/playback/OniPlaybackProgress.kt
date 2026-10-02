@@ -15,6 +15,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.ui.player.AudioSpectrumSeekBar
+import com.example.ui.player.DotLineSeekBar
+import com.example.ui.player.SeekBarStyle
+import com.example.ui.player.WavySeekBar
 import com.example.ui.theme.OniSkin
 import java.util.Locale
 
@@ -23,6 +27,7 @@ import java.util.Locale
  * Features a thin, elegant track with a generous touch target for accurate scrubbing.
  * Consumes [OniSkin.colors], [OniSkin.typography], and [OniSkin.spacing] tokens.
  * Pure presentation: receives position and duration, emits [onSeek].
+ * Supports configurable styles: Simple Slider, M3 Wavy, Dot Line, and Audio Spectrum.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +40,9 @@ fun OniPlaybackProgress(
     showTimeLabels: Boolean = true,
     activeTrackColor: Color = OniSkin.colors.primary,
     inactiveTrackColor: Color = OniSkin.colors.outline.copy(alpha = 0.3f),
-    thumbColor: Color = OniSkin.colors.primary
+    thumbColor: Color = OniSkin.colors.primary,
+    style: SeekBarStyle = SeekBarStyle.SIMPLE,
+    beatEnergy: Float = 0.5f
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isDragging by interactionSource.collectIsDraggedAsState()
@@ -60,29 +67,70 @@ fun OniPlaybackProgress(
                 contentDescription = "Playback progress: ${formatTime(displayedPositionMs)} of ${formatTime(durationMs)}"
             }
     ) {
-        Slider(
-            value = displayFraction,
-            onValueChange = { fraction ->
-                dragProgress = fraction
-            },
-            onValueChangeFinished = {
-                val targetMs = (dragProgress * safeDuration).toLong().coerceIn(0L, durationMs)
-                onSeek(targetMs)
-            },
-            enabled = enabled && durationMs > 0,
-            interactionSource = interactionSource,
-            colors = SliderDefaults.colors(
-                thumbColor = thumbColor,
-                activeTrackColor = activeTrackColor,
-                inactiveTrackColor = inactiveTrackColor,
-                disabledThumbColor = OniSkin.colors.disabled,
-                disabledActiveTrackColor = OniSkin.colors.disabled.copy(alpha = 0.5f),
-                disabledInactiveTrackColor = OniSkin.colors.disabled.copy(alpha = 0.2f)
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = 48.dp)
-        )
+        when (style) {
+            SeekBarStyle.WAVY -> {
+                WavySeekBar(
+                    progress = displayFraction,
+                    onProgressChange = { fraction ->
+                        val targetMs = (fraction * safeDuration).toLong().coerceIn(0L, durationMs)
+                        onSeek(targetMs)
+                    },
+                    activeColor = activeTrackColor,
+                    inactiveColor = inactiveTrackColor,
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                )
+            }
+            SeekBarStyle.DOT_LINE -> {
+                DotLineSeekBar(
+                    progress = displayFraction,
+                    onProgressChange = { fraction ->
+                        val targetMs = (fraction * safeDuration).toLong().coerceIn(0L, durationMs)
+                        onSeek(targetMs)
+                    },
+                    activeColor = activeTrackColor,
+                    inactiveColor = inactiveTrackColor,
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                )
+            }
+            SeekBarStyle.AUDIO_SPECTRUM -> {
+                AudioSpectrumSeekBar(
+                    progress = displayFraction,
+                    onProgressChange = { fraction ->
+                        val targetMs = (fraction * safeDuration).toLong().coerceIn(0L, durationMs)
+                        onSeek(targetMs)
+                    },
+                    beatEnergy = beatEnergy,
+                    activeColor = activeTrackColor,
+                    inactiveColor = inactiveTrackColor,
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                )
+            }
+            SeekBarStyle.SIMPLE -> {
+                Slider(
+                    value = displayFraction,
+                    onValueChange = { fraction ->
+                        dragProgress = fraction
+                    },
+                    onValueChangeFinished = {
+                        val targetMs = (dragProgress * safeDuration).toLong().coerceIn(0L, durationMs)
+                        onSeek(targetMs)
+                    },
+                    enabled = enabled && durationMs > 0,
+                    interactionSource = interactionSource,
+                    colors = SliderDefaults.colors(
+                        thumbColor = thumbColor,
+                        activeTrackColor = activeTrackColor,
+                        inactiveTrackColor = inactiveTrackColor,
+                        disabledThumbColor = OniSkin.colors.disabled,
+                        disabledActiveTrackColor = OniSkin.colors.disabled.copy(alpha = 0.5f),
+                        disabledInactiveTrackColor = OniSkin.colors.disabled.copy(alpha = 0.2f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                )
+            }
+        }
 
         if (showTimeLabels) {
             Row(
