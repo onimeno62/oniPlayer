@@ -32,6 +32,8 @@ import com.example.playback.ShuffleType
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.lyrics.LyricsHelper
+import com.example.ui.player.LyricLineMode
+import com.example.ui.player.SeekBarStyle
 import com.example.ui.player.components.*
 import com.example.ui.player.model.PlayerUiState
 import com.example.ui.theme.OniSkin
@@ -42,7 +44,8 @@ import kotlin.math.absoluteValue
 /**
  * Primary Player Screen for oniPlayer in Default Skin.
  *
- * Coordinates player presentation components, local dialog states, and user actions.
+ * Coordinates player presentation components, local dialog states, modal actions,
+ * dynamic seekbar styles, and audio/artwork effects.
  * Consumes [PlayerUiState] from [MusicPlayerViewModel] via [collectAsStateWithLifecycle].
  */
 @Composable
@@ -57,6 +60,14 @@ fun PlayerScreen(
     var showSleepTimer by remember { mutableStateOf(false) }
     var showTagEditor by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMenuModal by remember { mutableStateOf(false) }
+
+    // Dynamic preferences & effects state
+    var audioAnalyzerActive by remember { mutableStateOf(false) }
+    var artworkEffectsActive by remember { mutableStateOf(true) }
+    var currentSeekBarStyle by remember { mutableStateOf(SeekBarStyle.SIMPLE) }
+    var currentLyricMode by remember { mutableStateOf(LyricLineMode.UNDERNEATH) }
+    var currentLineCount by remember { mutableIntStateOf(2) }
 
     // Intercept hardware back button to return to library screen context
     BackHandler(enabled = true) {
@@ -66,25 +77,25 @@ fun PlayerScreen(
     val song = uiState.currentSong
 
     // Calculate active and upcoming line preview if synced lyrics are present.
-    // In between lyric line gaps, keeps highlight on the current line until the next line starts.
-    val (currentLyricLine, nextLyricLine) = remember(song?.lyrics, uiState.position) {
+    val (currentLyricLine, nextLyricLine, thirdLyricLine) = remember(song?.lyrics, uiState.position) {
         val lyrics = song?.lyrics
         if (!lyrics.isNullOrBlank() && LyricsHelper.isSynced(lyrics)) {
             val parsed = LyricsHelper.parseLrc(lyrics).filter { it.text.isNotBlank() }
             if (parsed.isEmpty()) {
-                Pair(null, null)
+                Triple(null, null, null)
             } else {
                 val idx = LyricsHelper.getActiveLineIndex(parsed, uiState.position)
                 val activeIdx = if (idx >= 0) idx else 0
                 val curr = parsed.getOrNull(activeIdx)?.text
                 val next = parsed.getOrNull(activeIdx + 1)?.text
-                Pair(curr, next)
+                val third = parsed.getOrNull(activeIdx + 2)?.text
+                Triple(curr, next, third)
             }
         } else if (!lyrics.isNullOrBlank()) {
             val plainLines = lyrics.lines().map { it.trim() }.filter { it.isNotEmpty() }
-            Pair(plainLines.getOrNull(0), plainLines.getOrNull(1))
+            Triple(plainLines.getOrNull(0), plainLines.getOrNull(1), plainLines.getOrNull(2))
         } else {
-            Pair(null, null)
+            Triple(null, null, null)
         }
     }
 
@@ -92,8 +103,10 @@ fun PlayerScreen(
         uiState = uiState,
         currentLyricLine = currentLyricLine,
         nextLyricLine = nextLyricLine,
+        thirdLyricLine = thirdLyricLine,
         onNavigateBack = { viewModel.goBackToLibraryContext() },
         onOpenQueue = { showQueueSheet = true },
+        onOpenMenuModal = { showMenuModal = true },
         onDeleteClick = { showDeleteDialog = true },
         onTogglePlayPause = { viewModel.togglePlayPause() },
         onSkipNext = { viewModel.skipNext() },
@@ -108,8 +121,33 @@ fun PlayerScreen(
         onOpenKaraoke = { showKaraoke = true },
         onSelectShuffleType = { viewModel.setShuffleType(it) },
         onSelectRepeatMode = { viewModel.setRepeatMode(it) },
+        seekBarStyle = currentSeekBarStyle,
+        lyricLineMode = currentLyricMode,
+        lineCount = currentLineCount,
+        audioAnalyzerEnabled = audioAnalyzerActive,
+        artworkEffectsEnabled = artworkEffectsActive,
         modifier = modifier
     )
+
+    // Contextual Action Menu Bottom Sheet (⋮ Menu)
+    if (showMenuModal) {
+        PlayerMenuModal(
+            song = song,
+            floatingLyricsEnabled = uiState.floatingLyricsEnabled,
+            isSleepTimerRunning = uiState.isSleepTimerRunning,
+            sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
+            audioAnalyzerEnabled = audioAnalyzerActive,
+            artworkEffectsEnabled = artworkEffectsActive,
+            onToggleFloatingLyrics = { viewModel.setFloatingLyricsEnabled(!uiState.floatingLyricsEnabled) },
+            onOpenSleepTimer = { showSleepTimer = true },
+            onOpenKaraoke = { showKaraoke = true },
+            onOpenTagEditor = { showTagEditor = true },
+            onDeleteClick = { showDeleteDialog = true },
+            onToggleAudioAnalyzer = { audioAnalyzerActive = !audioAnalyzerActive },
+            onToggleArtworkEffects = { artworkEffectsActive = !artworkEffectsActive },
+            onDismiss = { showMenuModal = false }
+        )
+    }
 
     // Dialogs & Sheets
     if (showQueueSheet) {
@@ -173,16 +211,18 @@ fun PlayerScreen(
 /**
  * Pure presentation layout for the Player Screen.
  *
- * Implemented with Default Skin tokens and components.
- * Includes swipe-down-on-artwork gesture to navigate back to library.
+ * Implemented with Default Skin tokens, Canvas editorial styling options,
+ * and contextual menu modal integration.
  */
 @Composable
 fun PlayerContent(
     uiState: PlayerUiState,
     currentLyricLine: String?,
     nextLyricLine: String? = null,
+    thirdLyricLine: String? = null,
     onNavigateBack: () -> Unit,
     onOpenQueue: () -> Unit,
+    onOpenMenuModal: () -> Unit,
     onDeleteClick: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -197,7 +237,12 @@ fun PlayerContent(
     onOpenKaraoke: () -> Unit,
     modifier: Modifier = Modifier,
     onSelectShuffleType: (ShuffleType?) -> Unit = {},
-    onSelectRepeatMode: (RepeatMode) -> Unit = {}
+    onSelectRepeatMode: (RepeatMode) -> Unit = {},
+    seekBarStyle: SeekBarStyle = SeekBarStyle.SIMPLE,
+    lyricLineMode: LyricLineMode = LyricLineMode.UNDERNEATH,
+    lineCount: Int = 2,
+    audioAnalyzerEnabled: Boolean = false,
+    artworkEffectsEnabled: Boolean = true
 ) {
     val song = uiState.currentSong
     val scrollState = rememberScrollState()
@@ -206,9 +251,7 @@ fun PlayerContent(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
 
-    // Swipe-down-on-artwork state: tracks vertical drag offset for dismiss gesture
     val artworkDragOffsetY = remember { Animatable(0f) }
-    // Threshold in pixels: ~120dp converted to px
     val dismissThresholdPx = with(density) { 120.dp.toPx() }
 
     Surface(
@@ -217,7 +260,6 @@ fun PlayerContent(
             .fillMaxSize()
             .testTag("player_screen")
             .pointerInput(isRtl) {
-                // Horizontal swipe gesture to skip tracks with RTL support
                 var accumulatedDrag = 0f
                 detectHorizontalDragGestures(
                     onDragStart = { accumulatedDrag = 0f },
@@ -236,7 +278,6 @@ fun PlayerContent(
             }
     ) {
         if (song == null) {
-            // Empty state when nothing is loaded
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -305,7 +346,6 @@ fun PlayerContent(
                 val availableWidth = maxWidth
 
                 if (!isLandscape) {
-                    // Portrait Layout: Responsive vertical spacing & artwork constraint
                     val isCompactHeight = availableHeight < 720.dp
                     val isSmallScreen = availableHeight < 640.dp
 
@@ -321,9 +361,7 @@ fun PlayerContent(
                     val lyricsSpacer = if (isCompactHeight) 6.dp else 12.dp
                     val progressSpacer = if (isCompactHeight) 6.dp else 10.dp
                     val controlsSpacer = if (isCompactHeight) 8.dp else 14.dp
-                    val featureBtnHeight = 48.dp
 
-                    // Calculate visual feedback from artwork drag
                     val dragProgress = (artworkDragOffsetY.value / dismissThresholdPx).coerceIn(0f, 1.5f)
                     val artworkTranslateY = artworkDragOffsetY.value.coerceAtLeast(0f)
                     val artworkDragScale = 1f - (dragProgress * 0.08f).coerceAtMost(0.12f)
@@ -338,7 +376,7 @@ fun PlayerContent(
                             .padding(bottom = if (isCompactHeight) 8.dp else OniSkin.spacing.screenVertical),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // 1. Top Bar
+                        // 1. Top Bar with Queue and Menu triggers
                         PlayerTopBar(
                             title = "NOW PLAYING",
                             subtitle = song.displayAlbum,
@@ -348,7 +386,7 @@ fun PlayerContent(
 
                         Spacer(modifier = Modifier.height(topSpacer))
 
-                        // 2. Album Artwork with swipe-down-to-dismiss gesture
+                        // 2. Album Artwork with effects & gestures
                         Box(
                             modifier = Modifier
                                 .graphicsLayer {
@@ -359,41 +397,25 @@ fun PlayerContent(
                                 }
                                 .pointerInput(Unit) {
                                     detectVerticalDragGestures(
-                                        onDragStart = {
-                                            // Reset offset at drag start
-                                        },
                                         onDragEnd = {
                                             if (artworkDragOffsetY.value > dismissThresholdPx) {
-                                                // Threshold reached: navigate back to library
                                                 onNavigateBack()
-                                                scope.launch {
-                                                    artworkDragOffsetY.snapTo(0f)
-                                                }
+                                                scope.launch { artworkDragOffsetY.snapTo(0f) }
                                             } else {
-                                                // Snap back with spring animation
                                                 scope.launch {
                                                     artworkDragOffsetY.animateTo(
                                                         targetValue = 0f,
-                                                        animationSpec = spring(
-                                                            dampingRatio = 0.6f,
-                                                            stiffness = 400f
-                                                        )
+                                                        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f)
                                                     )
                                                 }
                                             }
                                         },
-                                        onDragCancel = {
-                                            scope.launch {
-                                                artworkDragOffsetY.animateTo(0f, spring())
-                                            }
-                                        },
+                                        onDragCancel = { scope.launch { artworkDragOffsetY.animateTo(0f, spring()) } },
                                         onVerticalDrag = { change, dragAmount ->
-                                            // Only track downward drags (positive Y)
                                             if (dragAmount > 0 || artworkDragOffsetY.value > 0) {
                                                 change.consume()
                                                 scope.launch {
-                                                    val newValue = (artworkDragOffsetY.value + dragAmount)
-                                                        .coerceAtLeast(0f)
+                                                    val newValue = (artworkDragOffsetY.value + dragAmount).coerceAtLeast(0f)
                                                     artworkDragOffsetY.snapTo(newValue)
                                                 }
                                             }
@@ -405,7 +427,9 @@ fun PlayerContent(
                                 song = song,
                                 isPlaying = uiState.isPlaying,
                                 maxSize = artworkMaxSize,
-                                onClick = onTogglePlayPause
+                                onClick = onTogglePlayPause,
+                                artworkEffectsEnabled = artworkEffectsEnabled,
+                                audioAnalyzerEnabled = audioAnalyzerEnabled
                             )
                         }
 
@@ -417,32 +441,38 @@ fun PlayerContent(
                             artist = song.displayArtist,
                             album = song.displayAlbum,
                             isFavorite = uiState.isFavorite,
-                            onToggleFavorite = onToggleFavorite
+                            onToggleFavorite = onToggleFavorite,
+                            useSerifFont = true
                         )
 
                         Spacer(modifier = Modifier.height(infoSpacer))
 
-                        // 4. Inline Lyrics / Karaoke Preview prompt
-                        PlayerLyricsPreview(
-                            currentLyricLine = currentLyricLine,
-                            nextLyricLine = nextLyricLine,
-                            hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
-                            onClick = onOpenKaraoke,
-                            isFetchingLyrics = uiState.isFetchingLyrics
-                        )
+                        // 4. Live Lyrics Preview (supports 1, 2, or 3 lines and placement modes)
+                        if (lyricLineMode != LyricLineMode.HIDDEN) {
+                            PlayerLyricsPreview(
+                                currentLyricLine = currentLyricLine,
+                                nextLyricLine = nextLyricLine,
+                                thirdLyricLine = thirdLyricLine,
+                                hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
+                                onClick = onOpenKaraoke,
+                                isFetchingLyrics = uiState.isFetchingLyrics,
+                                lyricLineMode = lyricLineMode,
+                                lineCount = lineCount
+                            )
+                            Spacer(modifier = Modifier.height(lyricsSpacer))
+                        }
 
-                        Spacer(modifier = Modifier.height(lyricsSpacer))
-
-                        // 5. Seekable Progress Bar & Timestamps
+                        // 5. Configurable Progress Bar (Simple, Wavy, Dot Line, Spectrum)
                         PlayerProgress(
                             positionMs = uiState.position,
                             durationMs = uiState.duration,
-                            onSeek = onSeek
+                            onSeek = onSeek,
+                            seekBarStyle = seekBarStyle
                         )
 
                         Spacer(modifier = Modifier.height(progressSpacer))
 
-                        // 6. Playback Controls (Shuffle, Prev, Play/Pause, Next, Repeat)
+                        // 6. Playback Controls
                         PlayerPlaybackControls(
                             isPlaying = uiState.isPlaying,
                             isPreparing = uiState.isPreparing,
@@ -462,7 +492,7 @@ fun PlayerContent(
 
                         Spacer(modifier = Modifier.height(controlsSpacer))
 
-                        // 7. Feature Actions Dock (Lyrics, Floating, Sleep Timer, Tag Editor, Delete)
+                        // 7. Cleaner Contextual Row with Contextual Menu (⋮)
                         PlayerFeatureActions(
                             onLyricsClick = onOpenKaraoke,
                             floatingLyricsEnabled = uiState.floatingLyricsEnabled,
@@ -472,11 +502,11 @@ fun PlayerContent(
                             onSleepTimerClick = onOpenSleepTimer,
                             onEditTagsClick = onOpenTagEditor,
                             onDeleteClick = onDeleteClick,
-                            buttonHeight = featureBtnHeight
+                            buttonHeight = 48.dp
                         )
                     }
                 } else {
-                    // Landscape Responsive Layout (Two-Pane)
+                    // Landscape Responsive Two-Pane Layout
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -499,7 +529,6 @@ fun PlayerContent(
                             horizontalArrangement = Arrangement.spacedBy(20.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Left Pane: Artwork + optional Lyrics Preview
                             Column(
                                 modifier = Modifier
                                     .weight(0.42f)
@@ -513,23 +542,12 @@ fun PlayerContent(
                                     isPlaying = uiState.isPlaying,
                                     maxSize = landscapeArtMax,
                                     horizontalPadding = 0.dp,
-                                    onClick = onTogglePlayPause
+                                    onClick = onTogglePlayPause,
+                                    artworkEffectsEnabled = artworkEffectsEnabled,
+                                    audioAnalyzerEnabled = audioAnalyzerEnabled
                                 )
-
-                                if (availableHeight >= 360.dp) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    PlayerLyricsPreview(
-                                        currentLyricLine = currentLyricLine,
-                                        nextLyricLine = nextLyricLine,
-                                        hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
-                                        onClick = onOpenKaraoke,
-                                        horizontalPadding = 0.dp,
-                                        isFetchingLyrics = uiState.isFetchingLyrics
-                                    )
-                                }
                             }
 
-                            // Right Pane: Track Info, Progress, Playback Controls, Feature Actions
                             val rightPaneScrollState = rememberScrollState()
                             Column(
                                 modifier = Modifier
@@ -545,14 +563,16 @@ fun PlayerContent(
                                     album = song.displayAlbum,
                                     isFavorite = uiState.isFavorite,
                                     onToggleFavorite = onToggleFavorite,
-                                    horizontalPadding = 0.dp
+                                    horizontalPadding = 0.dp,
+                                    useSerifFont = true
                                 )
 
                                 PlayerProgress(
                                     positionMs = uiState.position,
                                     durationMs = uiState.duration,
                                     onSeek = onSeek,
-                                    horizontalPadding = 0.dp
+                                    horizontalPadding = 0.dp,
+                                    seekBarStyle = seekBarStyle
                                 )
 
                                 PlayerPlaybackControls(
