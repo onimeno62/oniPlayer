@@ -338,6 +338,9 @@ fun LibraryHostScreen(
             }
         }
 
+        val beatEnergy by viewModel.audioEngine.beatEnergy.collectAsStateWithLifecycle()
+        val nowPlayingEffect by viewModel.nowPlayingEffect.collectAsStateWithLifecycle()
+
         LibraryDashboardScreen(
             songs = songs,
             sortedSongs = dashboardSorted,
@@ -377,6 +380,8 @@ fun LibraryHostScreen(
             position = position,
             duration = duration,
             isPreparing = isPreparing,
+            beatEnergy = beatEnergy,
+            nowPlayingEffect = nowPlayingEffect,
             onTogglePlayPause = { viewModel.togglePlayPause() },
             onReplay = {
                 viewModel.seekTo(0L)
