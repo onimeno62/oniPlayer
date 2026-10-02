@@ -122,6 +122,9 @@ fun PlayerScreen(
             onRemoveFromQueue = { songToRemove ->
                 viewModel.removeFromQueue(songToRemove)
             },
+            onMoveInQueue = { fromIndex, toIndex ->
+                viewModel.moveInQueue(fromIndex, toIndex)
+            },
             onDismiss = { showQueueSheet = false }
         )
     }
