@@ -1,21 +1,31 @@
 package com.example.ui.player.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,8 +55,21 @@ fun PlayerQueueSheet(
     currentSong: SongEntity?,
     onPlaySong: (SongEntity) -> Unit,
     onRemoveFromQueue: ((SongEntity) -> Unit)? = null,
+    onMoveInQueue: ((Int, Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
+    val localQueue = remember(queue) { mutableStateListOf<SongEntity>().apply { addAll(queue) } }
+    val listState = rememberLazyListState()
+    var draggedIndex by remember { mutableStateOf<Int?>(null) }
+    var draggedOffset by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(queue) {
+        if (draggedIndex == null) {
+            localQueue.clear()
+            localQueue.addAll(queue)
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -154,9 +177,9 @@ fun PlayerQueueSheet(
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             itemsIndexed(
-                                items = queue,
-                                key = { index, song -> "${song.id}_$index" }
-                            ) { _, song ->
+                                items = localQueue,
+                                key = { _, song -> song.id }
+                            ) { index, song ->
                                 val isCurrent = song.id == currentSong?.id
                                 val containerVariant = if (isCurrent) OniSurfaceVariant.Soft else OniSurfaceVariant.Flat
 
@@ -173,9 +196,38 @@ fun PlayerQueueSheet(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+                                            .graphicsLayer { translationY = if (draggedIndex == index) draggedOffset else 0f }
+                                            .padding(start = 4.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Drag to reorder",
+                                            tint = OniSkin.colors.textSecondary,
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .pointerInput(index) {
+                                                    detectDragGesturesAfterLongPress(
+                                                        onDragStart = { draggedIndex = index; draggedOffset = 0f },
+                                                        onDragCancel = { draggedIndex = null; draggedOffset = 0f },
+                                                        onDragEnd = {
+                                                            val from = draggedIndex
+                                                            val target = listState.layoutInfo.visibleItemsInfo
+                                                                .filter { it.index != from }
+                                                                .minByOrNull { info -> kotlin.math.abs((info.offset + info.size / 2) - (draggedOffset + (listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == from }?.let { it.offset + it.size / 2 } ?: 0))) }
+                                                                ?.index
+                                                            if (from != null && target != null && from != target) {
+                                                                val moved = localQueue.removeAt(from)
+                                                                val adjustedTarget = if (target > from) target - 1 else target
+                                                                localQueue.add(adjustedTarget.coerceIn(0, localQueue.size), moved)
+                                                                onMoveInQueue?.invoke(from, target)
+                                                            }
+                                                            draggedIndex = null; draggedOffset = 0f
+                                                        },
+                                                        onDrag = { change, amount -> change.consume(); draggedOffset += amount.y }
+                                                    )
+                                                }
+                                        )
                                         OniArtwork(
                                             artworkUri = song.albumArtUri,
                                             contentDescription = null,
