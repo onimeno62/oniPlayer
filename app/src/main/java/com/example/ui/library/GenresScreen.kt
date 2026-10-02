@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
-import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.model.GenreUiModel
 import com.example.ui.theme.OniSkin
@@ -58,9 +57,6 @@ fun GenresScreen(
             modifier = modifier.fillMaxSize()
         )
     } else {
-        val heroArtwork = genres.firstNotNullOfOrNull { it.artworkUri }
-        val heroSubtitle = if (genres.size == 1) "1 genre" else "${genres.size} genres"
-
         if (layoutMode == "grid") {
             val gridState = rememberLazyGridState(
                 initialFirstVisibleItemIndex = gridIndex,
@@ -81,17 +77,7 @@ fun GenresScreen(
                 horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryCategoryHero(
-                        title = "Genres",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Category,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(genres, key = { it.genre }) { genre ->
+            ) {                items(genres, key = { it.genre }) { genre ->
                     val songText = if (genre.songCount == 1) "1 song" else "${genre.songCount} songs"
 
                     OniSurface(
@@ -192,17 +178,7 @@ fun GenresScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(key = "genres_hero") {
-                    LibraryCategoryHero(
-                        title = "Genres",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Category,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(genres, key = { it.genre }) { genre ->
+            ) {                items(genres, key = { it.genre }) { genre ->
                     val songText = if (genre.songCount == 1) "1 song" else "${genre.songCount} songs"
 
                     OniSurface(
