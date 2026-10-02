@@ -40,6 +40,7 @@ fun AppearanceSettingsScreen(
     val blurStrength by viewModel.blurStrength.collectAsStateWithLifecycle()
     val cornerRadius by viewModel.cornerRadius.collectAsStateWithLifecycle()
     val backgroundTransparency by viewModel.backgroundTransparency.collectAsStateWithLifecycle()
+    val nowPlayingEffect by viewModel.nowPlayingEffect.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
 
     var showResetDialog by remember { mutableStateOf(false) }
@@ -265,6 +266,44 @@ fun AppearanceSettingsScreen(
                         valueFormatter = { "${it.toInt()}%" },
                         testTag = "setting_background_transparency"
                     )
+                }
+            }
+
+            // Now Playing artwork-reactive visual effect
+            item {
+                SettingSection(
+                    title = "Now Playing Effect",
+                    description = "Choose how the Continue Listening card reacts to the playing audio."
+                ) {
+                    val options = listOf(0 to "Off", 1 to "Pulse", 2 to "Glow")
+                    options.forEachIndexed { index, pair ->
+                        val value = pair.first
+                        val label = pair.second
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .clickable { viewModel.setNowPlayingEffect(value) }
+                                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = nowPlayingEffect == value, onClick = { viewModel.setNowPlayingEffect(value) })
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(label, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary)
+                                Text(
+                                    when (value) {
+                                        1 -> "Subtle beat-synced artwork pulse."
+                                        2 -> "Artwork glow intensifies with the audio."
+                                        else -> "Static artwork with no audio reaction."
+                                    },
+                                    style = OniSkin.typography.bodySmall,
+                                    color = OniSkin.colors.textSecondary
+                                )
+                            }
+                        }
+                        if (index < options.lastIndex) SettingDivider()
+                    }
                 }
             }
 
