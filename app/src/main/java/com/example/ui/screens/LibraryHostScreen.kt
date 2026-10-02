@@ -408,10 +408,10 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
                     searchQuery = searchQuery,
                     onSearchQueryChange = { viewModel.updateSearchQuery(it) },
                     onOpenMenu = { showOptionsMenu = true },
-                    onArtworkAction = when {
-                        index == CAT_ARTISTS && group != null -> ({ artistArtworkActionRequest++ })
-                        index == CAT_ALBUMS && group != null -> ({ activeAlbum?.let { viewModel.downloadAlbumArtwork(it.title, it.artist, baseSongs.map { song -> song.id }) } })
-                        else -> null
+                    onArtworkAction = if (index == CAT_ARTISTS && group != null) {
+                        { artistArtworkActionRequest++ }
+                    } else {
+                        null
                     },
                     playlistActions = index == CAT_PLAYLISTS && activePlaylist == null,
                     onNewPlaylist = { showNewPlaylistDialog = true },
