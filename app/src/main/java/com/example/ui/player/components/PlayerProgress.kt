@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import com.example.ui.components.playback.OniPlaybackProgress
+import com.example.ui.player.SeekBarStyle
 import com.example.ui.theme.OniSkin
 
 /**
@@ -15,6 +16,7 @@ import com.example.ui.theme.OniSkin
  *
  * Uses the shared [OniPlaybackProgress] component to ensure consistent slider
  * behavior, scrubber interaction, and time formatting throughout oniPlayer.
+ * Supports configurable styles: SIMPLE, WAVY, DOT_LINE, AUDIO_SPECTRUM.
  */
 @Composable
 fun PlayerProgress(
@@ -23,7 +25,9 @@ fun PlayerProgress(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal
+    horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
+    seekBarStyle: SeekBarStyle = SeekBarStyle.SIMPLE,
+    beatEnergy: Float = 0.5f
 ) {
     Box(
         modifier = modifier
@@ -38,7 +42,9 @@ fun PlayerProgress(
             enabled = enabled,
             showTimeLabels = true,
             activeTrackColor = OniSkin.colors.primary,
-            thumbColor = OniSkin.colors.primary
+            thumbColor = OniSkin.colors.primary,
+            style = seekBarStyle,
+            beatEnergy = beatEnergy
         )
     }
 }
