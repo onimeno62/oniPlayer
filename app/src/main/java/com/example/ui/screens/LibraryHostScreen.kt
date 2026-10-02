@@ -35,6 +35,7 @@ import com.example.ui.library.AlbumDetailScreen
 import com.example.ui.library.AlbumsScreen
 import com.example.ui.library.ArtistDetailScreen
 import com.example.ui.library.ArtistsScreen
+import com.example.ui.library.DashboardCounts
 import com.example.ui.library.FoldersScreen
 import com.example.ui.library.GenresScreen
 import com.example.ui.library.LibraryDashboardScreen
@@ -96,12 +97,17 @@ private fun hostFilterSongs(list: List<SongEntity>, query: String): List<SongEnt
  * - Search in the header is contextual: it filters whatever list is currently shown.
  * - Song lists use com.example.ui.library.components.SongsListView (swipe actions + fast scroller),
  *   which is imported explicitly and therefore shadows the legacy same-named function in this package.
+ * - [onDashboardResumeVisibleChange] tells the app-level mini-player whether the dashboard's
+ *   Continue Listening card is on screen (category screens always report false).
  *
  * Legacy helpers (PlaylistsView, dialogs, LibraryOptionsMenu, CategoryInfo, ...) are reused
  * from the old LibraryScreen.kt / LibraryExtensions.kt until they are migrated.
  */
 @Composable
-fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
+fun LibraryHostScreen(
+    viewModel: MusicPlayerViewModel,
+    onDashboardResumeVisibleChange: (Boolean) -> Unit = {}
+) {
     val songs by viewModel.allSongs.collectAsStateWithLifecycle()
     val favorites by viewModel.favoriteSongs.collectAsStateWithLifecycle()
     val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
@@ -113,6 +119,7 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
     val position by viewModel.audioEngine.position.collectAsStateWithLifecycle()
     val duration by viewModel.audioEngine.duration.collectAsStateWithLifecycle()
     val isPreparing by viewModel.audioEngine.isPreparing.collectAsStateWithLifecycle()
+    val playedPlaylist by viewModel.playedActivePlaylist.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
@@ -159,6 +166,12 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
     // Contextual search starts fresh on every navigation step
     LaunchedEffect(activeCategoryIndex, selectedGroup, activePlaylist?.name, activeSmartPlaylistType) {
         viewModel.updateSearchQuery("")
+    }
+
+    // Inside a category the dashboard resume card is never visible -> mini-player may show.
+    val latestResumeVisibleChange by rememberUpdatedState(onDashboardResumeVisibleChange)
+    LaunchedEffect(activeCategoryIndex) {
+        if (activeCategoryIndex != null) latestResumeVisibleChange(false)
     }
 
     // ---- persistent shared preferences ---------------------------------------------------------
@@ -302,6 +315,29 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
         val dashboardSorted = remember(songs, searchQuery, sortBy, isSortAscending) {
             hostSortSongs(hostFilterSongs(songs, searchQuery), sortBy, isSortAscending)
         }
+
+        // "Jump back in": prefer the playlist the current song was started from, else its album.
+        val jumpBackSong = currentSong ?: lastPlayedSong
+        val jumpBackAlbum = remember(jumpBackSong?.id, albumUiModels) {
+            jumpBackSong?.let { s ->
+                val key = "${s.displayAlbum.ifBlank { "Unknown Album" }}|${s.displayAlbumArtist}"
+                albumUiModels.find { it.albumKey == key }?.takeIf { it.title.isNotBlank() && it.title != "Unknown Album" }
+            }
+        }
+        val jumpPlaylist = playedPlaylist?.takeIf { p -> playlists.any { it.id == p.id } }
+        val jumpBackLabel = jumpPlaylist?.let { "Playlist: ${it.name}" } ?: jumpBackAlbum?.let { "Album: ${it.title}" }
+        val onJumpBack: () -> Unit = {
+            val playlist = jumpPlaylist
+            val album = jumpBackAlbum
+            if (playlist != null) {
+                viewModel.setActiveCategoryIndex(CAT_PLAYLISTS)
+                viewModel.setActivePlaylist(playlist)
+            } else if (album != null) {
+                viewModel.setActiveCategoryIndex(CAT_ALBUMS)
+                viewModel.setSelectedGroup(album.albumKey)
+            }
+        }
+
         LibraryDashboardScreen(
             songs = songs,
             sortedSongs = dashboardSorted,
@@ -311,30 +347,45 @@ fun LibraryHostScreen(viewModel: MusicPlayerViewModel) {
             recentlyPlayedSongs = recentlyPlayedSongs,
             mostPlayedSongs = mostPlayedSongs,
             recentlyAddedSongs = recentlyAddedSongs,
-            uniqueArtistsCount = uniqueArtists.size,
-            uniqueAlbumsCount = uniqueAlbums.size,
-            favoritesCount = favorites.size,
+            favoriteSongs = favorites,
+            highRatedSongs = highRatedSongs,
+            neverPlayedSongs = neverPlayedSongs,
+            counts = DashboardCounts(
+                albums = albumUiModels.size,
+                artists = artistUiModels.size,
+                folders = folderUiModels.size,
+                genres = genreUiModels.size,
+                playlists = playlists.size
+            ),
+            searchQuery = searchQuery,
             isScanning = isScanning,
             showOptionsMenu = { showOptionsMenu = true },
             onRescan = triggerScanWithPermission,
-            layoutMode = categoryStyle,
-            onToggleLayoutMode = {
-                LibraryPreferencesStore.setCategoryLayoutStyle(
-                    context,
-                    if (categoryStyle == LibraryPreferencesStore.STYLE_GRID) LibraryPreferencesStore.STYLE_LIST else LibraryPreferencesStore.STYLE_GRID
-                )
-            },
-            categoryList = categoryList,
+            onOpenSearch = { viewModel.selectTab(2) },
             onSelectCategory = { viewModel.setActiveCategoryIndex(it) },
             onPlaySong = { song, list -> viewModel.playSong(song, list) },
             onShowTrackMenu = { songForMenu = it },
-            albumUiModels = albumUiModels,
-            artistUiModels = artistUiModels,
+            onPlayNext = { song ->
+                viewModel.playNext(song)
+                Toast.makeText(context, "Playing next: ${song.displayTitle}", Toast.LENGTH_SHORT).show()
+            },
+            onAddToQueue = { song ->
+                viewModel.addToQueue(song)
+                Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
+            },
+            onToggleFavorite = { song -> viewModel.toggleFavorite(song.id) },
             position = position,
             duration = duration,
             isPreparing = isPreparing,
             onTogglePlayPause = { viewModel.togglePlayPause() },
-            onOpenPlayer = { viewModel.selectTab(1) }
+            onReplay = {
+                viewModel.seekTo(0L)
+                viewModel.resumePlayback()
+            },
+            onOpenPlayer = { viewModel.selectTab(1) },
+            jumpBackLabel = jumpBackLabel,
+            onJumpBack = onJumpBack,
+            onResumeCardVisibleChange = onDashboardResumeVisibleChange
         )
     } else {
         val group = selectedGroup
