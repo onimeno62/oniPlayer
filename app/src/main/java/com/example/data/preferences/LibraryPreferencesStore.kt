@@ -51,6 +51,9 @@ object LibraryPreferencesStore {
     // Onboarding
     val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
 
+    // Dashboard "Customize home": ordered "id:visible" list, see ui/library/model/DashboardSections.kt
+    val DASHBOARD_SECTIONS = stringPreferencesKey("dashboard_sections")
+
     private val writeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private fun store(context: Context): DataStore<Preferences> = context.applicationContext.oniLibraryPrefsStore
@@ -110,6 +113,15 @@ object LibraryPreferencesStore {
     fun setSortAscending(context: Context, ascending: Boolean) {
         val app = context.applicationContext
         writeScope.launch { runCatching { store(app).edit { it[SORT_ASCENDING] = ascending.toString() } } }
+    }
+
+    /** Raw dashboard section order/visibility. Empty string means "defaults". */
+    fun dashboardSections(context: Context): Flow<String> =
+        store(context).data.safe().map { it[DASHBOARD_SECTIONS] ?: "" }.distinctUntilChanged()
+
+    fun setDashboardSections(context: Context, value: String) {
+        val app = context.applicationContext
+        writeScope.launch { runCatching { store(app).edit { it[DASHBOARD_SECTIONS] = value } } }
     }
 
     /** True once the user finished or skipped the welcome slider. */
