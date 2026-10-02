@@ -1,189 +1,148 @@
 package com.example.ui.player.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.player.LyricLineDisplay
+import com.example.ui.player.LyricLineMode
 import com.example.ui.theme.OniSkin
 
+/**
+ * Compact inline lyrics preview and karaoke prompt for the Player screen in Default Skin.
+ *
+ * Supports LyricLineMode (UNDERNEATH, OVER_BOTTOM, HIDDEN) and configurable line count (1, 2, 3).
+ * When lyrics are missing, invites the user to search online or paste manual lyrics.
+ */
 @Composable
 fun PlayerLyricsPreview(
     currentLyricLine: String?,
     nextLyricLine: String? = null,
-    hasSynchronizedLyrics: Boolean,
+    thirdLyricLine: String? = null,
+    hasSynchronizedLyrics: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
-    isFetchingLyrics: Boolean = false
+    isFetchingLyrics: Boolean = false,
+    lyricLineMode: LyricLineMode = LyricLineMode.UNDERNEATH,
+    lineCount: Int = 2
 ) {
-    val showFetching = isFetchingLyrics && currentLyricLine.isNullOrBlank()
+    if (lyricLineMode == LyricLineMode.HIDDEN) {
+        return
+    }
+
+    val hasAnyLyrics = !currentLyricLine.isNullOrBlank()
+
+    val combinedLyrics = buildString {
+        if (!currentLyricLine.isNullOrBlank()) append(currentLyricLine)
+        if (lineCount >= 2 && !nextLyricLine.isNullOrBlank()) {
+            if (isNotEmpty()) append("\n")
+            append(nextLyricLine)
+        }
+        if (lineCount >= 3 && !thirdLyricLine.isNullOrBlank()) {
+            if (isNotEmpty()) append("\n")
+            append(thirdLyricLine)
+        }
+    }
+
+    val accessibilityDesc = when {
+        isFetchingLyrics -> "Downloading lyrics…"
+        hasAnyLyrics && hasSynchronizedLyrics -> "Live lyrics: $currentLyricLine. Tap for karaoke."
+        hasAnyLyrics -> "Lyrics preview: $currentLyricLine. Tap to open lyrics."
+        else -> "No lyrics found. Tap to search online or add lyrics."
+    }
+
+    val containerVariant = if (hasAnyLyrics && hasSynchronizedLyrics) {
+        OniSurfaceVariant.Soft
+    } else {
+        OniSurfaceVariant.Default
+    }
 
     OniSurface(
-        variant = OniSurfaceVariant.Soft,
-        shape = OniSkin.shapes.medium,
+        variant = containerVariant,
+        shape = OniSkin.shapes.card,
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 52.dp)
             .padding(horizontal = horizontalPadding)
             .testTag("player_lyrics_preview")
+            .semantics(mergeDescendants = true) {
+                contentDescription = accessibilityDesc
+            }
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.xs),
+                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-                if (showFetching) {
-                    LyricsFetchingIcon()
+            Icon(
+                imageVector = if (hasSynchronizedLyrics) Icons.Default.Sync else Icons.Default.Lyrics,
+                contentDescription = null,
+                tint = if (hasAnyLyrics) OniSkin.colors.primary else OniSkin.colors.textTertiary,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (isFetchingLyrics) {
+                    Text(
+                        text = "Downloading lyrics…",
+                        style = OniSkin.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = OniSkin.colors.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else if (hasAnyLyrics) {
+                    LyricLineDisplay(
+                        lyric = combinedLyrics,
+                        lineCount = lineCount.coerceIn(1, 3),
+                        alpha = 0.95f
+                    )
                 } else {
-                    Icon(
-                        imageVector = Icons.Default.Lyrics,
-                        contentDescription = "Lyrics and Karaoke",
-                        tint = OniSkin.colors.primary,
-                        modifier = Modifier.size(20.dp)
+                    Text(
+                        text = "No lyrics • Tap to search or add",
+                        style = OniSkin.typography.bodyMedium,
+                        color = OniSkin.colors.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
 
-            val motion = OniSkin.motion
-            AnimatedContent(
-                targetState = Triple(currentLyricLine, nextLyricLine, showFetching),
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing)) togetherWith
-                        fadeOut(animationSpec = tween(motion.componentStateDurationMs, easing = motion.standardEasing))
-                },
-                label = "lyrics_preview_text_transition",
-                modifier = Modifier.weight(1f)
-            ) { (current, next, fetching) ->
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    if (!current.isNullOrBlank()) {
-                        // Two-line layout: Line 1 (current singing line), Line 2 (upcoming line or wrapped line)
-                        Text(
-                            text = current,
-                            style = OniSkin.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = OniSkin.colors.textPrimary,
-                            maxLines = if (next.isNullOrBlank()) 2 else 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Start
-                        )
-                        if (!next.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = next,
-                                style = OniSkin.typography.bodySmall,
-                                fontWeight = FontWeight.Normal,
-                                color = OniSkin.colors.textSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Start
-                            )
-                        }
-                    } else if (fetching) {
-                        Text(
-                            text = "Searching lyrics online\u2026",
-                            style = OniSkin.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = OniSkin.colors.textPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(1.dp))
-                        Text(
-                            text = "Auto-download is on",
-                            style = OniSkin.typography.bodySmall,
-                            color = OniSkin.colors.textSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    } else {
-                        // Only shown when song has no lyrics at all
-                        Text(
-                            text = "Lyrics & Karaoke",
-                            style = OniSkin.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = OniSkin.colors.textPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(1.dp))
-                        Text(
-                            text = "Tap to view or search online",
-                            style = OniSkin.typography.bodySmall,
-                            color = OniSkin.colors.textSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = OniSkin.colors.textTertiary,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
-}
-
-/** Small bouncing + pulsing cloud shown while lyrics are auto-downloaded. */
-@Composable
-private fun LyricsFetchingIcon() {
-    val transition = rememberInfiniteTransition(label = "lyrics_fetch_icon")
-    val offsetY by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 520, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "lyrics_fetch_bounce"
-    )
-    val alpha by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.45f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 780, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "lyrics_fetch_pulse"
-    )
-    Icon(
-        imageVector = Icons.Default.CloudDownload,
-        contentDescription = "Downloading lyrics",
-        tint = OniSkin.colors.primary,
-        modifier = Modifier
-            .size(20.dp)
-            .graphicsLayer {
-                translationY = offsetY * density
-                this.alpha = alpha
-            }
-            .testTag("player_lyrics_fetching_icon")
-    )
 }
