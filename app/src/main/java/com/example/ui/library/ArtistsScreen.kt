@@ -32,7 +32,6 @@ import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.library.components.ArtistRow
-import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.model.ArtistUiModel
 import com.example.ui.theme.OniSkin
@@ -57,9 +56,6 @@ fun ArtistsScreen(
             modifier = modifier.fillMaxSize()
         )
     } else {
-        val heroArtwork = artists.firstOrNull()?.artworkUri
-        val heroSubtitle = if (artists.size == 1) "1 artist" else "${artists.size} artists"
-
         if (layoutMode == "grid") {
             val gridState = rememberLazyGridState(
                 initialFirstVisibleItemIndex = gridIndex,
@@ -80,17 +76,7 @@ fun ArtistsScreen(
                 horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryCategoryHero(
-                        title = "Artists",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Person,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(artists, key = { it.artistKey }) { artist ->
+            ) {                items(artists, key = { it.artistKey }) { artist ->
                     val albumText = if (artist.albumCount == 1) "1 album" else "${artist.albumCount} albums"
                     val songText = if (artist.songCount == 1) "1 song" else "${artist.songCount} songs"
 
@@ -180,17 +166,7 @@ fun ArtistsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(key = "artists_hero") {
-                    LibraryCategoryHero(
-                        title = "Artists",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Person,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(artists, key = { it.artistKey }) { artist ->
+            ) {                items(artists, key = { it.artistKey }) { artist ->
                     OniSurface(
                         modifier = Modifier
                             .fillMaxWidth()
