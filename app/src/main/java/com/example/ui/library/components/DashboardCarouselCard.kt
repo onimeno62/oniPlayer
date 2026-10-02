@@ -1,8 +1,5 @@
 package com.example.ui.library.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -103,12 +100,7 @@ fun DashboardCarouselCard(
                     size = size,
                     shape = OniSkin.artwork.shape
                 )
-                AnimatedVisibility(
-                    visible = pressed || isCurrent,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.matchParentSize()
-                ) {
+                if (pressed || isCurrent) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()

@@ -132,4 +132,5 @@ fun ContinueListeningHeroV2(
             HeroProgressBar(position, duration, OniSkin.colors.primary, onOpenNowPlaying)
         }
     }
+    }
 }

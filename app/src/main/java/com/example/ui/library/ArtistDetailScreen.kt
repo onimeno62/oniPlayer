@@ -695,7 +695,6 @@ fun ArtistDetailScreen(
         }
     }
 }
-}
 
 @Composable
 fun ArtistSongGridCard(
