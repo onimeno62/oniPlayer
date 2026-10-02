@@ -764,8 +764,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
 
     if (showOptionsMenu) {
         LibraryOptionsMenu(
-            searchQuery = searchQuery,
-            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
             layoutMode = layoutMode,
             onLayoutChange = { layoutMode = it },
             sortBy = sortBy,
