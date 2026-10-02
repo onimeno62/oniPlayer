@@ -10,23 +10,27 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.preferences.PlayerSettingsStore
 import com.example.ui.components.button.OniPrimaryButton
 import com.example.ui.components.button.OniSecondaryButton
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.player.LyricLineMode
+import com.example.ui.player.SeekBarStyle
 import com.example.ui.theme.OniSkin
 import com.example.ui.viewmodel.MusicPlayerViewModel
 
 /**
  * Complete Appearance settings screen for oniPlayer Default Skin.
  * Features Theme, Active Skin architecture readiness, Accent Color, Surfaces & Effects,
- * Live Preview, Typography design system scale, and Reset Appearance.
+ * Seek Bar customization styles, Canvas player controls, Typography, and Reset Appearance.
  */
 @Composable
 fun AppearanceSettingsScreen(
@@ -44,6 +48,16 @@ fun AppearanceSettingsScreen(
     val isSystemDark = isSystemInDarkTheme()
 
     var showResetDialog by remember { mutableStateOf(false) }
+
+    // Player customization preferences
+    val context = LocalContext.current.applicationContext
+    val settings by rememberPlayerSettings()
+    var selectedSeekBarStyle by remember { mutableStateOf(SeekBarStyle.SIMPLE) }
+    var selectedLyricMode by remember { mutableStateOf(LyricLineMode.UNDERNEATH) }
+    var selectedLineCount by remember { mutableIntStateOf(2) }
+    var audioAnalyzerEffectOn by remember { mutableStateOf(false) }
+    var artworkEffectsOn by remember { mutableStateOf(true) }
+    var showPlayerBottomNav by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -111,6 +125,102 @@ fun AppearanceSettingsScreen(
                 }
             }
 
+            // Seek Bar Customization Section
+            item {
+                SettingSection(
+                    title = "Player Seek Bar Style",
+                    description = "Choose your playback scrubber aesthetic across all player screens."
+                ) {
+                    val seekStyles = listOf(
+                        SeekBarStyle.SIMPLE to ("Simple Slider" to "Minimal clean slider track"),
+                        SeekBarStyle.WAVY to ("M3 Wavy Waveform" to "Android 13+ animated wavy squiggly pattern"),
+                        SeekBarStyle.DOT_LINE to ("Dotted to Solid" to "Dotted inactive track morphing to solid active progress"),
+                        SeekBarStyle.AUDIO_SPECTRUM to ("Audio Spectrum Bar" to "Real-time 16-band reactive frequency equalizer bar")
+                    )
+
+                    seekStyles.forEachIndexed { index, (style, labelDesc) ->
+                        val isSelected = selectedSeekBarStyle == style
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 56.dp)
+                                .clickable { selectedSeekBarStyle = style }
+                                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = isSelected, onClick = { selectedSeekBarStyle = style })
+                            Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(labelDesc.first, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary)
+                                Text(labelDesc.second, style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
+                            }
+                        }
+                        if (index < seekStyles.lastIndex) SettingDivider()
+                    }
+                }
+            }
+
+            // Canvas & Live Lyrics Display Section
+            item {
+                SettingSection(
+                    title = "Live Lyrics Display",
+                    description = "Choose placement and multi-line density for player lyrics."
+                ) {
+                    SettingsChoiceRow(
+                        title = "Lyric Placement",
+                        options = listOf("Underneath Art", "Over Artwork Bottom", "Hidden"),
+                        selectedIndex = when (selectedLyricMode) {
+                            LyricLineMode.UNDERNEATH -> 0
+                            LyricLineMode.OVER_BOTTOM -> 1
+                            LyricLineMode.HIDDEN -> 2
+                        },
+                        onSelect = {
+                            selectedLyricMode = when (it) {
+                                0 -> LyricLineMode.UNDERNEATH
+                                1 -> LyricLineMode.OVER_BOTTOM
+                                else -> LyricLineMode.HIDDEN
+                            }
+                        }
+                    )
+                    SettingDivider()
+                    SettingsChoiceRow(
+                        title = "Visible Lyric Lines",
+                        options = listOf("1 Line", "2 Lines", "3 Lines"),
+                        selectedIndex = (selectedLineCount - 1).coerceIn(0, 2),
+                        onSelect = { selectedLineCount = it + 1 }
+                    )
+                }
+            }
+
+            // Audio & Artwork Effects Section
+            item {
+                SettingSection(
+                    title = "Player Visual & Audio Effects",
+                    description = "Real-time beat responsiveness and motion enhancements."
+                ) {
+                    SwitchSettingRow(
+                        title = "Audio Analyzer Pulse",
+                        description = "Glow and amplitude reactive to track rhythm & beat energy.",
+                        checked = audioAnalyzerEffectOn,
+                        onCheckedChange = { audioAnalyzerEffectOn = it }
+                    )
+                    SettingDivider()
+                    SwitchSettingRow(
+                        title = "Living Artwork Effects",
+                        description = "Smooth Ken Burns pan/zoom and dynamic ambient artwork radiance.",
+                        checked = artworkEffectsOn,
+                        onCheckedChange = { artworkEffectsOn = it }
+                    )
+                    SettingDivider()
+                    SwitchSettingRow(
+                        title = "Bottom Navigation Bar on Player",
+                        description = "Keep bottom nav bar visible while full player is active.",
+                        checked = showPlayerBottomNav,
+                        onCheckedChange = { showPlayerBottomNav = it }
+                    )
+                }
+            }
+
             // Theme Section
             item {
                 SettingSection(
@@ -158,42 +268,6 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // Skin Architecture Section
-            item {
-                SettingSection(
-                    title = "Active Skin",
-                    description = "Installed skin runtime architecture."
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(OniSkin.spacing.md)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Default Skin (Active)",
-                                    style = OniSkin.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = OniSkin.colors.primary
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Soft surfaces + strong hierarchy + restrained accent + beautiful artwork.",
-                                    style = OniSkin.typography.bodySmall,
-                                    color = OniSkin.colors.textSecondary
-                                )
-                            }
-                            Icon(Icons.Default.CheckCircle, contentDescription = "Active", tint = OniSkin.colors.primary)
-                        }
-                    }
-                }
-            }
-
             // Accent Color Section
             item {
                 SettingSection(
@@ -223,7 +297,7 @@ fun AppearanceSettingsScreen(
             // Surfaces & Effects Section
             item {
                 SettingSection(
-                    title = "Surfaces & Effects",
+                    title = "Surfaces & Glass",
                     description = "Configure translucent glass styling, radius, and transparency.",
                     cardModifier = Modifier.testTag("appearance_card_visual_effects")
                 ) {
@@ -269,45 +343,7 @@ fun AppearanceSettingsScreen(
                 }
             }
 
-            // Now Playing artwork-reactive visual effect
-            item {
-                SettingSection(
-                    title = "Now Playing Effect",
-                    description = "Choose how the Continue Listening card reacts to the playing audio."
-                ) {
-                    val options = listOf(0 to "Off", 1 to "Pulse", 2 to "Glow")
-                    options.forEachIndexed { index, pair ->
-                        val value = pair.first
-                        val label = pair.second
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .defaultMinSize(minHeight = 48.dp)
-                                .clickable { viewModel.setNowPlayingEffect(value) }
-                                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = nowPlayingEffect == value, onClick = { viewModel.setNowPlayingEffect(value) })
-                            Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(label, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary)
-                                Text(
-                                    when (value) {
-                                        1 -> "Subtle beat-synced artwork pulse."
-                                        2 -> "Artwork glow intensifies with the audio."
-                                        else -> "Static artwork with no audio reaction."
-                                    },
-                                    style = OniSkin.typography.bodySmall,
-                                    color = OniSkin.colors.textSecondary
-                                )
-                            }
-                        }
-                        if (index < options.lastIndex) SettingDivider()
-                    }
-                }
-            }
-
-            // Typography Scale (Design-system token scale preview)
+            // Typography Scale
             item {
                 SettingSection(
                     title = "Typography Hierarchy",
