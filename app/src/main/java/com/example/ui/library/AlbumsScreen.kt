@@ -29,7 +29,6 @@ import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.library.components.AlbumCard
-import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.model.AlbumUiModel
 import com.example.ui.screens.formatDuration
@@ -55,9 +54,6 @@ fun AlbumsScreen(
             modifier = modifier.fillMaxSize()
         )
     } else {
-        val heroArtwork = albums.firstOrNull()?.artworkUri
-        val heroSubtitle = if (albums.size == 1) "1 album" else "${albums.size} albums"
-
         if (layoutMode == "grid") {
             val gridState = rememberLazyGridState(
                 initialFirstVisibleItemIndex = gridIndex,
@@ -78,17 +74,7 @@ fun AlbumsScreen(
                 horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.md),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.md),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryCategoryHero(
-                        title = "Albums",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Album,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(albums, key = { it.albumKey }) { album ->
+            ) {                items(albums, key = { it.albumKey }) { album ->
                     AlbumCard(
                         album = album,
                         onClick = { onAlbumClick(album) },
@@ -112,17 +98,7 @@ fun AlbumsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(key = "albums_hero") {
-                    LibraryCategoryHero(
-                        title = "Albums",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Album,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(albums, key = { it.albumKey }) { album ->
+            ) {                items(albums, key = { it.albumKey }) { album ->
                     OniSurface(
                         modifier = Modifier
                             .fillMaxWidth()
