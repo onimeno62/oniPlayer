@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
-import com.example.ui.library.components.LibraryCategoryHero
 import com.example.ui.library.components.LibraryEmptyState
 import com.example.ui.library.model.FolderUiModel
 import com.example.ui.theme.OniSkin
@@ -58,9 +57,6 @@ fun FoldersScreen(
             modifier = modifier.fillMaxSize()
         )
     } else {
-        val heroArtwork = folders.firstNotNullOfOrNull { it.artworkUri }
-        val heroSubtitle = if (folders.size == 1) "1 folder" else "${folders.size} folders"
-
         if (layoutMode == "grid") {
             val gridState = rememberLazyGridState(
                 initialFirstVisibleItemIndex = gridIndex,
@@ -81,17 +77,7 @@ fun FoldersScreen(
                 horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryCategoryHero(
-                        title = "Folders",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Folder,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(folders, key = { it.folderPath }) { folder ->
+            ) {                items(folders, key = { it.folderPath }) { folder ->
                     val songText = if (folder.songCount == 1) "1 song" else "${folder.songCount} songs"
 
                     OniSurface(
@@ -192,17 +178,7 @@ fun FoldersScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
                 modifier = modifier.fillMaxSize()
-            ) {
-                item(key = "folders_hero") {
-                    LibraryCategoryHero(
-                        title = "Folders",
-                        subtitle = heroSubtitle,
-                        artworkUri = heroArtwork,
-                        icon = Icons.Default.Folder,
-                        modifier = Modifier.padding(bottom = OniSkin.spacing.xs)
-                    )
-                }
-                items(folders, key = { it.folderPath }) { folder ->
+            ) {                items(folders, key = { it.folderPath }) { folder ->
                     val songText = if (folder.songCount == 1) "1 song" else "${folder.songCount} songs"
 
                     OniSurface(
