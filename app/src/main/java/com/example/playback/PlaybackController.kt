@@ -22,9 +22,11 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.MediaSession
+import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import androidx.media3.common.util.UnstableApi
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import com.example.data.database.OniDatabase
@@ -51,6 +53,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Service-owned playback engine. The Activity and ViewModels never own ExoPlayer. */
+@OptIn(UnstableApi::class)
 class PlaybackController(private val service: MediaSessionService) {
     companion object {
         const val SET_QUEUE = "com.example.oniplayer.SET_QUEUE"
@@ -72,6 +75,7 @@ class PlaybackController(private val service: MediaSessionService) {
         const val PREVIOUS = "com.example.oniplayer.PREVIOUS"
         const val REMOVE_FROM_QUEUE = "com.example.oniplayer.REMOVE_FROM_QUEUE"
         const val MOVE_IN_QUEUE = "com.example.oniplayer.MOVE_IN_QUEUE"
+        const val END_SESSION = "com.example.oniplayer.END_SESSION"
 
         const val SONG_IDS = "song_ids"
         const val SONG_ID = "song_id"
@@ -157,6 +161,14 @@ class PlaybackController(private val service: MediaSessionService) {
     val mediaSession = MediaSession.Builder(service, player)
         .setId("oni_session_${System.identityHashCode(this)}")
         .setCallback(SessionCallback())
+        .setMediaButtonPreferences(
+            listOf(
+                CommandButton.Builder(CommandButton.ICON_STOP)
+                    .setDisplayName("End oniPlayer")
+                    .setSessionCommand(SessionCommand(END_SESSION, Bundle.EMPTY))
+                    .build()
+            )
+        )
         .build()
 
     private val _state = MutableStateFlow(PlaybackState(null, false, 0, 0, 0, 0f, false, null, false, ShuffleMode.RANDOM, RepeatMode.ALL, emptyList()))
@@ -528,6 +540,15 @@ class PlaybackController(private val service: MediaSessionService) {
     }
 
     /** Reorders the active Media3 playlist without interrupting the current track. */
+    private fun endPlaybackSession() {
+        if (isReleased) return
+        player.stop()
+        player.clearMediaItems()
+        baseQueue = emptyList()
+        publish(emptyList())
+        service.stopSelf()
+    }
+
     suspend fun moveInQueue(fromIndex: Int, toIndex: Int) {
         if (isReleased) return
         val count = player.mediaItemCount
@@ -923,6 +944,7 @@ class PlaybackController(private val service: MediaSessionService) {
                         PLAY_NEXT -> playNext(args.getString(SONG_ID) ?: return@withLock)
                         REMOVE_FROM_QUEUE -> removeFromQueue(args.getString(SONG_ID) ?: return@withLock)
                         MOVE_IN_QUEUE -> moveInQueue(args.getInt(FROM_INDEX), args.getInt(TO_INDEX))
+                        END_SESSION -> endPlaybackSession()
                         UPDATE_SONG -> updateSong(args.getString(SONG_ID) ?: return@withLock)
                         TOGGLE_FAVORITE -> toggleFavorite()
                         EQ_BAND -> setBand(args.getInt(BAND), args.getFloat(VALUE))
@@ -960,7 +982,7 @@ class PlaybackController(private val service: MediaSessionService) {
                 .add(SessionCommand(ADD_TO_QUEUE, Bundle.EMPTY)).add(SessionCommand(PLAY_NEXT, Bundle.EMPTY)).add(SessionCommand(UPDATE_SONG, Bundle.EMPTY))
                 .add(SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY)).add(SessionCommand(EQ_BAND, Bundle.EMPTY)).add(SessionCommand(BASS, Bundle.EMPTY))
                 .add(SessionCommand(VIRTUALIZER, Bundle.EMPTY)).add(SessionCommand(PRESET, Bundle.EMPTY)).add(SessionCommand(SET_DELAY, Bundle.EMPTY))
-                .add(SessionCommand(CANCEL_DELAY, Bundle.EMPTY)).add(SessionCommand(TRIGGER_DELAY, Bundle.EMPTY)).add(SessionCommand(NEXT, Bundle.EMPTY)).add(SessionCommand(PREVIOUS, Bundle.EMPTY)).add(SessionCommand(REMOVE_FROM_QUEUE, Bundle.EMPTY)).add(SessionCommand(MOVE_IN_QUEUE, Bundle.EMPTY)).build()
+                .add(SessionCommand(CANCEL_DELAY, Bundle.EMPTY)).add(SessionCommand(TRIGGER_DELAY, Bundle.EMPTY)).add(SessionCommand(NEXT, Bundle.EMPTY)).add(SessionCommand(PREVIOUS, Bundle.EMPTY)).add(SessionCommand(REMOVE_FROM_QUEUE, Bundle.EMPTY)).add(SessionCommand(MOVE_IN_QUEUE, Bundle.EMPTY)).add(SessionCommand(END_SESSION, Bundle.EMPTY)).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
         }
 
