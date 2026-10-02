@@ -71,6 +71,7 @@ class PlaybackController(private val service: MediaSessionService) {
         const val NEXT = "com.example.oniplayer.NEXT"
         const val PREVIOUS = "com.example.oniplayer.PREVIOUS"
         const val REMOVE_FROM_QUEUE = "com.example.oniplayer.REMOVE_FROM_QUEUE"
+        const val MOVE_IN_QUEUE = "com.example.oniplayer.MOVE_IN_QUEUE"
 
         const val SONG_IDS = "song_ids"
         const val SONG_ID = "song_id"
@@ -87,6 +88,8 @@ class PlaybackController(private val service: MediaSessionService) {
         const val SHUFFLE_TYPE = "shuffle_type"
         const val REPEAT_MODE = "repeat_mode"
         const val SHUFFLE_ORDER = "shuffle_order"
+        const val FROM_INDEX = "from_index"
+        const val TO_INDEX = "to_index"
 
         private const val RESTART_ON_PREVIOUS_THRESHOLD_MS = 3_000L
     }
@@ -524,6 +527,19 @@ class PlaybackController(private val service: MediaSessionService) {
         savePlaybackState()
     }
 
+    /** Reorders the active Media3 playlist without interrupting the current track. */
+    suspend fun moveInQueue(fromIndex: Int, toIndex: Int) {
+        if (isReleased) return
+        val count = player.mediaItemCount
+        if (fromIndex !in 0 until count || toIndex !in 0 until count || fromIndex == toIndex) return
+        player.moveMediaItem(fromIndex, toIndex)
+        val reorderedIds = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        val byId = baseQueue.associateBy { it.id }
+        baseQueue = reorderedIds.mapNotNull { byId[it] }
+        publish(currentQueue())
+        savePlaybackState()
+    }
+
     /** Removes a song from the queue. If it's currently playing, advances to next. */
     suspend fun removeFromQueue(id: String) {
         if (isReleased) return
@@ -906,6 +922,7 @@ class PlaybackController(private val service: MediaSessionService) {
                         ADD_TO_QUEUE -> addToQueue(args.getString(SONG_ID) ?: return@withLock)
                         PLAY_NEXT -> playNext(args.getString(SONG_ID) ?: return@withLock)
                         REMOVE_FROM_QUEUE -> removeFromQueue(args.getString(SONG_ID) ?: return@withLock)
+                        MOVE_IN_QUEUE -> moveInQueue(args.getInt(FROM_INDEX), args.getInt(TO_INDEX))
                         UPDATE_SONG -> updateSong(args.getString(SONG_ID) ?: return@withLock)
                         TOGGLE_FAVORITE -> toggleFavorite()
                         EQ_BAND -> setBand(args.getInt(BAND), args.getFloat(VALUE))
@@ -943,7 +960,7 @@ class PlaybackController(private val service: MediaSessionService) {
                 .add(SessionCommand(ADD_TO_QUEUE, Bundle.EMPTY)).add(SessionCommand(PLAY_NEXT, Bundle.EMPTY)).add(SessionCommand(UPDATE_SONG, Bundle.EMPTY))
                 .add(SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY)).add(SessionCommand(EQ_BAND, Bundle.EMPTY)).add(SessionCommand(BASS, Bundle.EMPTY))
                 .add(SessionCommand(VIRTUALIZER, Bundle.EMPTY)).add(SessionCommand(PRESET, Bundle.EMPTY)).add(SessionCommand(SET_DELAY, Bundle.EMPTY))
-                .add(SessionCommand(CANCEL_DELAY, Bundle.EMPTY)).add(SessionCommand(TRIGGER_DELAY, Bundle.EMPTY)).add(SessionCommand(NEXT, Bundle.EMPTY)).add(SessionCommand(PREVIOUS, Bundle.EMPTY)).add(SessionCommand(REMOVE_FROM_QUEUE, Bundle.EMPTY)).build()
+                .add(SessionCommand(CANCEL_DELAY, Bundle.EMPTY)).add(SessionCommand(TRIGGER_DELAY, Bundle.EMPTY)).add(SessionCommand(NEXT, Bundle.EMPTY)).add(SessionCommand(PREVIOUS, Bundle.EMPTY)).add(SessionCommand(REMOVE_FROM_QUEUE, Bundle.EMPTY)).add(SessionCommand(MOVE_IN_QUEUE, Bundle.EMPTY)).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
         }
 
