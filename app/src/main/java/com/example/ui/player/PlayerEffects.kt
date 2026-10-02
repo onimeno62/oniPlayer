@@ -21,13 +21,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.PI
 import kotlin.math.sin
 
 private fun Modifier.seekGesture(progress: Float, onProgressChange: (Float) -> Unit): Modifier =
     pointerInput(progress) {
         detectTapGestures { offset ->
-            val width = size.width.coerceAtLeast(1f)
+            val width = size.width.toFloat().coerceAtLeast(1f)
             onProgressChange((offset.x / width).coerceIn(0f, 1f))
         }
     }
@@ -133,7 +134,7 @@ fun LyricLineDisplay(lyric: String, lineCount: Int = 2, modifier: Modifier = Mod
     Column(modifier = modifier) {
         lyric.lines().take(lineCount.coerceAtLeast(1)).forEach { line ->
             androidx.compose.material3.Text(text = line, color = Color.White.copy(alpha = alpha),
-                fontSize = androidx.compose.ui.unit.sp(14))
+                fontSize = 14.sp)
         }
     }
 }

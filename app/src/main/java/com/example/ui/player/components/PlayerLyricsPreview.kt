@@ -75,7 +75,7 @@ fun PlayerLyricsPreview(
     val containerVariant = if (hasAnyLyrics && hasSynchronizedLyrics) {
         OniSurfaceVariant.Soft
     } else {
-        OniSurfaceVariant.Default
+        OniSurfaceVariant.Flat
     }
 
     OniSurface(

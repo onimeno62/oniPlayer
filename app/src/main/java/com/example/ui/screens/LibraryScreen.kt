@@ -772,8 +772,6 @@ fun LibraryScreen(viewModel: MusicPlayerViewModel) {
             onSortByChange = { sortBy = it },
             isSortAscending = isSortAscending,
             onSortAscendingChange = { isSortAscending = it },
-            onRescan = triggerScanWithPermission,
-            onOpenSearchTab = { viewModel.selectTab(2) },
             onDismiss = { showOptionsMenu = false }
         )
     }
