@@ -62,12 +62,11 @@ fun PlayerScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMenuModal by remember { mutableStateOf(false) }
 
-    // Dynamic preferences & effects state
-    var audioAnalyzerActive by remember { mutableStateOf(false) }
-    var artworkEffectsActive by remember { mutableStateOf(true) }
-    var currentSeekBarStyle by remember { mutableStateOf(SeekBarStyle.SIMPLE) }
-    var currentLyricMode by remember { mutableStateOf(LyricLineMode.UNDERNEATH) }
-    var currentLineCount by remember { mutableIntStateOf(2) }
+    val audioAnalyzerActive by viewModel.playerAudioAnalyzer.collectAsStateWithLifecycle()
+    val artworkEffectsActive by viewModel.playerArtworkEffects.collectAsStateWithLifecycle()
+    val currentSeekBarStyle by viewModel.playerSeekBarStyle.collectAsStateWithLifecycle()
+    val currentLyricMode by viewModel.playerLyricMode.collectAsStateWithLifecycle()
+    val currentLineCount by viewModel.playerLyricLines.collectAsStateWithLifecycle()
 
     // Intercept hardware back button to return to library screen context
     BackHandler(enabled = true) {
@@ -121,8 +120,17 @@ fun PlayerScreen(
         onOpenKaraoke = { showKaraoke = true },
         onSelectShuffleType = { viewModel.setShuffleType(it) },
         onSelectRepeatMode = { viewModel.setRepeatMode(it) },
-        seekBarStyle = currentSeekBarStyle,
-        lyricLineMode = currentLyricMode,
+        seekBarStyle = when (currentSeekBarStyle) {
+            1 -> SeekBarStyle.WAVY
+            2 -> SeekBarStyle.DOT_LINE
+            3 -> SeekBarStyle.AUDIO_SPECTRUM
+            else -> SeekBarStyle.SIMPLE
+        },
+        lyricLineMode = when (currentLyricMode) {
+            1 -> LyricLineMode.OVER_BOTTOM
+            2 -> LyricLineMode.HIDDEN
+            else -> LyricLineMode.UNDERNEATH
+        },
         lineCount = currentLineCount,
         audioAnalyzerEnabled = audioAnalyzerActive,
         artworkEffectsEnabled = artworkEffectsActive,
@@ -143,8 +151,8 @@ fun PlayerScreen(
             onOpenKaraoke = { showKaraoke = true },
             onOpenTagEditor = { showTagEditor = true },
             onDeleteClick = { showDeleteDialog = true },
-            onToggleAudioAnalyzer = { audioAnalyzerActive = !audioAnalyzerActive },
-            onToggleArtworkEffects = { artworkEffectsActive = !artworkEffectsActive },
+            onToggleAudioAnalyzer = { viewModel.setPlayerAudioAnalyzer(!audioAnalyzerActive) },
+            onToggleArtworkEffects = { viewModel.setPlayerArtworkEffects(!artworkEffectsActive) },
             onDismiss = { showMenuModal = false }
         )
     }

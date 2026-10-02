@@ -10,13 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.preferences.PlayerSettingsStore
 import com.example.ui.components.button.OniPrimaryButton
 import com.example.ui.components.button.OniSecondaryButton
 import com.example.ui.components.music.OniArtwork
@@ -49,15 +47,12 @@ fun AppearanceSettingsScreen(
 
     var showResetDialog by remember { mutableStateOf(false) }
 
-    // Player customization preferences
-    val context = LocalContext.current.applicationContext
-    val settings by rememberPlayerSettings()
-    var selectedSeekBarStyle by remember { mutableStateOf(SeekBarStyle.SIMPLE) }
-    var selectedLyricMode by remember { mutableStateOf(LyricLineMode.UNDERNEATH) }
-    var selectedLineCount by remember { mutableIntStateOf(2) }
-    var audioAnalyzerEffectOn by remember { mutableStateOf(false) }
-    var artworkEffectsOn by remember { mutableStateOf(true) }
-    var showPlayerBottomNav by remember { mutableStateOf(false) }
+    val selectedSeekBarStyle by viewModel.playerSeekBarStyle.collectAsStateWithLifecycle()
+    val selectedLyricMode by viewModel.playerLyricMode.collectAsStateWithLifecycle()
+    val selectedLineCount by viewModel.playerLyricLines.collectAsStateWithLifecycle()
+    val audioAnalyzerEffectOn by viewModel.playerAudioAnalyzer.collectAsStateWithLifecycle()
+    val artworkEffectsOn by viewModel.playerArtworkEffects.collectAsStateWithLifecycle()
+    val showPlayerBottomNav by viewModel.playerBottomNav.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -139,16 +134,16 @@ fun AppearanceSettingsScreen(
                     )
 
                     seekStyles.forEachIndexed { index, (style, labelDesc) ->
-                        val isSelected = selectedSeekBarStyle == style
+                        val isSelected = selectedSeekBarStyle == style.ordinal
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 56.dp)
-                                .clickable { selectedSeekBarStyle = style }
+                                .clickable { viewModel.setPlayerSeekBarStyle(style.ordinal) }
                                 .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(selected = isSelected, onClick = { selectedSeekBarStyle = style })
+                            RadioButton(selected = isSelected, onClick = { viewModel.setPlayerSeekBarStyle(style.ordinal) })
                             Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(labelDesc.first, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary)
@@ -169,25 +164,15 @@ fun AppearanceSettingsScreen(
                     SettingsChoiceRow(
                         title = "Lyric Placement",
                         options = listOf("Underneath Art", "Over Artwork Bottom", "Hidden"),
-                        selectedIndex = when (selectedLyricMode) {
-                            LyricLineMode.UNDERNEATH -> 0
-                            LyricLineMode.OVER_BOTTOM -> 1
-                            LyricLineMode.HIDDEN -> 2
-                        },
-                        onSelect = {
-                            selectedLyricMode = when (it) {
-                                0 -> LyricLineMode.UNDERNEATH
-                                1 -> LyricLineMode.OVER_BOTTOM
-                                else -> LyricLineMode.HIDDEN
-                            }
-                        }
+                        selectedIndex = selectedLyricMode.coerceIn(0, 2),
+                        onSelect = { viewModel.setPlayerLyricMode(it) }
                     )
                     SettingDivider()
                     SettingsChoiceRow(
                         title = "Visible Lyric Lines",
                         options = listOf("1 Line", "2 Lines", "3 Lines"),
                         selectedIndex = (selectedLineCount - 1).coerceIn(0, 2),
-                        onSelect = { selectedLineCount = it + 1 }
+                        onSelect = { viewModel.setPlayerLyricLines(it + 1) }
                     )
                 }
             }
@@ -202,21 +187,21 @@ fun AppearanceSettingsScreen(
                         title = "Audio Analyzer Pulse",
                         description = "Glow and amplitude reactive to track rhythm & beat energy.",
                         checked = audioAnalyzerEffectOn,
-                        onCheckedChange = { audioAnalyzerEffectOn = it }
+                        onCheckedChange = { viewModel.setPlayerAudioAnalyzer(it) }
                     )
                     SettingDivider()
                     SwitchSettingRow(
                         title = "Living Artwork Effects",
                         description = "Smooth Ken Burns pan/zoom and dynamic ambient artwork radiance.",
                         checked = artworkEffectsOn,
-                        onCheckedChange = { artworkEffectsOn = it }
+                        onCheckedChange = { viewModel.setPlayerArtworkEffects(it) }
                     )
                     SettingDivider()
                     SwitchSettingRow(
                         title = "Bottom Navigation Bar on Player",
                         description = "Keep bottom nav bar visible while full player is active.",
                         checked = showPlayerBottomNav,
-                        onCheckedChange = { showPlayerBottomNav = it }
+                        onCheckedChange = { viewModel.setPlayerBottomNav(it) }
                     )
                 }
             }
