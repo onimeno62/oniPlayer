@@ -201,9 +201,24 @@ fun ArtistDetailScreen(
                         }
 
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Collapse / expand the story body to keep the artist page compact.
+                            IconButton(
+                                onClick = { isBiographyExpanded = !isBiographyExpanded },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = if (isBiographyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isBiographyExpanded) "Collapse artist story" else "Expand artist story",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
                             // Refresh button
                             IconButton(
                                 onClick = { viewModel.searchArtistSummaryOnline(artist.name) },
@@ -241,9 +256,11 @@ fun ArtistDetailScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    AnimatedVisibility(visible = isBiographyExpanded) {
+                        Column {
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                    if (isSearchingSummary) {
+                            if (isSearchingSummary) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -283,28 +300,8 @@ fun ArtistDetailScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { isBiographyExpanded = !isBiographyExpanded }
-                                    .padding(vertical = 4.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = if (isBiographyExpanded) "Read Less" else "Read Full Story",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = accentColor
-                                )
-                                Icon(
-                                    imageVector = if (isBiographyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = accentColor,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                        }
                             }
                         }
                     }
