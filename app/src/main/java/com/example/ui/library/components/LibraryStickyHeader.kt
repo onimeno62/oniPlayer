@@ -72,7 +72,7 @@ fun LibraryStickyHeader(
     onNewPlaylist: (() -> Unit)? = null,
     onImportPlaylist: (() -> Unit)? = null
 ) {
-    val height by animateDpAsState(if (collapsed) 128.dp else 244.dp, label = "headerHeight")
+    val height by animateDpAsState(if (collapsed) 160.dp else 244.dp, label = "headerHeight")
     var searchOpen by rememberSaveable { mutableStateOf(searchQuery.isNotBlank()) }
     val onDark = Color.White
 
