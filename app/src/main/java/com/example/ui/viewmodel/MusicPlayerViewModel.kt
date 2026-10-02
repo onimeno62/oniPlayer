@@ -47,6 +47,7 @@ private val BLUR_STRENGTH_KEY = floatPreferencesKey("blur_strength")
 private val CORNER_RADIUS_KEY = floatPreferencesKey("corner_radius")
 private val BACKGROUND_TRANSPARENCY_KEY = floatPreferencesKey("background_transparency")
 private val REDUCE_MOTION_KEY = booleanPreferencesKey("reduce_motion_enabled")
+private val NOW_PLAYING_EFFECT_KEY = intPreferencesKey("now_playing_effect")
 private val AUTO_SEARCH_ARTIST_DATA_KEY = booleanPreferencesKey("auto_search_artist_data")
 private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_only")
 private val AUTO_DOWNLOAD_LYRICS_KEY = booleanPreferencesKey("auto_download_lyrics")
@@ -135,6 +136,10 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     // Reduce Motion state (default false)
     private val _reduceMotionEnabled = MutableStateFlow(false)
     val reduceMotionEnabled: StateFlow<Boolean> = _reduceMotionEnabled.asStateFlow()
+
+    // 0 Off, 1 Pulse, 2 Glow.
+    private val _nowPlayingEffect = MutableStateFlow(1)
+    val nowPlayingEffect: StateFlow<Int> = _nowPlayingEffect.asStateFlow()
 
     private val _nextSongDelaySeconds = MutableStateFlow(0)
     val nextSongDelaySeconds: StateFlow<Int> = _nextSongDelaySeconds.asStateFlow()
@@ -527,6 +532,17 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             try {
                 getApplication<Application>().dataStore.data
+                    .map { preferences -> preferences[NOW_PLAYING_EFFECT_KEY] ?: 1 }
+                    .collect { savedEffect -> _nowPlayingEffect.value = savedEffect.coerceIn(0, 2) }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Log.e(TAG, "Error loading now playing effect preference: ${e.message}")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                getApplication<Application>().dataStore.data
                     .map { preferences -> preferences[CORNER_RADIUS_KEY] ?: 16f }
                     .collect { savedRadius ->
                         _cornerRadius.value = savedRadius
@@ -841,6 +857,14 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun setNowPlayingEffect(effect: Int) {
+        val value = effect.coerceIn(0, 2)
+        _nowPlayingEffect.value = value
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { getApplication<Application>().dataStore.edit { it[NOW_PLAYING_EFFECT_KEY] = value } }
+        }
+    }
+
     fun setReduceMotionEnabled(enabled: Boolean) {
         _reduceMotionEnabled.value = enabled
         viewModelScope.launch(Dispatchers.IO) {
@@ -863,6 +887,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         setCornerRadius(16f)
         setBackgroundTransparency(50f)
         setReduceMotionEnabled(false)
+        setNowPlayingEffect(1)
     }
 
     fun playSong(song: SongEntity, playlist: List<SongEntity>) {
