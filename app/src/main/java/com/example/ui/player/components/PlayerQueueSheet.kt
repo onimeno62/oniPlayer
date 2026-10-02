@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.animateItem
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -192,6 +193,8 @@ fun PlayerQueueSheet(
                                     onClick = { onPlaySong(song) },
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .graphicsLayer { translationY = if (draggedIndex == index) draggedOffset else 0f }
+                                        .animateItem()
                                         .semantics {
                                             selected = isCurrent
                                         }
@@ -199,7 +202,6 @@ fun PlayerQueueSheet(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .graphicsLayer { translationY = if (draggedIndex == index) draggedOffset else 0f }
                                             .padding(start = 4.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
