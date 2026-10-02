@@ -6,11 +6,14 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -55,6 +58,11 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
 
     val currentTab by viewModel.currentTab.collectAsState()
     val currentSong by viewModel.audioEngine.currentSong.collectAsState()
+
+    // Mini-player visibility: every tab except Player. On the Library dashboard it only shows
+    // once the Continue Listening card has scrolled off screen (both show the same track).
+    var dashboardResumeVisible by remember { mutableStateOf(true) }
+    val showMiniPlayer = currentSong != null && currentTab != 1 && !(currentTab == 0 && dashboardResumeVisible)
 
     // ---- first-run onboarding ----------------------------------------------------------------
     val onboardingDone by LibraryPreferencesStore.onboardingDone(context)
@@ -127,6 +135,16 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             )
                         )
                     ) {
+                        AnimatedVisibility(
+                            visible = showMiniPlayer,
+                            enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
+                            exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut()
+                        ) {
+                            MiniPlayerBar(
+                                viewModel = viewModel,
+                                surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft
+                            )
+                        }
                         OniFloatingNavigation(
                             destinations = destinations,
                             selectedId = currentTab,
@@ -168,7 +186,10 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     label = "Screen transition"
                 ) { tab ->
                     when (tab) {
-                        0 -> LibraryHostScreen(viewModel = viewModel)
+                        0 -> LibraryHostScreen(
+                            viewModel = viewModel,
+                            onDashboardResumeVisibleChange = { dashboardResumeVisible = it }
+                        )
                         1 -> PlayerScreen(viewModel = viewModel)
                         2 -> SearchScreen(viewModel = viewModel)
                         3 -> SettingsScreen(viewModel = viewModel)
