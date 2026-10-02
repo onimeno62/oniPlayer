@@ -105,6 +105,8 @@ fun LibraryDashboardScreen(
     position: Long,
     duration: Long,
     isPreparing: Boolean,
+    beatEnergy: Float = 0f,
+    nowPlayingEffect: Int = 1,
     onTogglePlayPause: () -> Unit,
     onReplay: () -> Unit,
     onOpenPlayer: () -> Unit,
@@ -277,6 +279,8 @@ fun LibraryDashboardScreen(
                                                 .fillMaxWidth()
                                                 .padding(horizontal = OniSkin.spacing.screenHorizontal),
                                             isPreparing = active && isPreparing,
+                                            beatEnergy = if (active) beatEnergy else 0f,
+                                            visualEffect = if (active) nowPlayingEffect else 0,
                                             onReplayClick = if (active) onReplay else null
                                         )
                                         if (jumpBackLabel != null) {
