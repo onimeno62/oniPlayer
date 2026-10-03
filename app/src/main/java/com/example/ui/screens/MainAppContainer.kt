@@ -127,41 +127,42 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal
             ),
             bottomBar = {
-                if (currentTab != 1) {
-                    Column(
-                        modifier = Modifier.windowInsetsPadding(
-                            WindowInsets.safeDrawing.only(
-                                WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
-                            )
+                Column(
+                    modifier = Modifier.windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
                         )
+                    )
+                ) {
+                    // The Player keeps the same primary app navigation as every other
+                    // top-level screen. Only the contextual mini-player is suppressed
+                    // while Player is active.
+                    AnimatedVisibility(
+                        visible = showMiniPlayer,
+                        enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
+                        exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut()
                     ) {
-                        AnimatedVisibility(
-                            visible = showMiniPlayer,
-                            enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
-                            exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut()
-                        ) {
-                            MiniPlayerBar(
-                                viewModel = viewModel,
-                                surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft
-                            )
-                        }
-                        OniFloatingNavigation(
-                            destinations = destinations,
-                            selectedId = currentTab,
-                            onDestinationSelected = { destination ->
-                                if (destination == 0) viewModel.goToLibraryDashboard()
-                                else viewModel.selectTab(destination)
-                            },
-                            surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft,
-                            shape = if (glassEffectEnabled) RoundedCornerShape(cornerRadius.dp) else OniSkin.navigation.shape,
-                            containerColor = if (glassEffectEnabled) {
-                                val frostedColor = OniSkin.surfaces.frosted.containerColor
-                                frostedColor.copy(
-                                    alpha = (frostedColor.alpha * (backgroundTransparency / 50f)).coerceIn(0f, 1f)
-                                )
-                            } else null
+                        MiniPlayerBar(
+                            viewModel = viewModel,
+                            surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft
                         )
                     }
+                    OniFloatingNavigation(
+                        destinations = destinations,
+                        selectedId = currentTab,
+                        onDestinationSelected = { destination ->
+                            if (destination == 0) viewModel.goToLibraryDashboard()
+                            else viewModel.selectTab(destination)
+                        },
+                        surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft,
+                        shape = if (glassEffectEnabled) RoundedCornerShape(cornerRadius.dp) else OniSkin.navigation.shape,
+                        containerColor = if (glassEffectEnabled) {
+                            val frostedColor = OniSkin.surfaces.frosted.containerColor
+                            frostedColor.copy(
+                                alpha = (frostedColor.alpha * (backgroundTransparency / 50f)).coerceIn(0f, 1f)
+                            )
+                        } else null
+                    )
                 }
             },
             containerColor = Color.Transparent,
