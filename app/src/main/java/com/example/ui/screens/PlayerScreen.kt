@@ -526,7 +526,7 @@ fun PlayerContent(
                             }
                         }
                     }
-                }                } else {
+                } else {
                     // Landscape Responsive Two-Pane Layout
                     Column(
                         modifier = Modifier

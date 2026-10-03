@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -66,9 +67,9 @@ fun PlayerLyricsPreview(
 
     val lineHeight = (appearance.fontSizeSp * 1.33f).dp
     val lyricContentHeight = maxOf(
-        48.dp,
-        lineHeight * visibleLineCount + 12.dp
-    )
+        48f,
+        lineHeight.value * visibleLineCount + 12f
+    ).dp
 
     Row(
         modifier = modifier
