@@ -114,8 +114,13 @@ fun ArtistDetailScreen(
             }
         }
 
-        // The sticky library header owns the artist artwork action and all playback actions.
-        Spacer(modifier = Modifier.height(12.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            // The sticky library header owns the artist artwork action and all playback actions.
+            Spacer(modifier = Modifier.height(12.dp))
 
         // Biography / Artist Summary Section
         val accentColor = LocalAccentColor.current
@@ -694,6 +699,7 @@ fun ArtistDetailScreen(
             }
         }
     }
+}
 }
 
 @Composable

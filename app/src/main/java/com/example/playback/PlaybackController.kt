@@ -153,7 +153,7 @@ class PlaybackController(private val service: MediaSessionService) {
                 .build()
         }
     }.apply {
-        setEnableDecoderFallback(false)
+        setEnableDecoderFallback(true)
         setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
     }
 
