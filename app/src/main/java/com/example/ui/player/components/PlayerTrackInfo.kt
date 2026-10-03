@@ -1,6 +1,7 @@
 package com.example.ui.player.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -41,7 +42,8 @@ fun PlayerTrackInfo(
     horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
     useSerifFont: Boolean = false,
     qualityBadge: String? = null,
-    onMenuClick: (() -> Unit)? = null
+    onMenuClick: (() -> Unit)? = null,
+    highContrast: Boolean = false
 ) {
     Row(
         modifier = modifier
@@ -67,7 +69,7 @@ fun PlayerTrackInfo(
                     OniSkin.typography.titleLarge
                 },
                 fontWeight = FontWeight.Bold,
-                color = OniSkin.colors.textPrimary,
+                color = if (highContrast) Color.White else OniSkin.colors.textPrimary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -77,7 +79,7 @@ fun PlayerTrackInfo(
             Text(
                 text = artist.ifBlank { "Unknown Artist" },
                 style = OniSkin.typography.bodyLarge,
-                color = OniSkin.colors.textSecondary,
+                color = if (highContrast) Color.White.copy(alpha = 0.78f) else OniSkin.colors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -92,7 +94,7 @@ fun PlayerTrackInfo(
                         text = qualityBadge,
                         style = OniSkin.typography.caption,
                         fontWeight = FontWeight.SemiBold,
-                        color = OniSkin.colors.textPrimary,
+                        color = if (highContrast) Color.White else OniSkin.colors.textPrimary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
