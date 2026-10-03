@@ -1,6 +1,8 @@
 package com.example.ui.player.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -40,7 +42,10 @@ fun PlayerTopBar(
     ) {
         IconButton(
             onClick = onNavigateBack,
-            modifier = Modifier.testTag("player_back_button")
+            modifier = Modifier
+                .size(44.dp)
+                .background(OniSkin.colors.background.copy(alpha = 0.42f), CircleShape)
+                .testTag("player_back_button")
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
@@ -50,34 +55,41 @@ fun PlayerTopBar(
             )
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.weight(1f)
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = title,
-                style = OniSkin.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = OniSkin.colors.textSecondary,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    style = OniSkin.typography.caption,
-                    color = OniSkin.colors.textTertiary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            if (title.isNotBlank()) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = title,
+                        style = OniSkin.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (!subtitle.isNullOrBlank()) {
+                        Text(
+                            text = subtitle,
+                            style = OniSkin.typography.caption,
+                            color = OniSkin.colors.textTertiary,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
 
         IconButton(
             onClick = onQueueClick,
-            modifier = Modifier.testTag("player_queue_button")
+            modifier = Modifier
+                .size(44.dp)
+                .background(OniSkin.colors.background.copy(alpha = 0.42f), CircleShape)
+                .testTag("player_queue_button")
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.QueueMusic,
