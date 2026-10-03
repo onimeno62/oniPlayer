@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
@@ -25,18 +26,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.entity.SongEntity
 import com.example.playback.RepeatMode
 import com.example.playback.ShuffleType
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
+import com.example.ui.components.music.OniArtwork
 import com.example.ui.lyrics.LyricsHelper
 import com.example.ui.player.LyricLineMode
 import com.example.ui.player.SeekBarStyle
 import com.example.ui.player.components.*
 import com.example.ui.player.model.PlayerUiState
 import com.example.ui.theme.OniSkin
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -48,6 +53,19 @@ import kotlin.math.absoluteValue
  * dynamic seekbar styles, and audio/artwork effects.
  * Consumes [PlayerUiState] from [MusicPlayerViewModel] via [collectAsStateWithLifecycle].
  */
+private fun SongEntity.audioQualityLabel(): String {
+    val normalizedFormat = format.trim().uppercase().ifBlank {
+        filePath.substringAfterLast('.', "").uppercase()
+    }
+    val bitrateLabel = bitrate.takeIf { it > 0 }?.let { "$it kbps" }
+    return when {
+        normalizedFormat.isNotBlank() && bitrateLabel != null -> "$normalizedFormat • $bitrateLabel"
+        normalizedFormat.isNotBlank() -> normalizedFormat
+        bitrateLabel != null -> bitrateLabel
+        else -> "Unknown quality"
+    }
+}
+
 @Composable
 fun PlayerScreen(
     viewModel: MusicPlayerViewModel,
@@ -375,143 +393,123 @@ fun PlayerContent(
                     val artworkDragScale = 1f - (dragProgress * 0.08f).coerceAtMost(0.12f)
                     val artworkDragAlpha = 1f - (dragProgress * 0.3f).coerceAtMost(0.45f)
 
-                    Column(
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .windowInsetsPadding(WindowInsets.statusBars)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .verticalScroll(scrollState)
-                            .padding(bottom = if (isCompactHeight) 8.dp else OniSkin.spacing.screenVertical),
-                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // 1. Top Bar with Queue and Menu triggers
-                        PlayerTopBar(
-                            title = "NOW PLAYING",
-                            subtitle = song.displayAlbum,
-                            onNavigateBack = onNavigateBack,
-                            onQueueClick = onOpenQueue
+                        OniArtwork(
+                            artworkUri = song.albumArtUri,
+                            contentDescription = "Album art for ${song.displayTitle}",
+                            modifier = Modifier.fillMaxSize(),
+                            shape = RectangleShape,
+                            elevation = 0.dp,
+                            contentScale = ContentScale.Crop
                         )
 
-                        Spacer(modifier = Modifier.height(topSpacer))
-
-                        // 2. Album Artwork with effects & gestures
                         Box(
                             modifier = Modifier
-                                .graphicsLayer {
-                                    translationY = artworkTranslateY
-                                    scaleX = artworkDragScale
-                                    scaleY = artworkDragScale
-                                    alpha = artworkDragAlpha
-                                }
-                                .pointerInput(Unit) {
-                                    detectVerticalDragGestures(
-                                        onDragEnd = {
-                                            if (artworkDragOffsetY.value > dismissThresholdPx) {
-                                                onNavigateBack()
-                                                scope.launch { artworkDragOffsetY.snapTo(0f) }
-                                            } else {
-                                                scope.launch {
-                                                    artworkDragOffsetY.animateTo(
-                                                        targetValue = 0f,
-                                                        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f)
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onDragCancel = { scope.launch { artworkDragOffsetY.animateTo(0f, spring()) } },
-                                        onVerticalDrag = { change, dragAmount ->
-                                            if (dragAmount > 0 || artworkDragOffsetY.value > 0) {
-                                                change.consume()
-                                                scope.launch {
-                                                    val newValue = (artworkDragOffsetY.value + dragAmount).coerceAtLeast(0f)
-                                                    artworkDragOffsetY.snapTo(newValue)
-                                                }
-                                            }
-                                        }
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        0f to Color.Black.copy(alpha = 0.06f),
+                                        0.42f to Color.Black.copy(alpha = 0.08f),
+                                        0.72f to Color.Black.copy(alpha = 0.58f),
+                                        0.9f to Color.Black.copy(alpha = 0.96f),
+                                        1f to Color.Black
+                                    )
+                                )
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(scrollState)
+                                .padding(
+                                    start = OniSkin.spacing.screenHorizontal,
+                                    end = OniSkin.spacing.screenHorizontal,
+                                    bottom = OniSkin.spacing.screenVertical
+                                )
+                        ) {
+                            PlayerTopBar(
+                                title = "",
+                                onNavigateBack = onNavigateBack,
+                                onQueueClick = onOpenQueue,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(120.dp))
+
+                            PlayerTrackInfo(
+                                title = song.displayTitle,
+                                artist = song.displayArtist,
+                                album = song.displayAlbum,
+                                isFavorite = uiState.isFavorite,
+                                onToggleFavorite = onToggleFavorite,
+                                horizontalPadding = 0.dp,
+                                useSerifFont = true,
+                                qualityBadge = song.audioQualityLabel(),
+                                onMenuClick = onOpenMenuModal
+                            )
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            OniSurface(
+                                variant = OniSurfaceVariant.Elevated,
+                                shape = RoundedCornerShape(26.dp),
+                                containerColor = Color.Black.copy(alpha = 0.78f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                                ) {
+                                    if (lyricLineMode != LyricLineMode.HIDDEN) {
+                                        PlayerLyricsPreview(
+                                            currentLyricLine = currentLyricLine,
+                                            nextLyricLine = nextLyricLine,
+                                            thirdLyricLine = thirdLyricLine,
+                                            hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
+                                            onClick = onOpenKaraoke,
+                                            isFetchingLyrics = uiState.isFetchingLyrics,
+                                            lyricLineMode = lyricLineMode,
+                                            lineCount = lineCount,
+                                            horizontalPadding = 0.dp
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                    }
+
+                                    PlayerProgress(
+                                        positionMs = uiState.position,
+                                        durationMs = uiState.duration,
+                                        onSeek = onSeek,
+                                        horizontalPadding = 0.dp,
+                                        seekBarStyle = seekBarStyle
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    PlayerPlaybackControls(
+                                        isPlaying = uiState.isPlaying,
+                                        isPreparing = uiState.isPreparing,
+                                        isShuffle = uiState.isShuffle,
+                                        isRepeat = uiState.isRepeat,
+                                        playbackDelayCountdown = uiState.playbackDelayCountdown,
+                                        onTogglePlayPause = onTogglePlayPause,
+                                        onSkipNext = onSkipNext,
+                                        onSkipPrevious = onSkipPrevious,
+                                        onToggleShuffle = onToggleShuffle,
+                                        onToggleRepeat = onToggleRepeat,
+                                        horizontalPadding = 0.dp,
+                                        shuffleType = uiState.shuffleType,
+                                        repeatMode = uiState.repeatMode,
+                                        onSelectShuffleType = onSelectShuffleType,
+                                        onSelectRepeatMode = onSelectRepeatMode
                                     )
                                 }
-                        ) {
-                            PlayerArtwork(
-                                song = song,
-                                isPlaying = uiState.isPlaying,
-                                maxSize = artworkMaxSize,
-                                onClick = onTogglePlayPause,
-                                artworkEffectsEnabled = artworkEffectsEnabled,
-                                audioAnalyzerEnabled = audioAnalyzerEnabled
-                            )
+                            }
                         }
-
-                        Spacer(modifier = Modifier.height(artSpacer))
-
-                        // 3. Track Title, Artist, and Favorite Toggle
-                        PlayerTrackInfo(
-                            title = song.displayTitle,
-                            artist = song.displayArtist,
-                            album = song.displayAlbum,
-                            isFavorite = uiState.isFavorite,
-                            onToggleFavorite = onToggleFavorite,
-                            useSerifFont = true
-                        )
-
-                        Spacer(modifier = Modifier.height(infoSpacer))
-
-                        // 4. Live Lyrics Preview (supports 1, 2, or 3 lines and placement modes)
-                        if (lyricLineMode != LyricLineMode.HIDDEN) {
-                            PlayerLyricsPreview(
-                                currentLyricLine = currentLyricLine,
-                                nextLyricLine = nextLyricLine,
-                                thirdLyricLine = thirdLyricLine,
-                                hasSynchronizedLyrics = uiState.hasSynchronizedLyrics,
-                                onClick = onOpenKaraoke,
-                                isFetchingLyrics = uiState.isFetchingLyrics,
-                                lyricLineMode = lyricLineMode,
-                                lineCount = lineCount
-                            )
-                            Spacer(modifier = Modifier.height(lyricsSpacer))
-                        }
-
-                        // 5. Configurable Progress Bar (Simple, Wavy, Dot Line, Spectrum)
-                        PlayerProgress(
-                            positionMs = uiState.position,
-                            durationMs = uiState.duration,
-                            onSeek = onSeek,
-                            seekBarStyle = seekBarStyle
-                        )
-
-                        Spacer(modifier = Modifier.height(progressSpacer))
-
-                        // 6. Playback Controls
-                        PlayerPlaybackControls(
-                            isPlaying = uiState.isPlaying,
-                            isPreparing = uiState.isPreparing,
-                            isShuffle = uiState.isShuffle,
-                            isRepeat = uiState.isRepeat,
-                            playbackDelayCountdown = uiState.playbackDelayCountdown,
-                            onTogglePlayPause = onTogglePlayPause,
-                            onSkipNext = onSkipNext,
-                            onSkipPrevious = onSkipPrevious,
-                            onToggleShuffle = onToggleShuffle,
-                            onToggleRepeat = onToggleRepeat,
-                            shuffleType = uiState.shuffleType,
-                            repeatMode = uiState.repeatMode,
-                            onSelectShuffleType = onSelectShuffleType,
-                            onSelectRepeatMode = onSelectRepeatMode
-                        )
-
-                        Spacer(modifier = Modifier.height(controlsSpacer))
-
-                        // 7. Cleaner Contextual Row with Contextual Menu (⋮)
-                        PlayerFeatureActions(
-                            onLyricsClick = onOpenKaraoke,
-                            floatingLyricsEnabled = uiState.floatingLyricsEnabled,
-                            onToggleFloatingLyrics = onToggleFloatingLyrics,
-                            isSleepTimerRunning = uiState.isSleepTimerRunning,
-                            sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
-                            onSleepTimerClick = onOpenSleepTimer,
-                            onEditTagsClick = onOpenTagEditor,
-                            onDeleteClick = onDeleteClick,
-                            buttonHeight = 48.dp
-                        )
                     }
                 } else {
                     // Landscape Responsive Two-Pane Layout
@@ -519,7 +517,6 @@ fun PlayerContent(
                         modifier = Modifier
                             .fillMaxSize()
                             .windowInsetsPadding(WindowInsets.statusBars)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
                             .padding(horizontal = OniSkin.spacing.screenHorizontal, vertical = 4.dp)
                     ) {
                         PlayerTopBar(
