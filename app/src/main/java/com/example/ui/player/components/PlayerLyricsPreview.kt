@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
-import com.example.ui.player.LyricLineDisplay
 import com.example.ui.player.LyricLineMode
 import com.example.ui.theme.OniSkin
 
@@ -78,12 +77,22 @@ fun PlayerLyricsPreview(
         OniSurfaceVariant.Flat
     }
 
+    val visibleLineCount = lineCount.coerceIn(1, 3)
+    // Reserve the exact same vertical space for the selected 1/2/3-line mode.
+    // This prevents the card from jumping when the active lyric changes length.
+    val lyricContentHeight = when (visibleLineCount) {
+        1 -> 48.dp
+        2 -> 68.dp
+        else -> 88.dp
+    }
+
     OniSurface(
         variant = containerVariant,
         shape = OniSkin.shapes.card,
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
+            .height(lyricContentHeight)
             .padding(horizontal = horizontalPadding)
             .testTag("player_lyrics_preview")
             .semantics(mergeDescendants = true) {
@@ -92,8 +101,8 @@ fun PlayerLyricsPreview(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = OniSkin.spacing.md, vertical = OniSkin.spacing.sm),
+                .fillMaxSize()
+                .padding(horizontal = OniSkin.spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -119,11 +128,18 @@ fun PlayerLyricsPreview(
                         overflow = TextOverflow.Ellipsis
                     )
                 } else if (hasAnyLyrics) {
-                    LyricLineDisplay(
-                        lyric = combinedLyrics,
-                        lineCount = lineCount.coerceIn(1, 3),
-                        alpha = 0.95f
-                    )
+                    combinedLyrics
+                        .lines()
+                        .take(visibleLineCount)
+                        .forEach { line ->
+                            Text(
+                                text = line,
+                                style = OniSkin.typography.bodyMedium,
+                                color = OniSkin.colors.textPrimary.copy(alpha = 0.95f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                 } else {
                     Text(
                         text = "No lyrics • Tap to search or add",
@@ -139,7 +155,7 @@ fun PlayerLyricsPreview(
 
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
+                contentDescription = "Open lyrics",
                 tint = OniSkin.colors.textTertiary,
                 modifier = Modifier.size(18.dp)
             )
