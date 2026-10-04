@@ -171,7 +171,6 @@ fun PlayerScreen(
             isSleepTimerRunning = uiState.isSleepTimerRunning,
             sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
             isFavorite = uiState.isFavorite,
-            playlists = playlists,
             audioAnalyzerEnabled = audioAnalyzerActive,
             artworkEffectsEnabled = artworkEffectsActive,
             onToggleFavorite = {
