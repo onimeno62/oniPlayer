@@ -430,8 +430,7 @@ fun PlayerContent(
                 if (!isLandscape) {
                     val visibleLyricLines = lineCount.coerceIn(1, 3)
                     val artworkHeight = (availableHeight * 0.62f).coerceIn(360.dp, 560.dp)
-                    val metadataBlockHeight = 128.dp
-                    val metadataBottomGap = 12.dp
+                    val metadataBottomGap = 4.dp
                     val fadeHeight = (artworkHeight + 240.dp).coerceAtMost(availableHeight)
 
                     // Portrait composition:
@@ -466,12 +465,13 @@ fun PlayerContent(
                                 .background(
                                     Brush.verticalGradient(
                                         0f to Color.Transparent,
-                                        0.28f to Color.Black.copy(alpha = 0.03f),
-                                        0.42f to Color.Black.copy(alpha = 0.16f),
-                                        0.58f to Color.Black.copy(alpha = 0.42f),
-                                        0.72f to Color.Black.copy(alpha = 0.72f),
-                                        0.84f to Color.Black.copy(alpha = 0.93f),
-                                        0.94f to Color.Black.copy(alpha = 0.985f),
+                                        0.34f to Color.Transparent,
+                                        0.48f to Color.Black.copy(alpha = 0.04f),
+                                        0.60f to Color.Black.copy(alpha = 0.16f),
+                                        0.70f to Color.Black.copy(alpha = 0.38f),
+                                        0.79f to Color.Black.copy(alpha = 0.64f),
+                                        0.87f to Color.Black.copy(alpha = 0.84f),
+                                        0.94f to Color.Black.copy(alpha = 0.95f),
                                         1f to Color.Black
                                     )
                                 )
@@ -487,18 +487,19 @@ fun PlayerContent(
                                 .padding(horizontal = OniSkin.spacing.screenHorizontal)
                         )
 
-                        Column(
+                        // Metadata is anchored to the artwork boundary, not to the controller.
+                        // The controller has its own bottom anchor so changing lyric count / card height
+                        // can never move the metadata or change its distance from the navigation bar.
+                        Box(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .fillMaxWidth()
+                                .height((artworkHeight - metadataBottomGap).coerceAtLeast(0.dp))
                                 .padding(
                                     start = OniSkin.spacing.screenHorizontal,
                                     end = OniSkin.spacing.screenHorizontal
-                                )
-                                .offset(
-                                    y = (artworkHeight - metadataBlockHeight - metadataBottomGap)
-                                        .coerceAtLeast(0.dp)
-                                )
+                                ),
+                            contentAlignment = Alignment.BottomCenter
                         ) {
                             PlayerTrackInfo(
                                 title = song.displayTitle,
@@ -512,9 +513,20 @@ fun PlayerContent(
                                 onMenuClick = onOpenMenuModal,
                                 highContrast = true
                             )
+                        }
 
-                            Spacer(modifier = Modifier.height(14.dp))
-
+                        // Controller is independently pinned to the bottom of the Player content area.
+                        // Scaffold's bottom inset already ends this area immediately above the navigation bar.
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(
+                                    start = OniSkin.spacing.screenHorizontal,
+                                    end = OniSkin.spacing.screenHorizontal,
+                                    bottom = 4.dp
+                                )
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -598,8 +610,7 @@ fun PlayerContent(
                                 }
                             }
                         }
-                    }
-                } else {
+                    }                } else {
                     // Landscape Responsive Two-Pane Layout
                     Column(
                         modifier = Modifier
