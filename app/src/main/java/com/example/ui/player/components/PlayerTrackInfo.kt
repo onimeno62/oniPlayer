@@ -117,7 +117,7 @@ fun PlayerTrackInfo(
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = "More actions",
-                        tint = OniSkin.colors.textPrimary
+                        tint = if (highContrast) Color.White else OniSkin.colors.textPrimary
                     )
                 }
             }
