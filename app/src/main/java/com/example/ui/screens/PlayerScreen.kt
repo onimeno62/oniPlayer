@@ -85,12 +85,14 @@ fun PlayerScreen(
     var showTagEditor by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMenuModal by remember { mutableStateOf(false) }
+    var showPlaylistPicker by remember { mutableStateOf(false) }
 
     val audioAnalyzerActive by viewModel.playerAudioAnalyzer.collectAsStateWithLifecycle()
     val artworkEffectsActive by viewModel.playerArtworkEffects.collectAsStateWithLifecycle()
     val currentSeekBarStyle by viewModel.playerSeekBarStyle.collectAsStateWithLifecycle()
     val currentLyricMode by viewModel.playerLyricMode.collectAsStateWithLifecycle()
     val currentLineCount by viewModel.playerLyricLines.collectAsStateWithLifecycle()
+    val playlists by viewModel.allPlaylists.collectAsStateWithLifecycle()
 
     // Intercept hardware back button to return to library screen context
     BackHandler(enabled = true) {
@@ -168,8 +170,45 @@ fun PlayerScreen(
             floatingLyricsEnabled = uiState.floatingLyricsEnabled,
             isSleepTimerRunning = uiState.isSleepTimerRunning,
             sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
+            isFavorite = uiState.isFavorite,
+            playlists = playlists,
             audioAnalyzerEnabled = audioAnalyzerActive,
             artworkEffectsEnabled = artworkEffectsActive,
+            onToggleFavorite = {
+                song?.id?.let { viewModel.toggleFavorite(it) }
+                showMenuModal = false
+            },
+            onOpenPlaylistPicker = {
+                showMenuModal = false
+                showPlaylistPicker = true
+            },
+            onOpenFileLocation = {
+                song?.let {
+                    val folderName = java.io.File(it.filePath).parentFile?.name ?: "Internal"
+                    viewModel.setActiveCategoryIndex(1)
+                    viewModel.setSelectedGroup(folderName)
+                    viewModel.selectTab(0)
+                }
+                showMenuModal = false
+            },
+            onOpenAlbum = {
+                song?.let {
+                    val albumKey = "${it.displayAlbum.ifBlank { "Unknown Album" }}|${it.displayAlbumArtist}"
+                    viewModel.setActiveCategoryIndex(2)
+                    viewModel.setSelectedGroup(albumKey)
+                    viewModel.selectTab(0)
+                }
+                showMenuModal = false
+            },
+            onOpenArtist = {
+                song?.let {
+                    val artistKey = it.displayArtist.ifBlank { "Unknown Artist" }
+                    viewModel.setActiveCategoryIndex(3)
+                    viewModel.setSelectedGroup(artistKey)
+                    viewModel.selectTab(0)
+                }
+                showMenuModal = false
+            },
             onToggleFloatingLyrics = { viewModel.setFloatingLyricsEnabled(!uiState.floatingLyricsEnabled) },
             onOpenSleepTimer = { showSleepTimer = true },
             onOpenKaraoke = { showKaraoke = true },
@@ -178,6 +217,18 @@ fun PlayerScreen(
             onToggleAudioAnalyzer = { viewModel.setPlayerAudioAnalyzer(!audioAnalyzerActive) },
             onToggleArtworkEffects = { viewModel.setPlayerArtworkEffects(!artworkEffectsActive) },
             onDismiss = { showMenuModal = false }
+        )
+    }
+
+    if (showPlaylistPicker && song != null) {
+        PlayerPlaylistPickerSheet(
+            song = song,
+            playlists = playlists,
+            onAddToPlaylist = { playlist ->
+                viewModel.addSongToPlaylist(song.id, playlist.id)
+                showPlaylistPicker = false
+            },
+            onDismiss = { showPlaylistPicker = false }
         )
     }
 
@@ -380,7 +431,9 @@ fun PlayerContent(
                 if (!isLandscape) {
                     val visibleLyricLines = lineCount.coerceIn(1, 3)
                     val artworkHeight = (availableHeight * 0.62f).coerceIn(360.dp, 560.dp)
-                    val fadeHeight = (artworkHeight + 190.dp).coerceAtMost(availableHeight)
+                    val metadataBlockHeight = 128.dp
+                    val metadataBottomGap = 12.dp
+                    val fadeHeight = (artworkHeight + 240.dp).coerceAtMost(availableHeight)
 
                     // Portrait composition:
                     // 1) black OLED canvas
@@ -413,11 +466,13 @@ fun PlayerContent(
                                 .align(Alignment.TopCenter)
                                 .background(
                                     Brush.verticalGradient(
-                                        0f to Color.Black.copy(alpha = 0.02f),
-                                        0.40f to Color.Black.copy(alpha = 0.04f),
-                                        0.62f to Color.Black.copy(alpha = 0.18f),
-                                        0.78f to Color.Black.copy(alpha = 0.70f),
-                                        0.92f to Color.Black.copy(alpha = 0.96f),
+                                        0f to Color.Transparent,
+                                        0.28f to Color.Black.copy(alpha = 0.03f),
+                                        0.42f to Color.Black.copy(alpha = 0.16f),
+                                        0.58f to Color.Black.copy(alpha = 0.42f),
+                                        0.72f to Color.Black.copy(alpha = 0.72f),
+                                        0.84f to Color.Black.copy(alpha = 0.93f),
+                                        0.94f to Color.Black.copy(alpha = 0.985f),
                                         1f to Color.Black
                                     )
                                 )
@@ -435,12 +490,15 @@ fun PlayerContent(
 
                         Column(
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
+                                .align(Alignment.TopCenter)
                                 .fillMaxWidth()
                                 .padding(
                                     start = OniSkin.spacing.screenHorizontal,
-                                    end = OniSkin.spacing.screenHorizontal,
-                                    bottom = 10.dp
+                                    end = OniSkin.spacing.screenHorizontal
+                                )
+                                .offset(
+                                    y = (artworkHeight - metadataBlockHeight - metadataBottomGap)
+                                        .coerceAtLeast(0.dp)
                                 )
                         ) {
                             PlayerTrackInfo(
