@@ -165,7 +165,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     )
                 }
             },
-            containerColor = Color.Transparent,
+            containerColor = OniSkin.colors.background,
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
             Box(
