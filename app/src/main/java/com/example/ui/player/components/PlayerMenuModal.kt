@@ -35,7 +35,6 @@ import com.example.ui.theme.OniSkin
 fun PlayerMenuModal(
     song: SongEntity?,
     isFavorite: Boolean,
-    playlists: List<PlaylistEntity>,
     floatingLyricsEnabled: Boolean,
     isSleepTimerRunning: Boolean,
     sleepTimerMinutesLeft: Int,
