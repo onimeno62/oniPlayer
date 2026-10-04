@@ -271,7 +271,8 @@ fun PlayerPlaylistPickerSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = OniSkin.spacing.screenHorizontal,
+                    start = OniSkin.spacing.screenHorizontal,
+                    end = OniSkin.spacing.screenHorizontal,
                     bottom = OniSkin.spacing.xl
                 )
         ) {
