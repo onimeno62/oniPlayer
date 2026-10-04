@@ -144,19 +144,19 @@ fun PlayerMenuModal(
                             title = if (isFavorite) "Favorited" else "Favorite",
                             iconTint = if (isFavorite) OniSkin.colors.primary else null,
                             modifier = Modifier.weight(1f),
-                            onClick = onToggleFavorite
+                            onClick = { onDismiss(); onToggleFavorite() }
                         )
                         TrackMenuActionTile(
                             icon = Icons.Default.PlaylistAdd,
                             title = "Playlist",
                             modifier = Modifier.weight(1f),
-                            onClick = onOpenPlaylistPicker
+                            onClick = { onDismiss(); onOpenPlaylistPicker() }
                         )
                         TrackMenuActionTile(
                             icon = Icons.Default.Edit,
                             title = "Edit Tags",
                             modifier = Modifier.weight(1f),
-                            onClick = onOpenTagEditor
+                            onClick = { onDismiss(); onOpenTagEditor() }
                         )
                     }
 
@@ -168,19 +168,19 @@ fun PlayerMenuModal(
                             icon = Icons.Default.Album,
                             title = "View Album",
                             modifier = Modifier.weight(1f),
-                            onClick = onOpenAlbum
+                            onClick = { onDismiss(); onOpenAlbum() }
                         )
                         TrackMenuActionTile(
                             icon = Icons.Default.Person,
                             title = "View Artist",
                             modifier = Modifier.weight(1f),
-                            onClick = onOpenArtist
+                            onClick = { onDismiss(); onOpenArtist() }
                         )
                         TrackMenuActionTile(
                             icon = Icons.Default.FolderOpen,
                             title = "File Location",
                             modifier = Modifier.weight(1f),
-                            onClick = onOpenFileLocation
+                            onClick = { onDismiss(); onOpenFileLocation() }
                         )
                     }
 
@@ -192,7 +192,7 @@ fun PlayerMenuModal(
                             icon = Icons.Default.Lyrics,
                             title = "Lyrics",
                             modifier = Modifier.weight(1f),
-                            onClick = onOpenKaraoke
+                            onClick = { onDismiss(); onOpenKaraoke() }
                         )
                         TrackMenuActionTile(
                             icon = Icons.Default.PictureInPicture,
@@ -206,7 +206,7 @@ fun PlayerMenuModal(
                             title = if (isSleepTimerRunning) "Timer $sleepTimerMinutesLeft m" else "Sleep Timer",
                             iconTint = if (isSleepTimerRunning) OniSkin.colors.primary else null,
                             modifier = Modifier.weight(1f),
-                            onClick = onOpenSleepTimer
+                            onClick = { onDismiss(); onOpenSleepTimer() }
                         )
                     }
 
@@ -234,7 +234,7 @@ fun PlayerMenuModal(
                             iconTint = OniSkin.colors.error,
                             textColor = OniSkin.colors.error,
                             modifier = Modifier.weight(1f),
-                            onClick = onDeleteClick
+                            onClick = { onDismiss(); onDeleteClick() }
                         )
                     }
                 }
