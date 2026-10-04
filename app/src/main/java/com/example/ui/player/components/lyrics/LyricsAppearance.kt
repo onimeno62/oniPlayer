@@ -70,7 +70,8 @@ fun LyricLineContent(
     appearance: LyricsAppearance,
     accentActiveLine: Boolean,
     modifier: Modifier = Modifier,
-    maxLines: Int = Int.MAX_VALUE
+    maxLines: Int = Int.MAX_VALUE,
+    fontSizeOverrideSp: Float? = null
 ) {
     val colors = OniSkin.colors
     val motion = OniSkin.motion

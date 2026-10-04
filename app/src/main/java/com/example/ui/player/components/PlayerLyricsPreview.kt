@@ -10,6 +10,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -65,11 +66,12 @@ fun PlayerLyricsPreview(
         else -> "No lyrics found. Tap to search online or add lyrics."
     }
 
-    val lineHeight = (appearance.fontSizeSp * 1.33f).dp
-    val lyricContentHeight = maxOf(
-        48f,
-        lineHeight.value * visibleLineCount + 12f
-    ).dp
+    val compactLineHeight = 20.dp
+    val lyricContentHeight = when (visibleLineCount) {
+        1 -> 48.dp
+        2 -> 64.dp
+        else -> 80.dp
+    }
 
     Row(
         modifier = modifier
@@ -96,14 +98,7 @@ fun PlayerLyricsPreview(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
         ) {
-            if (isFetchingLyrics) {
-                Text(
-                    text = "Downloading lyrics…",
-                    style = OniSkin.typography.bodyMedium,
-                    color = OniSkin.colors.primary,
-                    maxLines = 1
-                )
-            } else if (hasAnyLyrics) {
+            if (hasAnyLyrics) {
                 lines.forEachIndexed { index, line ->
                     LyricLineContent(
                         text = line,
@@ -114,10 +109,20 @@ fun PlayerLyricsPreview(
                         },
                         appearance = appearance,
                         accentActiveLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        maxLines = 1
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(compactLineHeight),
+                        maxLines = 1,
+                        fontSizeOverrideSp = if (index == 0) 15f else 13f
                     )
                 }
+            } else if (isFetchingLyrics) {
+                Text(
+                    text = "Downloading lyrics…",
+                    style = OniSkin.typography.bodyMedium.copy(fontSize = 13.sp),
+                    color = OniSkin.colors.primary,
+                    maxLines = 1
+                )
             } else {
                 Text(
                     text = "No lyrics • Tap to search or add",

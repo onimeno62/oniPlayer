@@ -10,6 +10,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
@@ -455,13 +458,30 @@ fun PlayerContent(
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            OniSurface(
-                                variant = OniSurfaceVariant.Elevated,
-                                shape = RoundedCornerShape(26.dp),
-                                containerColor = Color.Black.copy(alpha = 0.82f),
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .clip(RoundedCornerShape(28.dp))
+                                    .background(OniSkin.surfaces.soft.containerColor)
+                                    .border(
+                                        BorderStroke(1.dp, OniSkin.colors.onSurface.copy(alpha = 0.14f)),
+                                        RoundedCornerShape(28.dp)
+                                    )
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(2.dp)
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                listOf(
+                                                    Color.White.copy(alpha = 0.02f),
+                                                    Color.White.copy(alpha = 0.10f),
+                                                    Color.White.copy(alpha = 0.02f)
+                                                )
+                                            )
+                                        )
+                                )
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
