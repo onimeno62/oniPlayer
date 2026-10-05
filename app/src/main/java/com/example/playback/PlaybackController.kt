@@ -228,6 +228,7 @@ class PlaybackController(private val service: MediaSessionService) {
             if (isReleased) return
             audioEffectsController.attachToAudioSession(id)
             applyLoudnessBoost(id)
+            publish()
         }
         override fun onRepeatModeChanged(playerRepeatMode: Int) {
             if (isReleased) return
@@ -834,7 +835,8 @@ class PlaybackController(private val service: MediaSessionService) {
         val shuffleMode: ShuffleMode,
         val shuffleType: ShuffleType,
         val repeatMode: RepeatMode,
-        val queue: List<SongEntity>
+        val queue: List<SongEntity>,
+        val audioSessionId: Int
     )
 
     private fun publish(queueOverride: List<SongEntity>? = null) {
@@ -877,7 +879,8 @@ class PlaybackController(private val service: MediaSessionService) {
             shuffleMode = currentShuffleMode,
             shuffleType = currentShuffleType,
             repeatMode = currentRepeatMode,
-            queue = q
+            queue = q,
+            audioSessionId = player.audioSessionId
         )
 
         lastPublishedRevision = snapshot.revision
@@ -894,7 +897,8 @@ class PlaybackController(private val service: MediaSessionService) {
             shuffleMode = snapshot.shuffleMode,
             shuffleType = snapshot.shuffleType,
             repeatMode = snapshot.repeatMode,
-            queue = snapshot.queue
+            queue = snapshot.queue,
+            audioSessionId = snapshot.audioSessionId
         )
         val bundle = Bundle().apply {
             putLong("state_revision", snapshot.revision)
@@ -911,6 +915,7 @@ class PlaybackController(private val service: MediaSessionService) {
             putInt(SHUFFLE_TYPE, snapshot.shuffleType.ordinal)
             putInt(REPEAT_MODE, snapshot.repeatMode.ordinal)
             putStringArrayList("queue_ids", ArrayList(snapshot.queue.map { it.id }))
+            putInt("audio_session_id", snapshot.audioSessionId)
         }
         if (!isReleased) {
             mediaSession.broadcastCustomCommand(SessionCommand("STATE_CHANGED", Bundle.EMPTY), bundle)
