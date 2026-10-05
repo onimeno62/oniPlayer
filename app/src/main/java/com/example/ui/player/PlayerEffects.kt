@@ -3,7 +3,6 @@ package com.example.ui.player
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -18,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,81 +98,6 @@ fun AudioSpectrumSeekBar(progress: Float, onProgressChange: (Float) -> Unit, bea
                 color = if (x <= width * progress.coerceIn(0f, 1f)) activeColor else inactiveColor,
                 topLeft = androidx.compose.ui.geometry.Offset(x + 2.dp.toPx(), height - barHeight),
                 size = androidx.compose.ui.geometry.Size((bandWidth - 4.dp.toPx()).coerceAtLeast(1f), barHeight)
-            )
-        }
-    }
-}
-
-@Composable
-fun ApplyArtworkEffects(
-    modifier: Modifier = Modifier,
-    enableKenBurns: Boolean = true,
-    enableGlow: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val transition = rememberInfiniteTransition(label = "artwork_effects")
-    val scale by transition.animateFloat(
-        1f,
-        if (enableKenBurns) 1.035f else 1f,
-        infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "artwork_scale"
-    )
-    Box(modifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale)) {
-        content()
-        if (enableGlow) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.07f)
-                            )
-                        )
-                    )
-            )
-        }
-    }
-}
-
-@Composable
-fun AudioAnalyzerEffect(
-    beatEnergy: Float = 0.5f,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val transition = rememberInfiniteTransition(label = "audio_analyzer_pulse")
-    val pulse by transition.animateFloat(
-        0f,
-        1f,
-        infiniteRepeatable(
-            animation = tween(260, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "audio_analyzer_pulse_value"
-    )
-    val energy = beatEnergy.coerceIn(0f, 1f)
-    val pulseAmount = if (enabled) 0.018f + energy * 0.04f else 0f
-    val scale = 1f + pulseAmount * pulse
-    val glowAlpha = if (enabled) 0.035f + energy * 0.055f else 0f
-    Box(modifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale)) {
-        content()
-        if (enabled) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.White.copy(alpha = glowAlpha)
-                            )
-                        )
-                    )
             )
         }
     }
