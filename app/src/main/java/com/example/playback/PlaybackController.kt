@@ -120,6 +120,7 @@ class PlaybackController(private val service: MediaSessionService) {
         scope = scope,
         onDelayFinished = {
             if (isReleased) return@PlaybackDelayController
+            delayedAdvancePending = true
             player.seekToNextMediaItem()
             player.play()
         }
@@ -199,6 +200,7 @@ class PlaybackController(private val service: MediaSessionService) {
     private var crossfadeDurationMs = 0L
     private var crossfadeJob: Job? = null
     private var crossfadeAtBoundary = false
+    private var delayedAdvancePending = false
     private var appliedAudioFocus: Boolean? = null
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var loudnessSessionId = C.AUDIO_SESSION_ID_UNSET
@@ -231,12 +233,13 @@ class PlaybackController(private val service: MediaSessionService) {
         }
         override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
             if (isReleased) return
-            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !delayedAdvancePending) {
                 cancelDelay(publishState = false)
                 crossfadeAtBoundary = false
                 crossfadeJob?.cancel()
                 player.volume = 1f
-            } else if (crossfadeEnabled && crossfadeDurationMs > 0L) {
+            } else if (delayedAdvancePending || (crossfadeEnabled && crossfadeDurationMs > 0L)) {
+                delayedAdvancePending = false
                 crossfadeAtBoundary = true
                 player.volume = 0f
                 startFadeIn()
@@ -461,6 +464,7 @@ class PlaybackController(private val service: MediaSessionService) {
         if (!isReleased) {
             cancelDelay(publishState = false)
             crossfadeAtBoundary = false
+            delayedAdvancePending = false
             crossfadeJob?.cancel()
             player.volume = 1f
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
