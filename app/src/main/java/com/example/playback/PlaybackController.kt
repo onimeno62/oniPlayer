@@ -714,6 +714,11 @@ class PlaybackController(private val service: MediaSessionService) {
     fun setDelay(seconds: Int) {
         if (isReleased) return
         playbackDelayController.setDelay(seconds)
+        delayedAdvancePending = false
+        crossfadeAtBoundary = false
+        crossfadeJob?.cancel()
+        crossfadeJob = null
+        player.volume = 1f
         applyRepeatMode()
         publish()
     }
