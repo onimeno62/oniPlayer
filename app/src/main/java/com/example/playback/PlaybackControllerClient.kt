@@ -433,6 +433,16 @@ class PlaybackControllerClient(context: Context) {
     fun cancelPendingNext() = command(PlaybackController.CANCEL_DELAY)
     fun triggerAutoNextWithDelay() = command(PlaybackController.TRIGGER_DELAY)
 
+    fun setCrossfadeEnabled(enabled: Boolean) = command(
+        PlaybackController.SET_CROSSFADE_ENABLED,
+        Bundle().apply { putBoolean(PlaybackController.CROSSFADE_ENABLED, enabled) }
+    )
+
+    fun setCrossfadeDuration(seconds: Int) = command(
+        PlaybackController.SET_CROSSFADE_DURATION,
+        Bundle().apply { putInt(PlaybackController.CROSSFADE_DURATION_SECONDS, seconds) }
+    )
+
     fun applyPreset(p: EqualizerPresetEntity) = command(
         PlaybackController.PRESET,
         Bundle().apply {
