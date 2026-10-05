@@ -38,6 +38,8 @@ import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.lyrics.LyricsHelper
+import com.example.ui.player.ApplyArtworkEffects
+import com.example.ui.player.AudioAnalyzerEffect
 import com.example.ui.player.LyricLineMode
 import com.example.ui.player.SeekBarStyle
 import com.example.ui.player.components.*
@@ -225,6 +227,10 @@ fun PlayerScreen(
             playlists = playlists,
             onAddToPlaylist = { playlist ->
                 viewModel.addSongToPlaylist(song.id, playlist.id)
+                showPlaylistPicker = false
+            },
+            onCreatePlaylist = { name ->
+                viewModel.createPlaylist(name, listOf(song.id))
                 showPlaylistPicker = false
             },
             onDismiss = { showPlaylistPicker = false }
@@ -431,7 +437,6 @@ fun PlayerContent(
                     val visibleLyricLines = lineCount.coerceIn(1, 3)
                     val artworkHeight = (availableHeight * 0.62f).coerceIn(360.dp, 560.dp)
                     val metadataBottomGap = 4.dp
-                    val fadeHeight = (artworkHeight + 240.dp).coerceAtMost(availableHeight)
 
                     // Portrait composition:
                     // 1) black OLED canvas
@@ -445,33 +450,57 @@ fun PlayerContent(
                             .background(Color.Black)
                             .windowInsetsPadding(WindowInsets.statusBars)
                     ) {
-                        OniArtwork(
-                            artworkUri = song.albumArtUri,
-                            contentDescription = "Album art for ${song.displayTitle}",
+                        AudioAnalyzerEffect(
+                            beatEnergy = 0.85f,
+                            enabled = audioAnalyzerEnabled && uiState.isPlaying
+                        ) {
+                            ApplyArtworkEffects(
+                                enableKenBurns = artworkEffectsEnabled && uiState.isPlaying,
+                                enableGlow = artworkEffectsEnabled
+                            ) {
+                                OniArtwork(
+                                    artworkUri = song.albumArtUri,
+                                    contentDescription = "Album art for ${song.displayTitle}",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(artworkHeight)
+                                        .align(Alignment.TopCenter),
+                                    shape = RectangleShape,
+                                    elevation = 0.dp,
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(artworkHeight)
-                                .align(Alignment.TopCenter),
-                            shape = RectangleShape,
-                            elevation = 0.dp,
-                            contentScale = ContentScale.Crop
+                                .height(120.dp)
+                                .align(Alignment.TopCenter)
+                                .background(
+                                    Brush.verticalGradient(
+                                        0f to Color.Black.copy(alpha = 0.88f),
+                                        0.35f to Color.Black.copy(alpha = 0.50f),
+                                        0.72f to Color.Black.copy(alpha = 0.14f),
+                                        1f to Color.Transparent
+                                    )
+                                )
                         )
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(fadeHeight)
+                                .height(300.dp)
                                 .align(Alignment.TopCenter)
+                                .offset(y = (artworkHeight - 300.dp).coerceAtLeast(0.dp))
                                 .background(
                                     Brush.verticalGradient(
                                         0f to Color.Transparent,
-                                        0.34f to Color.Transparent,
-                                        0.48f to Color.Black.copy(alpha = 0.04f),
-                                        0.60f to Color.Black.copy(alpha = 0.16f),
-                                        0.70f to Color.Black.copy(alpha = 0.38f),
-                                        0.79f to Color.Black.copy(alpha = 0.64f),
-                                        0.87f to Color.Black.copy(alpha = 0.84f),
-                                        0.94f to Color.Black.copy(alpha = 0.95f),
+                                        0.18f to Color.Black.copy(alpha = 0.18f),
+                                        0.36f to Color.Black.copy(alpha = 0.46f),
+                                        0.56f to Color.Black.copy(alpha = 0.72f),
+                                        0.74f to Color.Black.copy(alpha = 0.91f),
+                                        0.88f to Color.Black.copy(alpha = 0.98f),
                                         1f to Color.Black
                                     )
                                 )
