@@ -165,7 +165,13 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     )
                 }
             },
-            containerColor = OniSkin.colors.background,
+            // On Player, the area behind the bottom navigation uses the same soft
+            // surface as the floating control card for a continuous visual base.
+            containerColor = if (currentTab == 1) {
+                OniSkin.surfaces.soft.containerColor
+            } else {
+                OniSkin.colors.background
+            },
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
             Box(
