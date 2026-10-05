@@ -9,6 +9,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -248,8 +252,10 @@ fun PlayerPlaylistPickerSheet(
     song: SongEntity,
     playlists: List<PlaylistEntity>,
     onAddToPlaylist: (PlaylistEntity) -> Unit,
+    onCreatePlaylist: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var showCreateDialog by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = OniSkin.colors.surface,
@@ -293,6 +299,28 @@ fun PlayerPlaylistPickerSheet(
                     bottom = OniSkin.spacing.md
                 )
             )
+
+            FilledTonalButton(
+                onClick = { showCreateDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                shape = OniSkin.shapes.button
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(OniSkin.spacing.xs))
+                Text(
+                    text = "Create New Playlist",
+                    style = OniSkin.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(OniSkin.spacing.sm))
 
             if (playlists.isEmpty()) {
                 Text(
@@ -341,5 +369,64 @@ fun PlayerPlaylistPickerSheet(
                 }
             }
         }
+    }
+    
+    if (showCreateDialog) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = {
+                Text(
+                    text = "Create New Playlist",
+                    style = OniSkin.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = OniSkin.colors.textPrimary
+                )
+            },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Playlist Name") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = OniSkin.colors.textPrimary,
+                        unfocusedTextColor = OniSkin.colors.textPrimary,
+                        focusedBorderColor = OniSkin.colors.primary,
+                        cursorColor = OniSkin.colors.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val trimmed = name.trim()
+                        if (trimmed.isNotBlank()) {
+                            onCreatePlaylist(trimmed)
+                            showCreateDialog = false
+                        }
+                    },
+                    enabled = name.trim().isNotBlank(),
+                    shape = OniSkin.shapes.button,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OniSkin.colors.primary,
+                        contentColor = OniSkin.colors.onPrimary
+                    )
+                ) {
+                    Text("Create", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showCreateDialog = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = OniSkin.colors.textSecondary)
+                ) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = OniSkin.colors.surface,
+            shape = OniSkin.shapes.card
+        )
     }
 }
