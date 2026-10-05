@@ -135,6 +135,7 @@ class PlaybackControllerClient(context: Context) {
                                 .let { if (it == -1) null else it }
                             val currentId = args.getString("current_song_id")
                             val queueIds = args.getStringArrayList("queue_ids") ?: emptyList<String>()
+                            val audioSessionId = args.getInt("audio_session_id", _state.value.audioSessionId)
 
                             val (currentSongEntity, queueSongs) = withContext(Dispatchers.IO) {
                                 val dao = database.songDao()
@@ -199,7 +200,8 @@ class PlaybackControllerClient(context: Context) {
                                 repeatMode = RepeatMode.entries.getOrElse(repeatModeOrdinal) {
                                     _state.value.repeatMode
                                 },
-                                queue = if (trackMatches) queueSongs else _state.value.queue
+                                queue = if (trackMatches) queueSongs else _state.value.queue,
+                                audioSessionId = if (trackMatches) audioSessionId else _state.value.audioSessionId
                             )
                         }
                     }
