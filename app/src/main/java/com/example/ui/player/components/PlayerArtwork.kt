@@ -107,42 +107,41 @@ fun PlayerArtwork(
         }
 
         Box(
-                Box(
-                    modifier = dimensionModifier
-                        .graphicsLayer {
-                            scaleX = artworkScale
-                            scaleY = artworkScale
-                        }
-                        .clip(artworkShape)
-                        .then(clickModifier),
-                    contentAlignment = Alignment.Center
-                ) {
-                    OniArtwork(
-                        artworkUri = song?.albumArtUri,
-                        contentDescription = song?.title?.let { "Album art for $it" } ?: "Album artwork",
-                        shape = artworkShape,
-                        elevation = shadowElevation,
-                        modifier = Modifier.fillMaxSize()
-                    )
+            modifier = dimensionModifier
+                .graphicsLayer {
+                    scaleX = artworkScale
+                    scaleY = artworkScale
+                }
+                .clip(artworkShape)
+                .then(clickModifier),
+            contentAlignment = Alignment.Center
+        ) {
+            OniArtwork(
+                artworkUri = song?.albumArtUri,
+                contentDescription = song?.title?.let { "Album art for $it" } ?: "Album artwork",
+                shape = artworkShape,
+                elevation = shadowElevation,
+                modifier = Modifier.fillMaxSize()
+            )
 
-                    // Audio Quality / Format badge in top-right corner
-                    if (formatBadge != null) {
-                        OniSurface(
-                            variant = OniSurfaceVariant.Frosted,
-                            shape = OniSkin.shapes.small,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = formatBadge,
-                                style = OniSkin.typography.caption,
-                                fontWeight = FontWeight.Bold,
-                                color = OniSkin.colors.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
+            if (formatBadge != null) {
+                OniSurface(
+                    variant = OniSurfaceVariant.Frosted,
+                    shape = OniSkin.shapes.small,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = formatBadge,
+                        style = OniSkin.typography.caption,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
         }
     }
+}
 }
