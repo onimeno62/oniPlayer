@@ -129,7 +129,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
             bottomBar = {
                 Column(
                     modifier = Modifier
-                        .background(OniSkin.surfaces.soft.containerColor)
+                        .background(if (currentTab == 1) OniSkin.colors.background else OniSkin.surfaces.soft.containerColor)
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(
                                 WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
@@ -156,9 +156,11 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             if (destination == 0) viewModel.goToLibraryDashboard()
                             else viewModel.selectTab(destination)
                         },
-                        surfaceVariant = if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft,
-                        shape = if (glassEffectEnabled) RoundedCornerShape(cornerRadius.dp) else OniSkin.navigation.shape,
-                        containerColor = if (glassEffectEnabled) {
+                        surfaceVariant = if (currentTab == 1) OniSurfaceVariant.Soft else if (glassEffectEnabled) OniSurfaceVariant.Frosted else OniSurfaceVariant.Soft,
+                        shape = if (glassEffectEnabled && currentTab != 1) RoundedCornerShape(cornerRadius.dp) else OniSkin.navigation.shape,
+                        containerColor = if (currentTab == 1) {
+                            OniSkin.surfaces.soft.containerColor
+                        } else if (glassEffectEnabled) {
                             val frostedColor = OniSkin.surfaces.frosted.containerColor
                             frostedColor.copy(
                                 alpha = (frostedColor.alpha * (backgroundTransparency / 50f)).coerceIn(0f, 1f)
