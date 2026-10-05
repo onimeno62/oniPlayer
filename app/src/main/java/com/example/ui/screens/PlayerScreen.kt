@@ -1,6 +1,11 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -23,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -38,10 +44,11 @@ import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.lyrics.LyricsHelper
-import com.example.ui.player.ApplyArtworkEffects
-import com.example.ui.player.AudioAnalyzerEffect
+import com.example.ui.player.AudioSpectrumVisualizer
+import com.example.ui.player.AudioVisualizerMode
 import com.example.ui.player.LyricLineMode
 import com.example.ui.player.SeekBarStyle
+import com.example.ui.player.AudioVisualizerMode
 import com.example.ui.player.components.*
 import com.example.ui.player.components.lyrics.LyricEmphasis
 import com.example.ui.player.components.lyrics.rememberLyricsAppearance
@@ -88,9 +95,19 @@ fun PlayerScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMenuModal by remember { mutableStateOf(false) }
     var showPlaylistPicker by remember { mutableStateOf(false) }
+    var showVisualizerPicker by remember { mutableStateOf(false) }
+    var pendingVisualizerMode by remember { mutableStateOf<Int?>(null) }
 
-    val audioAnalyzerActive by viewModel.playerAudioAnalyzer.collectAsStateWithLifecycle()
-    val artworkEffectsActive by viewModel.playerArtworkEffects.collectAsStateWithLifecycle()
+    val audioVisualizerMode by viewModel.playerAudioVisualizer.collectAsStateWithLifecycle()
+    val audioSessionId by viewModel.audioSessionId.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val visualizerPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val requestedMode = pendingVisualizerMode
+        pendingVisualizerMode = null
+        if (granted && requestedMode != null) {
+            viewModel.setPlayerAudioVisualizer(requestedMode)
+        }
+    }
     val currentSeekBarStyle by viewModel.playerSeekBarStyle.collectAsStateWithLifecycle()
     val currentLyricMode by viewModel.playerLyricMode.collectAsStateWithLifecycle()
     val currentLineCount by viewModel.playerLyricLines.collectAsStateWithLifecycle()
@@ -160,8 +177,8 @@ fun PlayerScreen(
             else -> LyricLineMode.UNDERNEATH
         },
         lineCount = currentLineCount,
-        audioAnalyzerEnabled = audioAnalyzerActive,
-        artworkEffectsEnabled = artworkEffectsActive,
+        audioVisualizerMode = audioVisualizerMode,
+        audioSessionId = audioSessionId,
         modifier = modifier
     )
 
@@ -173,8 +190,8 @@ fun PlayerScreen(
             isSleepTimerRunning = uiState.isSleepTimerRunning,
             sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
             isFavorite = uiState.isFavorite,
-            audioAnalyzerEnabled = audioAnalyzerActive,
-            artworkEffectsEnabled = artworkEffectsActive,
+            audioVisualizerMode = audioVisualizerMode,
+            audioSessionId = audioSessionId,
             onToggleFavorite = {
                 song?.id?.let { viewModel.toggleFavorite(it) }
                 showMenuModal = false
@@ -215,9 +232,27 @@ fun PlayerScreen(
             onOpenKaraoke = { showKaraoke = true },
             onOpenTagEditor = { showTagEditor = true },
             onDeleteClick = { showDeleteDialog = true },
-            onToggleAudioAnalyzer = { viewModel.setPlayerAudioAnalyzer(!audioAnalyzerActive) },
-            onToggleArtworkEffects = { viewModel.setPlayerArtworkEffects(!artworkEffectsActive) },
+            onOpenAudioVisualizerPicker = { showVisualizerPicker = true },
             onDismiss = { showMenuModal = false }
+        )
+    }
+
+    if (showVisualizerPicker) {
+        AudioVisualizerPickerDialog(
+            selectedMode = audioVisualizerMode,
+            onSelect = { mode ->
+                if (mode == 0 || ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    viewModel.setPlayerAudioVisualizer(mode)
+                    showVisualizerPicker = false
+                    showMenuModal = false
+                } else {
+                    pendingVisualizerMode = mode
+                    showVisualizerPicker = false
+                    showMenuModal = false
+                    visualizerPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            },
+            onDismiss = { showVisualizerPicker = false }
         )
     }
 
@@ -329,8 +364,8 @@ fun PlayerContent(
     seekBarStyle: SeekBarStyle = SeekBarStyle.SIMPLE,
     lyricLineMode: LyricLineMode = LyricLineMode.UNDERNEATH,
     lineCount: Int = 2,
-    audioAnalyzerEnabled: Boolean = false,
-    artworkEffectsEnabled: Boolean = true
+    audioVisualizerMode: Int = 0,
+    audioSessionId: Int = -1
 ) {
     val song = uiState.currentSong
     val scrollState = rememberScrollState()
@@ -450,26 +485,28 @@ fun PlayerContent(
                             .background(Color.Black)
                             .windowInsetsPadding(WindowInsets.statusBars)
                     ) {
-                        AudioAnalyzerEffect(
-                            beatEnergy = 0.85f,
-                            enabled = audioAnalyzerEnabled && uiState.isPlaying
-                        ) {
-                            ApplyArtworkEffects(
-                                enableKenBurns = artworkEffectsEnabled && uiState.isPlaying,
-                                enableGlow = artworkEffectsEnabled
-                            ) {
-                                OniArtwork(
-                                    artworkUri = song.albumArtUri,
-                                    contentDescription = "Album art for ${song.displayTitle}",
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(artworkHeight)
-                                        .align(Alignment.TopCenter),
-                                    shape = RectangleShape,
-                                    elevation = 0.dp,
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
+                        if (audioVisualizerMode == AudioVisualizerMode.OFF.ordinal) {
+                            OniArtwork(
+                                artworkUri = song.albumArtUri,
+                                contentDescription = "Album art for ${song.displayTitle}",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(artworkHeight)
+                                    .align(Alignment.TopCenter),
+                                shape = RectangleShape,
+                                elevation = 0.dp,
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            AudioSpectrumVisualizer(
+                                mode = AudioVisualizerMode.entries.getOrElse(audioVisualizerMode) { AudioVisualizerMode.BARS },
+                                audioSessionId = audioSessionId,
+                                isPlaying = uiState.isPlaying,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(artworkHeight)
+                                    .align(Alignment.TopCenter)
+                            )
                         }
 
                         Box(
@@ -670,15 +707,24 @@ fun PlayerContent(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 val landscapeArtMax = (availableHeight - 120.dp).coerceIn(140.dp, 280.dp)
-                                PlayerArtwork(
-                                    song = song,
-                                    isPlaying = uiState.isPlaying,
-                                    maxSize = landscapeArtMax,
-                                    horizontalPadding = 0.dp,
-                                    onClick = onTogglePlayPause,
-                                    artworkEffectsEnabled = artworkEffectsEnabled,
-                                    audioAnalyzerEnabled = audioAnalyzerEnabled
-                                )
+                                if (audioVisualizerMode == AudioVisualizerMode.OFF.ordinal) {
+                                    PlayerArtwork(
+                                        song = song,
+                                        isPlaying = uiState.isPlaying,
+                                        maxSize = landscapeArtMax,
+                                        horizontalPadding = 0.dp,
+                                        onClick = onTogglePlayPause
+                                    )
+                                } else {
+                                    AudioSpectrumVisualizer(
+                                        mode = AudioVisualizerMode.entries.getOrElse(audioVisualizerMode) { AudioVisualizerMode.BARS },
+                                        audioSessionId = audioSessionId,
+                                        isPlaying = uiState.isPlaying,
+                                        modifier = Modifier
+                                            .size(landscapeArtMax)
+                                            .clip(OniSkin.artwork.shape)
+                                    )
+                                }
                             }
 
                             val rightPaneScrollState = rememberScrollState()
