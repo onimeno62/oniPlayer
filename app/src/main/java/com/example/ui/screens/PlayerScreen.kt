@@ -48,7 +48,6 @@ import com.example.ui.player.AudioSpectrumVisualizer
 import com.example.ui.player.AudioVisualizerMode
 import com.example.ui.player.LyricLineMode
 import com.example.ui.player.SeekBarStyle
-import com.example.ui.player.AudioVisualizerMode
 import com.example.ui.player.components.*
 import com.example.ui.player.components.lyrics.LyricEmphasis
 import com.example.ui.player.components.lyrics.rememberLyricsAppearance
@@ -232,7 +231,7 @@ fun PlayerScreen(
             onOpenKaraoke = { showKaraoke = true },
             onOpenTagEditor = { showTagEditor = true },
             onDeleteClick = { showDeleteDialog = true },
-            onOpenAudioVisualizerPicker = { showVisualizerPicker = true },
+            onOpenAudioVisualizerPicker = { showMenuModal = false; showVisualizerPicker = true },
             onDismiss = { showMenuModal = false }
         )
     }
