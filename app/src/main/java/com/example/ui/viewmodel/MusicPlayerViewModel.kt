@@ -160,10 +160,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _nextSongDelaySeconds = MutableStateFlow(0)
     val nextSongDelaySeconds: StateFlow<Int> = _nextSongDelaySeconds.asStateFlow()
 
-    private val _playbackDelayCountdown = MutableStateFlow<Int?>(null)
-    val playbackDelayCountdown: StateFlow<Int?> = _playbackDelayCountdown.asStateFlow()
-
-    private var delayJob: Job? = null
+    val playbackDelayCountdown: StateFlow<Int?> = audioEngine.state
+        .map { it.autoNextCountdownSeconds }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _crossfadeEnabled = MutableStateFlow(false)
     val crossfadeEnabled: StateFlow<Boolean> = _crossfadeEnabled.asStateFlow()
@@ -671,6 +670,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     .map { preferences -> preferences[PLAYBACK_DELAY_KEY] ?: 0 }
                     .collect { savedDelay ->
                         _nextSongDelaySeconds.value = savedDelay
+                        audioEngine.setAutoNextDelay(savedDelay)
                     }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -684,6 +684,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     .map { preferences -> preferences[CROSSFADE_ENABLED_KEY] ?: false }
                     .collect { enabled ->
                         _crossfadeEnabled.value = enabled
+                        audioEngine.setCrossfadeEnabled(enabled)
                     }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -697,6 +698,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     .map { preferences -> preferences[CROSSFADE_DURATION_KEY] ?: 5 }
                     .collect { duration ->
                         _crossfadeDurationSeconds.value = duration
+                        audioEngine.setCrossfadeDuration(duration)
                     }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -1936,11 +1938,13 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun setNextSongDelaySeconds(seconds: Int) {
-        _nextSongDelaySeconds.value = seconds
+        val value = seconds.coerceAtLeast(0)
+        _nextSongDelaySeconds.value = value
+        audioEngine.setAutoNextDelay(value)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 getApplication<Application>().dataStore.edit { preferences ->
-                    preferences[PLAYBACK_DELAY_KEY] = seconds
+                    preferences[PLAYBACK_DELAY_KEY] = value
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving next song delay preference: ${e.message}")
@@ -1950,6 +1954,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun setCrossfadeEnabled(enabled: Boolean) {
         _crossfadeEnabled.value = enabled
+        audioEngine.setCrossfadeEnabled(enabled)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 getApplication<Application>().dataStore.edit { preferences ->
@@ -1962,11 +1967,13 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun setCrossfadeDurationSeconds(seconds: Int) {
-        _crossfadeDurationSeconds.value = seconds
+        val value = seconds.coerceIn(0, 30)
+        _crossfadeDurationSeconds.value = value
+        audioEngine.setCrossfadeDuration(value)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 getApplication<Application>().dataStore.edit { preferences ->
-                    preferences[CROSSFADE_DURATION_KEY] = seconds
+                    preferences[CROSSFADE_DURATION_KEY] = value
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving crossfade duration preference: ${e.message}")
@@ -1975,28 +1982,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun cancelDelay() {
-        delayJob?.cancel()
-        delayJob = null
-        _playbackDelayCountdown.value = null
+        audioEngine.cancelPendingNext()
     }
 
     fun triggerAutoNextWithDelay() {
-        cancelDelay()
-        val delaySecs = _nextSongDelaySeconds.value
-        if (delaySecs <= 0) {
-            skipNext()
-            return
-        }
-
-        delayJob = viewModelScope.launch {
-            for (remaining in delaySecs downTo 1) {
-                _playbackDelayCountdown.value = remaining
-                kotlinx.coroutines.delay(1000)
-            }
-            _playbackDelayCountdown.value = null
-            delayJob = null
-            skipNext()
-        }
+        audioEngine.triggerAutoNextWithDelay()
     }
 
     fun isWifiConnected(): Boolean {
