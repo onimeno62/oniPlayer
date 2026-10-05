@@ -95,15 +95,15 @@ fun ShuffleModeButton(
         )
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             PlaybackModeMenuItem(
+                icon = Icons.Default.Shuffle,
                 title = "Shuffle off",
-                subtitle = "Play in list order",
                 selected = !isShuffle,
                 onClick = { menuOpen = false; onSelect(null) }
             )
             ShuffleType.entries.forEach { type ->
                 PlaybackModeMenuItem(
+                    icon = Icons.Default.Shuffle,
                     title = type.label,
-                    subtitle = type.description,
                     selected = isShuffle && shuffleType == type,
                     onClick = { menuOpen = false; onSelect(type) }
                 )
@@ -156,8 +156,12 @@ fun RepeatModeButton(
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             listOf(RepeatMode.OFF, RepeatMode.ALL, RepeatMode.ONE, RepeatMode.SINGLE).forEach { mode ->
                 PlaybackModeMenuItem(
+                    icon = when (mode) {
+                        RepeatMode.OFF, RepeatMode.ALL -> Icons.Default.Repeat
+                        RepeatMode.ONE -> Icons.Default.RepeatOne
+                        RepeatMode.SINGLE -> Icons.Default.LooksOne
+                    },
                     title = mode.label,
-                    subtitle = mode.description,
                     selected = repeatMode == mode,
                     onClick = { menuOpen = false; onSelect(mode) }
                 )
@@ -168,26 +172,26 @@ fun RepeatModeButton(
 
 @Composable
 private fun PlaybackModeMenuItem(
+    icon: ImageVector,
     title: String,
-    subtitle: String,
     selected: Boolean,
     onClick: () -> Unit
 ) {
     DropdownMenuItem(
         text = {
-            Column {
-                Text(
-                    text = title,
-                    style = OniSkin.typography.bodyMedium,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (selected) OniSkin.colors.primary else OniSkin.colors.textPrimary
-                )
-                Text(
-                    text = subtitle,
-                    style = OniSkin.typography.bodySmall,
-                    color = OniSkin.colors.textSecondary
-                )
-            }
+            Text(
+                text = title,
+                style = OniSkin.typography.bodyMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected) OniSkin.colors.primary else OniSkin.colors.textPrimary
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) OniSkin.colors.primary else OniSkin.colors.textSecondary
+            )
         },
         trailingIcon = {
             if (selected) {
