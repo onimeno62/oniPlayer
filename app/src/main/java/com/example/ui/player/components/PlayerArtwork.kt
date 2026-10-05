@@ -23,8 +23,6 @@ import com.example.data.entity.SongEntity
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.components.surface.OniSurfaceVariant
-import com.example.ui.player.ApplyArtworkEffects
-import com.example.ui.player.AudioAnalyzerEffect
 import com.example.ui.theme.OniSkin
 
 /**
@@ -43,10 +41,7 @@ fun PlayerArtwork(
     isPlaying: Boolean = false,
     maxSize: Dp? = null,
     horizontalPadding: Dp = OniSkin.spacing.screenHorizontal,
-    onClick: (() -> Unit)? = null,
-    artworkEffectsEnabled: Boolean = false,
-    audioAnalyzerEnabled: Boolean = false,
-    beatEnergy: Float = 0.5f
+    onClick: (() -> Unit)? = null
 ) {
     val formatBadge = song?.let { s ->
         val path = s.filePath.lowercase()
@@ -111,14 +106,7 @@ fun PlayerArtwork(
                 .aspectRatio(1f)
         }
 
-        AudioAnalyzerEffect(
-            beatEnergy = beatEnergy,
-            enabled = audioAnalyzerEnabled && isPlaying
-        ) {
-            ApplyArtworkEffects(
-                enableKenBurns = artworkEffectsEnabled && isPlaying,
-                enableGlow = artworkEffectsEnabled
-            ) {
+        Box(
                 Box(
                     modifier = dimensionModifier
                         .graphicsLayer {
@@ -155,8 +143,6 @@ fun PlayerArtwork(
                             )
                         }
                     }
-                }
-            }
         }
     }
 }
