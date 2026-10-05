@@ -56,9 +56,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Service-owned playback engine. The Activity and ViewModels never own ExoPlayer. */
-@OptIn(UnstableApi::class)
 private val Context.playbackSettingsStore by preferencesDataStore(name = "oni_settings")
 
+@OptIn(UnstableApi::class)
 class PlaybackController(private val service: MediaSessionService) {
     companion object {
         const val SET_QUEUE = "com.example.oniplayer.SET_QUEUE"
