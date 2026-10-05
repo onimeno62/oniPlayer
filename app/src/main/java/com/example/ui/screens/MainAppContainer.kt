@@ -128,11 +128,13 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
             ),
             bottomBar = {
                 Column(
-                    modifier = Modifier.windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(
-                            WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
+                    modifier = Modifier
+                        .background(OniSkin.surfaces.soft.containerColor)
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(
+                                WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
+                            )
                         )
-                    )
                 ) {
                     // The Player keeps the same primary app navigation as every other
                     // top-level screen. Only the contextual mini-player is suppressed
@@ -165,13 +167,9 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                     )
                 }
             },
-            // On Player, the area behind the bottom navigation uses the same soft
-            // surface as the floating control card for a continuous visual base.
-            containerColor = if (currentTab == 1) {
-                OniSkin.surfaces.soft.containerColor
-            } else {
-                OniSkin.colors.background
-            },
+            // Keep Scaffold/content and the navigation component on their existing surfaces.
+            // The bottom-bar host itself paints the area behind the navigation separately.
+            containerColor = OniSkin.colors.background,
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
             Box(
