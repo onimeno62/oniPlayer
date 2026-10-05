@@ -190,7 +190,6 @@ fun PlayerScreen(
             sleepTimerMinutesLeft = uiState.sleepTimerMinutesLeft,
             isFavorite = uiState.isFavorite,
             audioVisualizerMode = audioVisualizerMode,
-            audioSessionId = audioSessionId,
             onToggleFavorite = {
                 song?.id?.let { viewModel.toggleFavorite(it) }
                 showMenuModal = false
