@@ -261,4 +261,16 @@ class OniAudioEngine private constructor(context: Context) {
     fun skipPrevious() {
         client.previous()
     }
+
+    fun setAutoNextDelay(seconds: Int) {
+        client.setAutoNextDelay(seconds)
+    }
+
+    fun cancelPendingNext() {
+        client.cancelPendingNext()
+    }
+
+    fun triggerAutoNextWithDelay() {
+        client.triggerAutoNextWithDelay()
+    }
 }
