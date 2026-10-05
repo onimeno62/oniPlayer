@@ -134,6 +134,14 @@ class OniAudioEngine private constructor(context: Context) {
         client.seekTo(posMs)
     }
 
+    fun setCrossfadeEnabled(enabled: Boolean) {
+        client.setCrossfadeEnabled(enabled)
+    }
+
+    fun setCrossfadeDuration(seconds: Int) {
+        client.setCrossfadeDuration(seconds)
+    }
+
     fun release() {
         client.release()
         scope.cancel()
