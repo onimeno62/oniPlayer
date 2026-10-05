@@ -25,6 +25,7 @@ import com.example.data.entity.SongEntity
 import com.example.ui.components.music.OniArtwork
 import com.example.ui.screens.SongStaticDataCard
 import com.example.ui.screens.TrackMenuActionTile
+import com.example.ui.player.AudioVisualizerMode
 import com.example.ui.theme.OniSkin
 
 /**
@@ -42,8 +43,7 @@ fun PlayerMenuModal(
     floatingLyricsEnabled: Boolean,
     isSleepTimerRunning: Boolean,
     sleepTimerMinutesLeft: Int,
-    audioAnalyzerEnabled: Boolean,
-    artworkEffectsEnabled: Boolean,
+    audioVisualizerMode: Int,
     onToggleFavorite: () -> Unit,
     onOpenPlaylistPicker: () -> Unit,
     onOpenFileLocation: () -> Unit,
@@ -54,8 +54,7 @@ fun PlayerMenuModal(
     onOpenKaraoke: () -> Unit,
     onOpenTagEditor: () -> Unit,
     onDeleteClick: () -> Unit,
-    onToggleAudioAnalyzer: () -> Unit,
-    onToggleArtworkEffects: () -> Unit,
+    onSelectAudioVisualizer: (Int) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -219,17 +218,10 @@ fun PlayerMenuModal(
                     ) {
                         TrackMenuActionTile(
                             icon = Icons.Default.GraphicEq,
-                            title = if (audioAnalyzerEnabled) "Analyzer On" else "Analyzer Pulse",
-                            iconTint = if (audioAnalyzerEnabled) OniSkin.colors.primary else null,
+                            title = if (audioVisualizerMode == 0) "Visualizer" else AudioVisualizerMode.entries.getOrElse(audioVisualizerMode) { AudioVisualizerMode.BARS }.label,
+                            iconTint = if (audioVisualizerMode != 0) OniSkin.colors.primary else null,
                             modifier = Modifier.weight(1f),
-                            onClick = onToggleAudioAnalyzer
-                        )
-                        TrackMenuActionTile(
-                            icon = Icons.Default.AutoAwesome,
-                            title = if (artworkEffectsEnabled) "Motion & Glow On" else "Motion & Glow",
-                            iconTint = if (artworkEffectsEnabled) OniSkin.colors.primary else null,
-                            modifier = Modifier.weight(1f),
-                            onClick = onToggleArtworkEffects
+                            onClick = { onSelectAudioVisualizer(audioVisualizerMode) }
                         )
                         TrackMenuActionTile(
                             icon = Icons.Default.DeleteOutline,
@@ -239,6 +231,7 @@ fun PlayerMenuModal(
                             modifier = Modifier.weight(1f),
                             onClick = { onDismiss(); onDeleteClick() }
                         )
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
