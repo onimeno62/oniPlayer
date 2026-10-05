@@ -336,7 +336,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val position: StateFlow<Long> = audioEngine.position
     val duration: StateFlow<Long> = audioEngine.duration
     val isPreparing: StateFlow<Boolean> = audioEngine.isPreparing
-    val audioSessionId: StateFlow<Int> = audioEngine.state.map { it.audioSessionId }\n        .stateIn(viewModelScope, SharingStarted.Eagerly, android.media.audiofx.Visualizer.ERROR_BAD_VALUE)
+    val audioSessionId: StateFlow<Int> = audioEngine.state.map { it.audioSessionId }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, -1)
 
     // Sleep Timer
     private val _sleepTimerMinutesLeft = MutableStateFlow(0)
