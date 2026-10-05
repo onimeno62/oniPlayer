@@ -1,6 +1,7 @@
 package com.example.playback
 
 import androidx.media3.common.Player
+import androidx.media3.common.C
 import com.example.data.entity.SongEntity
 
 /** Song-weighting strategy applied whenever songs are shuffled. */
@@ -113,5 +114,6 @@ data class PlaybackState(
     val shuffleMode: ShuffleMode,
     val repeatMode: RepeatMode,
     val queue: List<SongEntity>,
-    val shuffleType: ShuffleType = ShuffleType.SONGS
+    val shuffleType: ShuffleType = ShuffleType.SONGS,
+    val audioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
 )
