@@ -51,8 +51,7 @@ private val NOW_PLAYING_EFFECT_KEY = intPreferencesKey("now_playing_effect")
 private val PLAYER_SEEKBAR_STYLE_KEY = intPreferencesKey("player_seekbar_style")
 private val PLAYER_LYRIC_MODE_KEY = intPreferencesKey("player_lyric_mode")
 private val PLAYER_LYRIC_LINES_KEY = intPreferencesKey("player_lyric_lines")
-private val PLAYER_AUDIO_ANALYZER_KEY = booleanPreferencesKey("player_audio_analyzer")
-private val PLAYER_ARTWORK_EFFECTS_KEY = booleanPreferencesKey("player_artwork_effects")
+private val PLAYER_AUDIO_VISUALIZER_KEY = intPreferencesKey("player_audio_visualizer")
 private val PLAYER_BOTTOM_NAV_KEY = booleanPreferencesKey("player_bottom_nav")
 private val AUTO_SEARCH_ARTIST_DATA_KEY = booleanPreferencesKey("auto_search_artist_data")
 private val AUTO_SEARCH_WIFI_ONLY_KEY = booleanPreferencesKey("auto_search_wifi_only")
@@ -153,10 +152,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val playerLyricMode: StateFlow<Int> = _playerLyricMode.asStateFlow()
     private val _playerLyricLines = MutableStateFlow(2)
     val playerLyricLines: StateFlow<Int> = _playerLyricLines.asStateFlow()
-    private val _playerAudioAnalyzer = MutableStateFlow(false)
-    val playerAudioAnalyzer: StateFlow<Boolean> = _playerAudioAnalyzer.asStateFlow()
-    private val _playerArtworkEffects = MutableStateFlow(true)
-    val playerArtworkEffects: StateFlow<Boolean> = _playerArtworkEffects.asStateFlow()
+    private val _playerAudioVisualizer = MutableStateFlow(0)
+    val playerAudioVisualizer: StateFlow<Int> = _playerAudioVisualizer.asStateFlow()
     private val _playerBottomNav = MutableStateFlow(false)
     val playerBottomNav: StateFlow<Boolean> = _playerBottomNav.asStateFlow()
 
@@ -569,10 +566,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             getApplication<Application>().dataStore.data.map { it[PLAYER_LYRIC_LINES_KEY] ?: 2 }.collect { _playerLyricLines.value = it.coerceIn(1, 3) }
         }
         viewModelScope.launch {
-            getApplication<Application>().dataStore.data.map { it[PLAYER_AUDIO_ANALYZER_KEY] ?: false }.collect { _playerAudioAnalyzer.value = it }
-        }
-        viewModelScope.launch {
-            getApplication<Application>().dataStore.data.map { it[PLAYER_ARTWORK_EFFECTS_KEY] ?: true }.collect { _playerArtworkEffects.value = it }
+            getApplication<Application>().dataStore.data.map { it[PLAYER_AUDIO_VISUALIZER_KEY] ?: 0 }.collect { _playerAudioVisualizer.value = it.coerceIn(0, 4) }
         }
         viewModelScope.launch {
             getApplication<Application>().dataStore.data.map { it[PLAYER_BOTTOM_NAV_KEY] ?: false }.collect { _playerBottomNav.value = it }
@@ -913,14 +907,12 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch(Dispatchers.IO) { getApplication<Application>().dataStore.edit { it[PLAYER_LYRIC_LINES_KEY] = value } }
     }
 
-    fun setPlayerAudioAnalyzer(enabled: Boolean) {
-        _playerAudioAnalyzer.value = enabled
-        viewModelScope.launch(Dispatchers.IO) { getApplication<Application>().dataStore.edit { it[PLAYER_AUDIO_ANALYZER_KEY] = enabled } }
-    }
-
-    fun setPlayerArtworkEffects(enabled: Boolean) {
-        _playerArtworkEffects.value = enabled
-        viewModelScope.launch(Dispatchers.IO) { getApplication<Application>().dataStore.edit { it[PLAYER_ARTWORK_EFFECTS_KEY] = enabled } }
+    fun setPlayerAudioVisualizer(mode: Int) {
+        val value = mode.coerceIn(0, 4)
+        _playerAudioVisualizer.value = value
+        viewModelScope.launch(Dispatchers.IO) {
+            getApplication<Application>().dataStore.edit { it[PLAYER_AUDIO_VISUALIZER_KEY] = value }
+        }
     }
 
     fun setPlayerBottomNav(enabled: Boolean) {
