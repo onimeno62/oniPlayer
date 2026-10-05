@@ -776,6 +776,11 @@ class PlaybackController(private val service: MediaSessionService) {
     fun cancelDelay(publishState: Boolean = true) {
         if (isReleased) return
         playbackDelayController.cancelDelay()
+        delayedAdvancePending = false
+        crossfadeAtBoundary = false
+        crossfadeJob?.cancel()
+        crossfadeJob = null
+        player.volume = 1f
         if (publishState) publish()
     }
 
