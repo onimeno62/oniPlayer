@@ -956,8 +956,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         setPlayerSeekBarStyle(0)
         setPlayerLyricMode(0)
         setPlayerLyricLines(2)
-        setPlayerAudioAnalyzer(false)
-        setPlayerArtworkEffects(true)
+        setPlayerAudioVisualizer(0)
         setPlayerBottomNav(false)
     }
 
