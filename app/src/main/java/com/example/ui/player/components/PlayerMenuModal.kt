@@ -54,7 +54,7 @@ fun PlayerMenuModal(
     onOpenKaraoke: () -> Unit,
     onOpenTagEditor: () -> Unit,
     onDeleteClick: () -> Unit,
-    onSelectAudioVisualizer: (Int) -> Unit,
+    onOpenAudioVisualizerPicker: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -221,7 +221,7 @@ fun PlayerMenuModal(
                             title = if (audioVisualizerMode == 0) "Visualizer" else AudioVisualizerMode.entries.getOrElse(audioVisualizerMode) { AudioVisualizerMode.BARS }.label,
                             iconTint = if (audioVisualizerMode != 0) OniSkin.colors.primary else null,
                             modifier = Modifier.weight(1f),
-                            onClick = { onSelectAudioVisualizer(audioVisualizerMode) }
+                            onClick = onOpenAudioVisualizerPicker
                         )
                         TrackMenuActionTile(
                             icon = Icons.Default.DeleteOutline,
@@ -422,4 +422,69 @@ fun PlayerPlaylistPickerSheet(
             shape = OniSkin.shapes.card
         )
     }
+}
+
+
+@Composable
+fun AudioVisualizerPickerDialog(
+    selectedMode: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = OniSkin.colors.surface,
+        title = {
+            Text(
+                text = "Audio Visualizer",
+                style = OniSkin.typography.titleLarge,
+                color = OniSkin.colors.textPrimary
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
+                AudioVisualizerMode.entries.forEachIndexed { index, mode ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(index) }
+                            .padding(vertical = OniSkin.spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedMode == index,
+                            onClick = { onSelect(index) }
+                        )
+                        Spacer(modifier = Modifier.width(OniSkin.spacing.sm))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = mode.label,
+                                style = OniSkin.typography.bodyLarge,
+                                color = OniSkin.colors.textPrimary,
+                                fontWeight = if (selectedMode == index) FontWeight.Bold else FontWeight.Normal
+                            )
+                            if (index != 0) {
+                                Text(
+                                    text = when (mode) {
+                                        AudioVisualizerMode.BARS -> "Classic logarithmic spectrum bars"
+                                        AudioVisualizerMode.MIRRORED -> "Balanced bars expanding from the center"
+                                        AudioVisualizerMode.SPECTROGRAM -> "Scrolling frequency history over time"
+                                        AudioVisualizerMode.RADIAL -> "Circular spectrum with 360° frequency response"
+                                        AudioVisualizerMode.OFF -> "Show the album artwork"
+                                    },
+                                    style = OniSkin.typography.bodySmall,
+                                    color = OniSkin.colors.textSecondary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
 }
