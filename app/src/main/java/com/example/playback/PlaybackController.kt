@@ -49,11 +49,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Service-owned playback engine. The Activity and ViewModels never own ExoPlayer. */
 @OptIn(UnstableApi::class)
+private val Context.playbackSettingsStore by preferencesDataStore(name = "oni_settings")
+
 class PlaybackController(private val service: MediaSessionService) {
     companion object {
         const val SET_QUEUE = "com.example.oniplayer.SET_QUEUE"
@@ -76,6 +81,8 @@ class PlaybackController(private val service: MediaSessionService) {
         const val REMOVE_FROM_QUEUE = "com.example.oniplayer.REMOVE_FROM_QUEUE"
         const val MOVE_IN_QUEUE = "com.example.oniplayer.MOVE_IN_QUEUE"
         const val END_SESSION = "com.example.oniplayer.END_SESSION"
+        const val SET_CROSSFADE_ENABLED = "com.example.oniplayer.SET_CROSSFADE_ENABLED"
+        const val SET_CROSSFADE_DURATION = "com.example.oniplayer.SET_CROSSFADE_DURATION"
 
         const val SONG_IDS = "song_ids"
         const val SONG_ID = "song_id"
@@ -94,6 +101,8 @@ class PlaybackController(private val service: MediaSessionService) {
         const val SHUFFLE_ORDER = "shuffle_order"
         const val FROM_INDEX = "from_index"
         const val TO_INDEX = "to_index"
+        const val CROSSFADE_ENABLED = "crossfade_enabled"
+        const val CROSSFADE_DURATION_SECONDS = "crossfade_duration_seconds"
 
         private const val RESTART_ON_PREVIOUS_THRESHOLD_MS = 3_000L
     }
@@ -186,6 +195,10 @@ class PlaybackController(private val service: MediaSessionService) {
     private var publishSuppressed = false
 
     private var playerSettings = PlayerSettings()
+    private var crossfadeEnabled = false
+    private var crossfadeDurationMs = 0L
+    private var crossfadeJob: Job? = null
+    private var crossfadeAtBoundary = false
     private var appliedAudioFocus: Boolean? = null
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var loudnessSessionId = C.AUDIO_SESSION_ID_UNSET
@@ -197,6 +210,11 @@ class PlaybackController(private val service: MediaSessionService) {
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (isReleased) return
+            if (!isPlaying && !crossfadeAtBoundary) {
+                player.volume = 1f
+                crossfadeJob?.cancel()
+                crossfadeJob = null
+            }
             publish()
             savePlaybackState()
         }
@@ -204,14 +222,28 @@ class PlaybackController(private val service: MediaSessionService) {
             if (isReleased) return
             preparing = state == Player.STATE_BUFFERING
             publish()
-            if (state == Player.STATE_ENDED && repeatMode == RepeatMode.ALL && playbackDelayController.hasDelay) {
+            if (state == Player.STATE_ENDED && playbackDelayController.hasDelay && player.hasNextMediaItem()) {
+                crossfadeAtBoundary = true
+                player.volume = 0f
                 playbackDelayController.startDelay()
             }
             savePlaybackState()
         }
         override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
             if (isReleased) return
-            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) cancelDelay(publishState = false)
+            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                cancelDelay(publishState = false)
+                crossfadeAtBoundary = false
+                crossfadeJob?.cancel()
+                player.volume = 1f
+            } else if (crossfadeEnabled && crossfadeDurationMs > 0L) {
+                crossfadeAtBoundary = true
+                player.volume = 0f
+                startFadeIn()
+            } else {
+                crossfadeAtBoundary = false
+                player.volume = 1f
+            }
             publish()
             if (item != null && player.playWhenReady && reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
                 scope.launch { recordPlay(item.mediaId) }
@@ -235,7 +267,7 @@ class PlaybackController(private val service: MediaSessionService) {
             val reconciled = RepeatMode.reconcile(playerRepeatMode, repeatMode, keepAllWhenOff = playbackDelayController.hasDelay)
             if (reconciled != repeatMode) {
                 repeatMode = reconciled
-                player.pauseAtEndOfMediaItems = repeatMode == RepeatMode.SINGLE
+                player.pauseAtEndOfMediaItems = repeatMode == RepeatMode.SINGLE || playbackDelayController.hasDelay
             }
             publish()
             savePlaybackState()
@@ -275,6 +307,20 @@ class PlaybackController(private val service: MediaSessionService) {
         scope.launch {
             playbackDelayController.countdown.collect {
                 if (!isReleased) publish()
+            }
+        }
+        scope.launch {
+            context.playbackSettingsStore.data.collect { prefs ->
+                if (isReleased) return@collect
+                crossfadeEnabled = prefs[booleanPreferencesKey("crossfade_enabled")] ?: false
+                crossfadeDurationMs = (prefs[intPreferencesKey("crossfade_duration_seconds")] ?: 5)
+                    .coerceIn(0, 30) * 1000L
+            }
+        }
+        scope.launch {
+            while (isActive && !isReleased) {
+                updateCrossfadeVolume()
+                delay(50L)
             }
         }
         restorePlaybackState()
@@ -414,6 +460,9 @@ class PlaybackController(private val service: MediaSessionService) {
     fun next() {
         if (!isReleased) {
             cancelDelay(publishState = false)
+            crossfadeAtBoundary = false
+            crossfadeJob?.cancel()
+            player.volume = 1f
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
             player.seekToNextMediaItem()
             player.play()
@@ -422,6 +471,9 @@ class PlaybackController(private val service: MediaSessionService) {
     fun previous() {
         if (!isReleased) {
             cancelDelay(publishState = false)
+            crossfadeAtBoundary = false
+            crossfadeJob?.cancel()
+            player.volume = 1f
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
             if (playerSettings.rewindOnPrevious && player.currentPosition > RESTART_ON_PREVIOUS_THRESHOLD_MS) {
                 player.seekTo(0L)
@@ -660,6 +712,61 @@ class PlaybackController(private val service: MediaSessionService) {
         playbackDelayController.setDelay(seconds)
         applyRepeatMode()
         publish()
+    }
+
+    fun setCrossfadeEnabled(enabled: Boolean) {
+        if (isReleased) return
+        crossfadeEnabled = enabled
+        if (!enabled) {
+            crossfadeJob?.cancel()
+            crossfadeJob = null
+            crossfadeAtBoundary = false
+            player.volume = 1f
+        }
+    }
+
+    fun setCrossfadeDuration(seconds: Int) {
+        if (isReleased) return
+        crossfadeDurationMs = seconds.coerceIn(0, 30) * 1000L
+        if (crossfadeDurationMs == 0L) {
+            crossfadeJob?.cancel()
+            crossfadeJob = null
+            crossfadeAtBoundary = false
+            player.volume = 1f
+        }
+    }
+
+    private fun updateCrossfadeVolume() {
+        if (!crossfadeEnabled || crossfadeDurationMs <= 0L || !player.isPlaying || (playbackDelayController.hasDelay && crossfadeAtBoundary)) return
+        val duration = player.duration
+        if (duration <= 0L || duration == C.TIME_UNSET || !player.hasNextMediaItem()) return
+        val remaining = duration - player.currentPosition
+        if (remaining in 1L..crossfadeDurationMs) {
+            player.volume = (remaining.toFloat() / crossfadeDurationMs.toFloat()).coerceIn(0f, 1f)
+        }
+    }
+
+    private fun startFadeIn() {
+        crossfadeJob?.cancel()
+        if (!crossfadeEnabled || crossfadeDurationMs <= 0L) {
+            crossfadeAtBoundary = false
+            player.volume = 1f
+            return
+        }
+        val duration = crossfadeDurationMs
+        crossfadeJob = scope.launch {
+            val startedAt = System.currentTimeMillis()
+            while (isActive && !isReleased && player.isPlaying) {
+                val progress = ((System.currentTimeMillis() - startedAt).toFloat() / duration).coerceIn(0f, 1f)
+                player.volume = progress
+                if (progress >= 1f) break
+                delay(40L)
+            }
+            if (!isReleased) {
+                player.volume = 1f
+                crossfadeAtBoundary = false
+            }
+        }
     }
 
     fun cancelDelay(publishState: Boolean = true) {
@@ -960,6 +1067,8 @@ class PlaybackController(private val service: MediaSessionService) {
                         TRIGGER_DELAY -> triggerDelay()
                         NEXT -> next()
                         PREVIOUS -> previous()
+                        SET_CROSSFADE_ENABLED -> setCrossfadeEnabled(args.getBoolean(CROSSFADE_ENABLED))
+                        SET_CROSSFADE_DURATION -> setCrossfadeDuration(args.getInt(CROSSFADE_DURATION_SECONDS))
                         PRESET -> args.getBundle(PRESET_DATA)?.let { p -> applyPreset(EqualizerPresetEntity(p.getString("name", "Custom"), p.getBoolean("isCustom"), p.getFloat("band60Hz"), p.getFloat("band230Hz"), p.getFloat("band910Hz"), p.getFloat("band4kHz"), p.getFloat("band14kHz"), p.getFloat("bassBoost"), p.getFloat("virtualizer"))) }
                     }
                     if (isReleased) {
@@ -987,7 +1096,7 @@ class PlaybackController(private val service: MediaSessionService) {
                 .add(SessionCommand(ADD_TO_QUEUE, Bundle.EMPTY)).add(SessionCommand(PLAY_NEXT, Bundle.EMPTY)).add(SessionCommand(UPDATE_SONG, Bundle.EMPTY))
                 .add(SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY)).add(SessionCommand(EQ_BAND, Bundle.EMPTY)).add(SessionCommand(BASS, Bundle.EMPTY))
                 .add(SessionCommand(VIRTUALIZER, Bundle.EMPTY)).add(SessionCommand(PRESET, Bundle.EMPTY)).add(SessionCommand(SET_DELAY, Bundle.EMPTY))
-                .add(SessionCommand(CANCEL_DELAY, Bundle.EMPTY)).add(SessionCommand(TRIGGER_DELAY, Bundle.EMPTY)).add(SessionCommand(NEXT, Bundle.EMPTY)).add(SessionCommand(PREVIOUS, Bundle.EMPTY)).add(SessionCommand(REMOVE_FROM_QUEUE, Bundle.EMPTY)).add(SessionCommand(MOVE_IN_QUEUE, Bundle.EMPTY)).add(SessionCommand(END_SESSION, Bundle.EMPTY)).build()
+                .add(SessionCommand(CANCEL_DELAY, Bundle.EMPTY)).add(SessionCommand(TRIGGER_DELAY, Bundle.EMPTY)).add(SessionCommand(SET_CROSSFADE_ENABLED, Bundle.EMPTY)).add(SessionCommand(SET_CROSSFADE_DURATION, Bundle.EMPTY)).add(SessionCommand(NEXT, Bundle.EMPTY)).add(SessionCommand(PREVIOUS, Bundle.EMPTY)).add(SessionCommand(REMOVE_FROM_QUEUE, Bundle.EMPTY)).add(SessionCommand(MOVE_IN_QUEUE, Bundle.EMPTY)).add(SessionCommand(END_SESSION, Bundle.EMPTY)).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
         }
 
