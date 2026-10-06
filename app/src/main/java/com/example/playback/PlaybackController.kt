@@ -120,8 +120,9 @@ class PlaybackController(private val service: MediaSessionService) {
         scope = scope,
         onDelayFinished = {
             if (isReleased) return@PlaybackDelayController
-            delayedAdvancePending = true
-            player.seekToNextMediaItem()
+            delayedAdvancePending = false
+            crossfadeAtBoundary = false
+            player.volume = 1f
             player.play()
         }
     )
@@ -224,22 +225,30 @@ class PlaybackController(private val service: MediaSessionService) {
             if (isReleased) return
             preparing = state == Player.STATE_BUFFERING
             publish()
-            if (state == Player.STATE_ENDED && playbackDelayController.hasDelay && player.hasNextMediaItem()) {
-                crossfadeAtBoundary = true
-                player.volume = 0f
-                playbackDelayController.startDelay()
-            }
             savePlaybackState()
         }
         override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
             if (isReleased) return
-            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !delayedAdvancePending) {
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && playbackDelayController.hasDelay) {
+                // pauseAtEndOfMediaItems is intentionally not used for this feature.
+                // Media3 reports the automatic item transition first; pausing here gives
+                // us a deterministic boundary and avoids relying on STATE_ENDED.
+                delayedAdvancePending = true
+                crossfadeAtBoundary = true
+                crossfadeJob?.cancel()
+                crossfadeJob = null
+                player.volume = 1f
+                player.pause()
+                playbackDelayController.startDelay()
+            } else if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !delayedAdvancePending) {
                 cancelDelay(publishState = false)
                 crossfadeAtBoundary = false
                 crossfadeJob?.cancel()
                 player.volume = 1f
-            } else if (delayedAdvancePending || (crossfadeEnabled && crossfadeDurationMs > 0L)) {
-                delayedAdvancePending = false
+            } else if (delayedAdvancePending) {
+                crossfadeAtBoundary = true
+                player.volume = 1f
+            } else if (crossfadeEnabled && crossfadeDurationMs > 0L) {
                 crossfadeAtBoundary = true
                 player.volume = 0f
                 startFadeIn()
@@ -270,7 +279,7 @@ class PlaybackController(private val service: MediaSessionService) {
             val reconciled = RepeatMode.reconcile(playerRepeatMode, repeatMode, keepAllWhenOff = playbackDelayController.hasDelay)
             if (reconciled != repeatMode) {
                 repeatMode = reconciled
-                player.pauseAtEndOfMediaItems = repeatMode == RepeatMode.SINGLE || playbackDelayController.hasDelay
+                player.pauseAtEndOfMediaItems = repeatMode == RepeatMode.SINGLE
             }
             publish()
             savePlaybackState()
@@ -310,6 +319,17 @@ class PlaybackController(private val service: MediaSessionService) {
         scope.launch {
             playbackDelayController.countdown.collect {
                 if (!isReleased) publish()
+            }
+        }
+        scope.launch {
+            context.playbackSettingsStore.data.collect { prefs ->
+                if (isReleased) return@collect
+                val savedDelay = (prefs[intPreferencesKey("playback_delay_seconds")] ?: 0).coerceAtLeast(0)
+                if (savedDelay != playbackDelayController.delaySeconds) {
+                    playbackDelayController.setDelay(savedDelay)
+                    applyRepeatMode()
+                    publish()
+                }
             }
         }
         scope.launch {
@@ -791,7 +811,17 @@ class PlaybackController(private val service: MediaSessionService) {
 
     fun triggerDelay() {
         if (isReleased) return
-        if (playbackDelayController.hasDelay) playbackDelayController.startDelay() else next()
+        if (playbackDelayController.hasDelay) {
+            delayedAdvancePending = true
+            crossfadeAtBoundary = true
+            crossfadeJob?.cancel()
+            crossfadeJob = null
+            player.volume = 1f
+            player.pause()
+            playbackDelayController.startDelay()
+        } else {
+            next()
+        }
     }
 
     fun setBand(index: Int, gain: Float) { if (!isReleased) audioEffectsController.setBand(index, gain) }
