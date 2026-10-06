@@ -66,8 +66,8 @@ fun PlaybackSettingsScreen(
                     steps = 59,
                     valueFormatter = { seconds ->
                         if (seconds <= 0f) "Off"
-                        else if (seconds < 60f) "\${seconds.toInt()} s"
-                        else "\${seconds.toInt() / 60}m \${seconds.toInt() % 60}s"
+                        else if (seconds < 60f) "${seconds.toInt()} s"
+                        else "${seconds.toInt() / 60}m ${seconds.toInt() % 60}s"
                     },
                     testTag = "setting_playback_delay"
                 )
