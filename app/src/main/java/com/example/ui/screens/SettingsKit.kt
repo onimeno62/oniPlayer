@@ -129,16 +129,10 @@ fun SettingsActionRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (!description.isNullOrBlank()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = description,
-                    style = OniSkin.typography.bodySmall,
-                    color = OniSkin.colors.textSecondary,
-                    maxLines = if (singleLineDescription) 1 else Int.MAX_VALUE,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            // Keep settings lists compact; longer explanations are available through the info action.
+        }
+        if (!description.isNullOrBlank()) {
+            SettingsInfoButton(title, description)
         }
         if (trailingText != null) {
             Spacer(Modifier.width(OniSkin.spacing.sm))
