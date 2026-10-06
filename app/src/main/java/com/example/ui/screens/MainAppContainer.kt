@@ -129,7 +129,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
             bottomBar = {
                 Column(
                     modifier = Modifier
-                        .background(OniSkin.colors.background)
+                        .background(if (currentTab == 1) Color.Black else OniSkin.colors.background)
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(
                                 WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
