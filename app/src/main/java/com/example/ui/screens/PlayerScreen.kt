@@ -592,12 +592,15 @@ fun PlayerContent(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(28.dp))
-                                    .background(OniSkin.surfaces.soft.containerColor)
-                                    .border(
-                                        BorderStroke(1.dp, OniSkin.colors.onSurface.copy(alpha = 0.14f)),
-                                        RoundedCornerShape(28.dp)
-                                    )
+                                    .clip(OniSkin.shapes.xxl)
+                                     .background(OniSkin.surfaces.soft.containerColor)
+                                     .border(
+                                         OniSkin.surfaces.soft.borderStroke ?: BorderStroke(
+                                             1.dp,
+                                             OniSkin.colors.outline.copy(alpha = 0.5f)
+                                         ),
+                                         OniSkin.shapes.xxl
+                                     )
                             ) {
                                 Box(
                                     modifier = Modifier
