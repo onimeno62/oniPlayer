@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +34,43 @@ import com.example.ui.components.surface.OniSurfaceVariant
 import com.example.ui.theme.OniSkin
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+
+@Composable
+fun SettingsInfoButton(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    var showInfo by rememberSaveable(title, description) { mutableStateOf(false) }
+
+    IconButton(
+        onClick = { showInfo = true },
+        modifier = modifier.size(40.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = "About $title",
+            tint = OniSkin.colors.textTertiary
+        )
+    }
+
+    if (showInfo) {
+        AlertDialog(
+            onDismissRequest = { showInfo = false },
+            title = { Text(title, color = OniSkin.colors.textPrimary) },
+            text = { Text(description, color = OniSkin.colors.textSecondary) },
+            confirmButton = {
+                TextButton(onClick = { showInfo = false }) {
+                    Text("OK", color = OniSkin.colors.primary)
+                }
+            },
+            containerColor = OniSkin.surfaces.soft.containerColor,
+            titleContentColor = OniSkin.colors.textPrimary,
+            textContentColor = OniSkin.colors.textSecondary,
+            shape = OniSkin.shapes.dialog
+        )
+    }
+}
 
 /**
  * Standard subscreen top header for settings detail pages.
@@ -109,18 +147,19 @@ fun SettingSection(
         Column(
             modifier = Modifier.padding(horizontal = OniSkin.spacing.xxs)
         ) {
-            Text(
-                text = title,
-                style = OniSkin.typography.titleSmall,
-                color = OniSkin.colors.primary
-            )
-            if (description != null) {
-                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = description,
-                    style = OniSkin.typography.bodySmall,
-                    color = OniSkin.colors.textSecondary
+                    text = title,
+                    style = OniSkin.typography.titleSmall,
+                    color = OniSkin.colors.primary,
+                    modifier = Modifier.weight(1f)
                 )
+                if (!description.isNullOrBlank()) {
+                    SettingsInfoButton(title, description)
+                }
             }
         }
         OniSurface(
@@ -188,14 +227,9 @@ fun SwitchSettingRow(
                 style = OniSkin.typography.bodyLarge,
                 color = if (enabled) OniSkin.colors.textPrimary else OniSkin.colors.disabled
             )
-            if (description != null) {
-                Spacer(modifier = Modifier.height(OniSkin.spacing.xxs))
-                Text(
-                    text = description,
-                    style = OniSkin.typography.bodySmall,
-                    color = if (enabled) OniSkin.colors.textSecondary else OniSkin.colors.disabled
-                )
-            }
+        }
+        if (!description.isNullOrBlank()) {
+            SettingsInfoButton(title, description)
         }
         Switch(
             checked = checked,
