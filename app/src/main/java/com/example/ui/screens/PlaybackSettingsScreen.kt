@@ -55,10 +55,20 @@ fun PlaybackSettingsScreen(
                     )
                 }
                 SettingDivider()
-                DurationPickerSettingRow(
+                SliderSettingRow(
                     title = "Pause between songs",
-                    totalSeconds = nextSongDelaySeconds,
-                    onValueChange = { viewModel.setNextSongDelaySeconds(it) },
+                    value = nextSongDelaySeconds.toFloat().coerceIn(0f, 600f),
+                    onValueChange = {
+                        val seconds = (it / 10f).roundToInt() * 10
+                        viewModel.setNextSongDelaySeconds(seconds)
+                    },
+                    valueRange = 0f..600f,
+                    steps = 59,
+                    valueFormatter = { seconds ->
+                        if (seconds <= 0f) "Off"
+                        else if (seconds < 60f) "\${seconds.toInt()} s"
+                        else "\${seconds.toInt() / 60}m \${seconds.toInt() % 60}s"
+                    },
                     testTag = "setting_playback_delay"
                 )
             }
