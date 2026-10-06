@@ -27,18 +27,18 @@ fun PlaybackSettingsScreen(
 
     SettingsPage(
         title = "Playback",
-        subtitle = "Transitions, speed, and playback behavior",
+        subtitle = "Choose how songs transition and how playback behaves.",
         onBack = onBack,
         backButtonTestTag = "playback_back_button"
     ) {
         item {
             SettingSection(
                 title = "Transitions",
-                description = "What happens between two songs. Gapless is used when both are off."
+                description = "Song transitions"
             ) {
                 SwitchSettingRow(
                     title = "Crossfade",
-                    description = "Fade the current song out while the next one fades in.",
+                    description = "Gradually fades between tracks.",
                     checked = crossfadeEnabled,
                     onCheckedChange = { viewModel.setCrossfadeEnabled(it) },
                     testTag = "setting_crossfade_enabled"
@@ -67,7 +67,7 @@ fun PlaybackSettingsScreen(
         item {
             SettingSection(
                 title = "Speed & pitch",
-                description = "Applied instantly to everything you play. Handy for audiobooks, podcasts and practice."
+                description = "Playback rate and pitch controls."
             ) {
                 SettingsChoiceRow(
                     title = "Quick speed",
@@ -113,7 +113,7 @@ fun PlaybackSettingsScreen(
         item {
             SettingSection(
                 title = "Behavior",
-                description = "How the player reacts to your controls and restarts."
+                description = "Controls for previous, resume, and silence skipping."
             ) {
                 SwitchSettingRow(
                     title = "Restart song on previous",
@@ -144,7 +144,7 @@ fun PlaybackSettingsScreen(
         item {
             SettingSection(
                 title = "Audio focus & outputs",
-                description = "Play nicely with calls, navigation, other apps and headphones."
+                description = "Audio focus and output-device behavior."
             ) {
                 SwitchSettingRow(
                     title = "Pause for other audio",
