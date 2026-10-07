@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,7 +22,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,15 +73,11 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
         }
 
         if (recentlyPlayed.isNotEmpty()) {
-            item {
-                LocalSection("Continue Listening", recentlyPlayed)
-            }
+            item { LocalSection("Continue Listening", recentlyPlayed) }
         }
 
         if (favorites.isNotEmpty()) {
-            item {
-                LocalSection("Favorites", favorites)
-            }
+            item { LocalSection("Favorites", favorites) }
         }
 
         item {
@@ -118,7 +114,7 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
             DiscoverLoadState.Idle -> Unit
             DiscoverLoadState.Loading -> item { LoadingSection() }
             is DiscoverLoadState.Success -> item {
-                DiscoverSection("Search results", search.items)
+                DiscoverSection("Search results", search.items, search.hasPartialFailures)
             }
             is DiscoverLoadState.Error -> item { ErrorText(search.message) }
         }
@@ -144,7 +140,9 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
         when (val trending = state.trending) {
             DiscoverLoadState.Idle -> Unit
             DiscoverLoadState.Loading -> item { LoadingSection() }
-            is DiscoverLoadState.Success -> item { DiscoverSection(null, trending.items) }
+            is DiscoverLoadState.Success -> item {
+                DiscoverSection(null, trending.items, trending.hasPartialFailures)
+            }
             is DiscoverLoadState.Error -> item { ErrorText(trending.message) }
         }
     }
@@ -163,7 +161,7 @@ private fun LocalSection(title: String, songs: List<SongEntity>) {
             items(songs, key = { it.id }) { song ->
                 OniSurface(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .size(width = 260.dp, height = 82.dp)
                         .clip(OniSkin.shapes.card),
                     containerColor = OniSkin.surfaces.soft.containerColor
                 ) {
@@ -194,7 +192,11 @@ private fun LocalSection(title: String, songs: List<SongEntity>) {
 }
 
 @Composable
-private fun DiscoverSection(title: String?, items: List<RemoteMusicItem>) {
+private fun DiscoverSection(
+    title: String?,
+    items: List<RemoteMusicItem>,
+    hasPartialFailures: Boolean
+) {
     Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
         title?.let {
             Text(
@@ -214,9 +216,17 @@ private fun DiscoverSection(title: String?, items: List<RemoteMusicItem>) {
             return@Column
         }
 
+        if (hasPartialFailures) {
+            Text(
+                text = "Some online sources are temporarily unavailable.",
+                style = OniSkin.typography.bodySmall,
+                color = OniSkin.colors.textSecondary
+            )
+        }
+
         LazyRow(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
             items(items, key = { item ->
-                item.identity.providerId + ":" + item.identity.itemId
+                item.identity.providerId + ":" + item.identity.type + ":" + item.identity.itemId
             }) { item ->
                 DiscoverItem(item)
             }
@@ -228,7 +238,7 @@ private fun DiscoverSection(title: String?, items: List<RemoteMusicItem>) {
 private fun DiscoverItem(item: RemoteMusicItem) {
     OniSurface(
         modifier = Modifier
-            .fillMaxWidth()
+            .size(width = 300.dp, height = 88.dp)
             .clip(OniSkin.shapes.card),
         containerColor = OniSkin.surfaces.soft.containerColor
     ) {
@@ -261,6 +271,12 @@ private fun DiscoverItem(item: RemoteMusicItem) {
                     color = OniSkin.colors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = item.identity.providerId,
+                    style = OniSkin.typography.labelSmall,
+                    color = OniSkin.colors.textSecondary,
+                    maxLines = 1
                 )
             }
         }
