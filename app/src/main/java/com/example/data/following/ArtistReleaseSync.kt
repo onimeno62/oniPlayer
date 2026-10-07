@@ -98,7 +98,7 @@ internal object ArtistReleaseSyncPolicy {
 
     fun newReleasesSince(
         releases: List<RemoteAlbum>,
-        lastSeenReleaseId: String
+        lastSeenReleaseId: String?
     ): List<RemoteAlbum> {
         val ordered = order(releases)
         val seenIndex = ordered.indexOfFirst { it.identity.itemId == lastSeenReleaseId }
