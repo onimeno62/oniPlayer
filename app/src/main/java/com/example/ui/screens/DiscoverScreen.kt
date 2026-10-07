@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +37,7 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val newReleases = state.newReleases
+    val followedArtistIds by viewModel.followedArtistIds.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -218,14 +221,18 @@ private fun DiscoverSection(title: String?, items: List<RemoteMusicItem>, hasPar
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
             items(items, key = { it.identity.providerId + ":" + it.identity.type + ":" + it.identity.itemId }) {
-                DiscoverItem(it)
+                DiscoverItem(it, followedArtistIds.contains(it.musicIdentity.canonicalArtistId), viewModel::toggleFollowArtist)
             }
         }
     }
 }
 
 @Composable
-private fun DiscoverItem(item: RemoteMusicItem) {
+private fun DiscoverItem(
+    item: RemoteMusicItem,
+    isArtistFollowed: Boolean,
+    onToggleFollow: (RemoteMusicItem) -> Unit
+) {
     OniSurface(
         modifier = Modifier.size(width = 300.dp, height = 104.dp).clip(OniSkin.shapes.card),
         containerColor = OniSkin.surfaces.soft.containerColor
@@ -245,6 +252,17 @@ private fun DiscoverItem(item: RemoteMusicItem) {
                 Text(item.title, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(item.artistName ?: item.identity.providerId, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(item.identity.providerId, style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary, maxLines = 1)
+            }
+            if (item.musicIdentity.canonicalArtistId != null && !item.artistName.isNullOrBlank()) {
+                IconButton(
+                    onClick = { onToggleFollow(item) },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isArtistFollowed) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
+                        contentDescription = if (isArtistFollowed) "Unfollow artist" else "Follow artist"
+                    )
+                }
             }
         }
     }
