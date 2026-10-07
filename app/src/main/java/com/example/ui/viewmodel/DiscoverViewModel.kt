@@ -9,6 +9,7 @@ import com.example.data.online.DefaultMusicProviders
 import com.example.data.online.OnlineMusicRepository
 import com.example.data.online.ProviderResult
 import com.example.data.online.RemoteMusicItem
+import com.example.data.online.RemoteMusicType
 import com.example.data.online.SearchFilter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ data class DiscoverUiState(
     val query: String = "",
     val searchFilter: SearchFilter = SearchFilter.All,
     val trending: DiscoverLoadState = DiscoverLoadState.Idle,
+    val newReleases: DiscoverLoadState = DiscoverLoadState.Idle,
     val search: DiscoverLoadState = DiscoverLoadState.Idle
 )
 
@@ -117,6 +119,36 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
             localRepository.allSongs.collect { _localSongs.value = it }
         }
         refreshTrending()
+        refreshNewReleases()
+    }
+
+    fun refreshNewReleases() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(newReleases = DiscoverLoadState.Loading) }
+            val results = repository.newReleases()
+            val items = results.flatMap { result ->
+                when (val value = result.result) {
+                    is ProviderResult.Success -> value.value.map { album ->
+                        RemoteMusicItem(
+                            identity = album.identity,
+                            title = album.title,
+                            artistName = album.artistName,
+                            albumName = album.title,
+                            artworkUrl = album.artworkUrl,
+                            musicIdentity = album.musicIdentity,
+                            metadata = mapOf("release_date" to (album.releaseDate ?: ""))
+                        )
+                    }
+                    is ProviderResult.Failure -> emptyList()
+                }
+            }
+            val failures = results.any { it.result is ProviderResult.Failure }
+            _uiState.update { it.copy(newReleases = when {
+                items.isNotEmpty() -> DiscoverLoadState.Success(items.distinctBy { item -> item.identity.itemId }, failures)
+                failures -> DiscoverLoadState.Error("New releases are currently unavailable.")
+                else -> DiscoverLoadState.Success(emptyList())
+            }) }
+        }
     }
 
     fun setQuery(query: String) {
