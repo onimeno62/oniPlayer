@@ -6,6 +6,7 @@ import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.ArtistSummaryEntity
 import com.example.data.entity.FollowedArtistEntity
+import com.example.data.entity.FollowedArtistReleaseEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -120,4 +121,15 @@ interface SongDao {
         checkedAt: Long,
         lastSeenReleaseId: String?
     )
+    // --- Followed Artist Release Queries ---
+    @Query("SELECT * FROM followed_artist_releases ORDER BY releaseDate DESC, firstSeenAt DESC")
+    fun getFollowedArtistReleases(): Flow<List<FollowedArtistReleaseEntity>>
+
+    @Query("SELECT * FROM followed_artist_releases WHERE canonicalArtistId IN (:artistIds) ORDER BY releaseDate DESC, firstSeenAt DESC")
+    fun getFollowedArtistReleasesForArtists(artistIds: List<String>): Flow<List<FollowedArtistReleaseEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFollowedArtistReleases(releases: List<FollowedArtistReleaseEntity>)
 }
+
+
