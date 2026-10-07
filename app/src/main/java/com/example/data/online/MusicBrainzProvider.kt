@@ -118,7 +118,7 @@ class MusicBrainzProvider(
 
     private suspend fun <T> executeRateLimited(
         request: Request,
-        transform: (JSONObject) -> T
+        transform: (JSONObject) -> T?
     ): ProviderResult<T> {
         requestLimiter.awaitTurn()
         return execute(request, transform)
@@ -146,6 +146,8 @@ class MusicBrainzProvider(
                 transform(JSONObject(body))?.let(ProviderResult::Success)
                     ?: ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "MusicBrainz returned an invalid response.")
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: Exception) {
             ProviderResult.Failure(id, ProviderFailureKind.Network, error.message, error)
         }
