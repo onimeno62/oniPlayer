@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.data.entity.SongEntity
 import com.example.data.online.RemoteMusicItem
 import com.example.ui.components.surface.OniSurface
 import com.example.ui.theme.OniSkin
@@ -42,6 +43,8 @@ import com.example.ui.viewmodel.DiscoverViewModel
 @Composable
 fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
+    val favorites by viewModel.favorites.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -66,6 +69,18 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
                     style = OniSkin.typography.bodyMedium,
                     color = OniSkin.colors.textSecondary
                 )
+            }
+        }
+
+        if (recentlyPlayed.isNotEmpty()) {
+            item {
+                LocalSection("Continue Listening", recentlyPlayed)
+            }
+        }
+
+        if (favorites.isNotEmpty()) {
+            item {
+                LocalSection("Favorites", favorites)
             }
         }
 
@@ -131,6 +146,49 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
             DiscoverLoadState.Loading -> item { LoadingSection() }
             is DiscoverLoadState.Success -> item { DiscoverSection(null, trending.items) }
             is DiscoverLoadState.Error -> item { ErrorText(trending.message) }
+        }
+    }
+}
+
+@Composable
+private fun LocalSection(title: String, songs: List<SongEntity>) {
+    Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
+        Text(
+            text = title,
+            style = OniSkin.typography.titleLarge,
+            color = OniSkin.colors.textPrimary,
+            fontWeight = FontWeight.SemiBold
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
+            items(songs, key = { it.id }) { song ->
+                OniSurface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(OniSkin.shapes.card),
+                    containerColor = OniSkin.surfaces.soft.containerColor
+                ) {
+                    Column(
+                        modifier = Modifier.padding(OniSkin.spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = song.displayTitle,
+                            style = OniSkin.typography.bodyLarge,
+                            color = OniSkin.colors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = song.displayArtist,
+                            style = OniSkin.typography.bodyMedium,
+                            color = OniSkin.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
     }
 }
