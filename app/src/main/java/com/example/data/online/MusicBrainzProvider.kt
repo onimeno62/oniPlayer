@@ -2,6 +2,7 @@ package com.example.data.online
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -14,7 +15,10 @@ import org.json.JSONObject
  * resolution and release metadata.
  */
 class MusicBrainzProvider(
-    private val client: OkHttpClient = OkHttpClient()
+    private val client: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
 ) : MusicProvider {
     override val id = "musicbrainz"
     override val displayName = "MusicBrainz"
