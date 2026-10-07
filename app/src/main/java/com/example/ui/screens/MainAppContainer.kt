@@ -94,7 +94,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
         listOf(
             OniNavigationDestination(0, "Library", Icons.Default.LibraryMusic, Icons.Outlined.LibraryMusic, "nav_library"),
             OniNavigationDestination(1, "Player", Icons.Default.PlayCircle, Icons.Outlined.PlayCircle, "nav_player"),
-            OniNavigationDestination(2, "Search", Icons.Default.Search, Icons.Outlined.Search, "nav_search"),
+            OniNavigationDestination(2, "Discover", Icons.Default.Explore, Icons.Outlined.Explore, "nav_discover"),
             OniNavigationDestination(3, "Settings", Icons.Default.Settings, Icons.Outlined.Settings, "nav_settings")
         )
     }
@@ -191,7 +191,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             onDashboardResumeVisibleChange = { dashboardResumeVisible = it }
                         )
                         1 -> PlayerScreen(viewModel = viewModel)
-                        2 -> SearchScreen(viewModel = viewModel)
+                        2 -> DiscoverScreen()
                         3 -> SettingsScreen(viewModel = viewModel)
                     }
                 }
