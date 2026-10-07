@@ -15,6 +15,8 @@ interface MusicProvider {
 
     suspend fun getArtist(providerArtistId: String): ProviderResult<RemoteArtist>
 
+    suspend fun getArtistReleases(providerArtistId: String): ProviderResult<List<RemoteAlbum>>
+
     suspend fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum>
 
     suspend fun getTrack(providerTrackId: String): ProviderResult<RemoteTrack>
