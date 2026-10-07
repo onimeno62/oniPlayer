@@ -32,8 +32,10 @@ class OnlineMusicRepository(
             .map { provider ->
                 val key = SearchCacheKey(provider.id, normalizedQuery.lowercase(), filter)
                 val cached = cached(searchCache, key)
-                val result = cached ?: provider.search(normalizedQuery, filter).also {
-                    put(searchCache, key, it)
+                val result = cached ?: safeProviderCall(provider) { provider.search(normalizedQuery, filter) }.also {
+                    if (it is ProviderResult.Success<*>) {
+                        put(searchCache, key, it)
+                    }
                 }
                 ProviderSearchResult(provider.id, result)
             }
@@ -50,7 +52,11 @@ class OnlineMusicRepository(
     suspend fun trending(): List<ProviderSectionResult<List<RemoteMusicItem>>> =
         providersSupporting(ProviderCapability.TRENDING).map { provider ->
             val cached = cached(trendingCache, provider.id)
-            val result = cached ?: safeProviderCall(provider) { provider.getTrending() }.also { put(trendingCache, provider.id, it) }
+            val result = cached ?: safeProviderCall(provider) { provider.getTrending() }.also {
+                if (it is ProviderResult.Success<*>) {
+                    put(trendingCache, provider.id, it)
+                }
+            }
             ProviderSectionResult(provider.id, result)
         }
 
