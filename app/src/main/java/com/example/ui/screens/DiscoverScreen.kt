@@ -38,6 +38,7 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val newReleases = state.newReleases
     val followedArtistIds by viewModel.followedArtistIds.collectAsStateWithLifecycle()
+    val followedArtistReleases by viewModel.followedArtistReleases.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -64,6 +65,16 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
         if (mostPlayed.isNotEmpty()) item { LocalSection("Most Played", mostPlayed) }
         if (recentlyAdded.isNotEmpty()) item { LocalSection("Recently Added", recentlyAdded) }
         if (favorites.isNotEmpty()) item { LocalSection("Favorites", favorites) }
+
+        if (followedArtistReleases.isNotEmpty()) item {
+            DiscoverSection(
+                title = "From Your Artists",
+                items = followedArtistReleases,
+                hasPartialFailures = false,
+                followedArtistIds = followedArtistIds,
+                onToggleFollow = viewModel::toggleFollowArtist
+            )
+        }
 
         when (newReleases) {
             DiscoverLoadState.Idle -> Unit
