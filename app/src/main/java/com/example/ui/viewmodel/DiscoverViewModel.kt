@@ -10,17 +10,21 @@ import com.example.data.online.OnlineMusicRepository
 import com.example.data.online.ProviderResult
 import com.example.data.online.RemoteMusicItem
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface DiscoverLoadState {
     data object Idle : DiscoverLoadState
     data object Loading : DiscoverLoadState
-    data class Success(val items: List<RemoteMusicItem>) : DiscoverLoadState
+    data class Success(
+        val items: List<RemoteMusicItem>,
+        val hasPartialFailures: Boolean = false
+    ) : DiscoverLoadState
     data class Error(val message: String?) : DiscoverLoadState
 }
 
@@ -39,12 +43,20 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
 
     private val _uiState = MutableStateFlow(DiscoverUiState())
     private val _localSongs = MutableStateFlow<List<SongEntity>>(emptyList())
-    val recentlyPlayed = _localSongs
-        .map { songs -> songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }.take(15) }
-        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), emptyList())
-    val favorites = _localSongs
+
+    val recentlyPlayed: StateFlow<List<SongEntity>> = _localSongs
+        .map { songs ->
+            songs
+                .filter { it.lastPlayedTimestamp > 0 }
+                .sortedByDescending { it.lastPlayedTimestamp }
+                .take(15)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val favorites: StateFlow<List<SongEntity>> = _localSongs
         .map { songs -> songs.filter { it.isFavorite }.take(15) }
-        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
 
     init {
@@ -78,7 +90,10 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     search = when {
-                        successful.isNotEmpty() -> DiscoverLoadState.Success(successful)
+                        successful.isNotEmpty() -> DiscoverLoadState.Success(
+                            successful,
+                            hasPartialFailures = failures
+                        )
                         failures -> DiscoverLoadState.Error("Online search is currently unavailable.")
                         else -> DiscoverLoadState.Success(emptyList())
                     }
@@ -97,12 +112,13 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
                     is ProviderResult.Failure -> emptyList()
                 }
             }
+            val failures = results.any { it.result is ProviderResult.Failure }
             _uiState.update {
                 it.copy(
-                    trending = if (items.isNotEmpty()) {
-                        DiscoverLoadState.Success(items)
-                    } else {
-                        DiscoverLoadState.Error("No online discovery results are available right now.")
+                    trending = when {
+                        items.isNotEmpty() -> DiscoverLoadState.Success(items, failures)
+                        failures -> DiscoverLoadState.Error("Online trending is currently unavailable.")
+                        else -> DiscoverLoadState.Success(emptyList())
                     }
                 )
             }
