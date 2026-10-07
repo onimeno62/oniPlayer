@@ -1,7 +1,7 @@
 # Task Master — oniPlayer Music Platform
 
 Branch: docs/music-platform-spec-kit
-Status: specification only
+Status: D0 provider contracts implemented; D1+ remain pending
 
 ## Dependency graph
 
