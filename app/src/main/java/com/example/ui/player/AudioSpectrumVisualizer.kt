@@ -109,13 +109,14 @@ fun AudioSpectrumVisualizer(
         }
     }
 
+    val primary = OniSkin.colors.primary
+    val secondary = OniSkin.colors.accentSecondary
+
     Canvas(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        val primary = OniSkin.colors.primary
-        val secondary = OniSkin.colors.secondary
         val values = levels.value
 
         when (mode) {
