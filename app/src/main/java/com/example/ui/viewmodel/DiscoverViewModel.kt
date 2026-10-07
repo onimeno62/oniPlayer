@@ -10,6 +10,7 @@ import com.example.data.online.OnlineMusicRepository
 import com.example.data.online.ProviderResult
 import com.example.data.online.RemoteMusicItem
 import com.example.data.online.SearchFilter
+import com.example.data.recommendation.RecommendationEngine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +42,7 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
         OniDatabase.getDatabase(application).songDao()
     )
     private val repository = OnlineMusicRepository(DefaultMusicProviders.create())
+    private val recommendationEngine = RecommendationEngine()
 
     private val _uiState = MutableStateFlow(DiscoverUiState())
     private var searchJob: Job? = null
@@ -83,24 +85,15 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val madeForYou: StateFlow<List<SongEntity>> = _localSongs
-        .map { songs ->
-            val preferredGenres = songs
-                .filter { it.playCount > 0 || it.isFavorite }
-                .groupingBy { it.displayGenre.trim() }
-                .eachCount()
-                .filterKeys { it.isNotBlank() && !it.equals("Unknown Genre", true) && !it.equals("Local Audio", true) }
-                .entries
-                .sortedByDescending { it.value }
-                .take(3)
-                .map { it.key }
-                .toSet()
+        .map { songs -> recommendationEngine.becauseYouPlayed(songs) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-            songs.filter { song ->
-                song.playCount == 0 &&
-                    !song.isFavorite &&
-                    (preferredGenres.isEmpty() || song.displayGenre in preferredGenres)
-            }.sortedByDescending { it.dateAdded }.take(15)
-        }
+    val becauseYouPlayed: StateFlow<List<SongEntity>> = _localSongs
+        .map { songs -> recommendationEngine.becauseYouPlayed(songs) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val similarMusic: StateFlow<List<SongEntity>> = _localSongs
+        .map { songs -> recommendationEngine.similarToFavorites(songs) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val genres: StateFlow<List<String>> = _localSongs
