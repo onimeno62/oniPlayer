@@ -1,6 +1,9 @@
 package com.example.data.online
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -30,6 +33,8 @@ class MusicBrainzProvider(
         ProviderCapability.TRACK
     )
 
+    private val requestLimiter = RequestLimiter()
+
     override suspend fun search(
         query: String,
         filter: SearchFilter
@@ -43,14 +48,20 @@ class MusicBrainzProvider(
     }
 
     override suspend fun getArtist(providerArtistId: String): ProviderResult<RemoteArtist> =
-        withContext(Dispatchers.IO) { lookup("artist", providerArtistId) { parseArtist(it) } }
+        withContext(Dispatchers.IO) {
+            lookup("artist", providerArtistId, inc = "aliases+tags+genres") { parseArtist(it) }
+        }
 
     override suspend fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum> =
-        withContext(Dispatchers.IO) { lookup("release", providerAlbumId) { parseRelease(it) } }
+        withContext(Dispatchers.IO) {
+            lookup("release", providerAlbumId, inc = "artist-credits+recordings+labels") { parseRelease(it) }
+        }
 
     override suspend fun getTrack(providerTrackId: String): ProviderResult<RemoteTrack> =
         withContext(Dispatchers.IO) {
-            lookup("recording", providerTrackId) { parseRecording(it)?.let(::RemoteTrack) }
+            lookup("recording", providerTrackId, inc = "artist-credits+releases") {
+                parseRecording(it)?.let(::RemoteTrack)
+            }
         }
 
     override suspend fun getRecommendations(seed: RecommendationSeed?): ProviderResult<List<RemoteMusicItem>> =
@@ -87,17 +98,30 @@ class MusicBrainzProvider(
         }
     }
 
-    private fun <T> lookup(
+    private suspend fun <T> lookup(
         entity: String,
         mbid: String,
+        inc: String? = null,
         parser: (JSONObject) -> T?
     ): ProviderResult<T> {
+        val builder = "$BASE_URL/$entity/$mbid".toHttpUrl().newBuilder()
+            .addQueryParameter("fmt", "json")
+        inc?.let { builder.addQueryParameter("inc", it) }
+
         val request = Request.Builder()
-            .url("$BASE_URL/$entity/$mbid?fmt=json")
+            .url(builder.build())
             .header("User-Agent", USER_AGENT)
             .get()
             .build()
-        return execute(request, parser)
+        return executeRateLimited(request, parser)
+    }
+
+    private suspend fun <T> executeRateLimited(
+        request: Request,
+        transform: (JSONObject) -> T
+    ): ProviderResult<T> {
+        requestLimiter.awaitTurn()
+        return execute(request, transform)
     }
 
     private fun <T> execute(
@@ -108,13 +132,18 @@ class MusicBrainzProvider(
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     return when (response.code) {
+                        401, 403 -> ProviderResult.Failure(id, ProviderFailureKind.Unauthorized)
                         404 -> ProviderResult.Failure(id, ProviderFailureKind.NotFound)
                         429 -> ProviderResult.Failure(id, ProviderFailureKind.RateLimited)
                         in 500..599 -> ProviderResult.Failure(id, ProviderFailureKind.Unavailable)
                         else -> ProviderResult.Failure(id, ProviderFailureKind.Network, "HTTP " + response.code)
                     }
                 }
-                ProviderResult.Success(transform(JSONObject(response.body?.string().orEmpty())))
+                val body = response.body?.string().orEmpty()
+                if (body.isBlank()) {
+                    return ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Empty MusicBrainz response.")
+                }
+                ProviderResult.Success(transform(JSONObject(body)))
             }
         } catch (error: Exception) {
             ProviderResult.Failure(id, ProviderFailureKind.Network, error.message, error)
@@ -167,6 +196,23 @@ class MusicBrainzProvider(
                 canonicalReleaseId = mbid
             )
         )
+    }
+
+    private class RequestLimiter {
+        private val mutex = Mutex()
+        private var lastRequestAt = 0L
+
+        suspend fun awaitTurn() {
+            mutex.withLock {
+                val waitMs = MIN_INTERVAL_MS - (System.currentTimeMillis() - lastRequestAt)
+                if (waitMs > 0) delay(waitMs)
+                lastRequestAt = System.currentTimeMillis()
+            }
+        }
+
+        private companion object {
+            const val MIN_INTERVAL_MS = 1_000L
+        }
     }
 
     private companion object {
