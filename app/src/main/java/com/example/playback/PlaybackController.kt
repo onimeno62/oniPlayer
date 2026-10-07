@@ -651,7 +651,11 @@ class PlaybackController(private val service: MediaSessionService) {
                 player.clearMediaItems()
                 baseQueue = emptyList()
             } else {
+                val nextIndex = if (index + 1 < player.mediaItemCount) index else index - 1
                 player.removeMediaItem(index)
+                if (nextIndex in 0 until player.mediaItemCount) {
+                    player.seekTo(nextIndex, 0L)
+                }
             }
         } else {
             player.removeMediaItem(index)
