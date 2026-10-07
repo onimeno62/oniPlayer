@@ -1,12 +1,16 @@
 package com.example.ui.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.database.OniDatabase
+import com.example.data.entity.SongEntity
 import com.example.data.online.DefaultMusicProviders
 import com.example.data.online.OnlineMusicRepository
 import com.example.data.online.ProviderResult
 import com.example.data.online.RemoteMusicItem
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -25,13 +29,27 @@ data class DiscoverUiState(
     val search: DiscoverLoadState = DiscoverLoadState.Idle
 )
 
-class DiscoverViewModel : ViewModel() {
+class DiscoverViewModel(application: Application) : AndroidViewModel(application) {
+    private val localRepository = com.example.data.repository.MusicRepository(
+        application,
+        OniDatabase.getDatabase(application).songDao()
+    )
     private val repository = OnlineMusicRepository(DefaultMusicProviders.create())
 
     private val _uiState = MutableStateFlow(DiscoverUiState())
+    private val _localSongs = MutableStateFlow<List<SongEntity>>(emptyList())
+    val recentlyPlayed = _localSongs
+        .map { songs -> songs.filter { it.lastPlayedTimestamp > 0 }.sortedByDescending { it.lastPlayedTimestamp }.take(15) }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), emptyList())
+    val favorites = _localSongs
+        .map { songs -> songs.filter { it.isFavorite }.take(15) }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), emptyList())
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            localRepository.allSongs.collect { _localSongs.value = it }
+        }
         refreshTrending()
     }
 
