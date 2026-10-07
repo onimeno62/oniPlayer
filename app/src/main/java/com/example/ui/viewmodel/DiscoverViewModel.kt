@@ -82,7 +82,7 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
             val results = repository.search(query)
             val successful = results.flatMap { result ->
                 when (val value = result.result) {
-                    is ProviderResult.Success -> value.value
+                    is ProviderResult.Success<*> -> value.value as List<RemoteMusicItem>
                     is ProviderResult.Failure -> emptyList()
                 }
             }
