@@ -76,7 +76,7 @@ class RecommendationEngine {
 
                 val reason = when {
                     song.isFavorite -> RecommendationReason.FavoriteAffinity
-                    artistAffinity[song.displayArtist] ?: 0.0 > 0.0 -> RecommendationReason.BecauseYouPlayed
+                    artistAffinity[song.displayArtist.trim().lowercase()] ?: 0.0 > 0.0 -> RecommendationReason.BecauseYouPlayed
                     freshness >= 0.18 -> RecommendationReason.YouHaventPlayedInAWhile
                     else -> RecommendationReason.ColdStart
                 }
