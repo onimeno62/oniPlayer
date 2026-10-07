@@ -2,6 +2,7 @@ package com.example.data.following
 
 import com.example.data.database.SongDao
 import com.example.data.entity.FollowedArtistEntity
+import com.example.data.entity.FollowedArtistReleaseEntity
 import kotlinx.coroutines.flow.Flow
 
 class ArtistFollowRepository(
@@ -42,5 +43,22 @@ class ArtistFollowRepository(
                 lastSeenReleaseId = lastSeenReleaseId
             )
         }
+    }
+    suspend fun saveReleases(releases: List<FollowedArtistRelease>) {
+        if (releases.isEmpty()) return
+        dao.insertFollowedArtistReleases(
+            releases.map {
+                FollowedArtistReleaseEntity(
+                    canonicalArtistId = it.canonicalArtistId,
+                    releaseId = it.release.identity.itemId,
+                    providerId = it.release.identity.providerId,
+                    title = it.release.title,
+                    artistName = it.release.artistName,
+                    artworkUrl = it.release.artworkUrl,
+                    releaseDate = it.release.releaseDate,
+                    firstSeenAt = System.currentTimeMillis()
+                )
+            }
+        )
     }
 }
