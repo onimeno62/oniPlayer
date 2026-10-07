@@ -31,6 +31,8 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val madeForYou by viewModel.madeForYou.collectAsStateWithLifecycle()
+    val becauseYouPlayed by viewModel.becauseYouPlayed.collectAsStateWithLifecycle()
+    val similarMusic by viewModel.similarMusic.collectAsStateWithLifecycle()
     val mostPlayed by viewModel.mostPlayed.collectAsStateWithLifecycle()
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
@@ -57,6 +59,8 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
             }
         }
         if (madeForYou.isNotEmpty()) item { LocalSection("Made for You", madeForYou) }
+        if (becauseYouPlayed.isNotEmpty()) item { LocalSection("Because You Played...", becauseYouPlayed) }
+        if (similarMusic.isNotEmpty()) item { LocalSection("Similar Music", similarMusic) }
         if (recentlyPlayed.isNotEmpty()) item { LocalSection("Continue Listening", recentlyPlayed) }
         if (mostPlayed.isNotEmpty()) item { LocalSection("Most Played", mostPlayed) }
         if (recentlyAdded.isNotEmpty()) item { LocalSection("Recently Added", recentlyAdded) }
