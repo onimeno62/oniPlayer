@@ -33,6 +33,7 @@ class MusicBrainzProvider(
     override val capabilities = ProviderCapabilities.of(
         ProviderCapability.SEARCH,
         ProviderCapability.ARTIST,
+        ProviderCapability.ARTIST_RELEASES,
         ProviderCapability.ALBUM,
         ProviderCapability.TRACK,
         ProviderCapability.NEW_RELEASES
@@ -77,6 +78,35 @@ class MusicBrainzProvider(
     override suspend fun getArtist(providerArtistId: String): ProviderResult<RemoteArtist> =
         withContext(Dispatchers.IO) {
             lookup("artist", providerArtistId, inc = "aliases+tags+genres") { parseArtist(it) }
+        }
+
+    override suspend fun getArtistReleases(providerArtistId: String): ProviderResult<List<RemoteAlbum>> =
+        withContext(Dispatchers.IO) {
+            val url = "$BASE_URL/release-group".toHttpUrl().newBuilder()
+                .addQueryParameter("artist", providerArtistId)
+                .addQueryParameter("release-group-status", "website-default")
+                .addQueryParameter("inc", "artist-credits")
+                .addQueryParameter("fmt", "json")
+                .addQueryParameter("limit", "100")
+                .build()
+
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", USER_AGENT)
+                .get()
+                .build()
+
+            executeRateLimited(request) { root ->
+                val data = root.optJSONArray("release-groups") ?: return@executeRateLimited emptyList()
+                buildList {
+                    for (index in 0 until data.length()) {
+                        parseReleaseGroup(data.optJSONObject(index))?.let(::add)
+                    }
+                }.sortedWith(
+                    compareByDescending<RemoteAlbum> { it.releaseDate.orEmpty() }
+                        .thenBy { it.identity.itemId }
+                )
+            }
         }
 
     override suspend fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum> =
