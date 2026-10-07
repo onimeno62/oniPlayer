@@ -3,6 +3,7 @@ package com.example.data.online
 enum class ProviderCapability {
     SEARCH,
     ARTIST,
+    ARTIST_RELEASES,
     ALBUM,
     TRACK,
     PLAYLIST,
