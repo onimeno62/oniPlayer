@@ -72,11 +72,15 @@ class ArtistReleaseSync(
             }
         }
 
-        return ArtistReleaseSyncResult(
-            releases = releases.distinctBy {
+        val deduplicated = releases.distinctBy {
                 it.release.musicIdentity.canonicalReleaseGroupId
                     ?: it.release.identity.itemId
             },
+            
+        }
+        followRepository.saveReleases(deduplicated)
+        return ArtistReleaseSyncResult(
+            releases = deduplicated,
             failedArtistIds = failures
         )
     }
