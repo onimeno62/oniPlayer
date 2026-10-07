@@ -101,9 +101,9 @@ class MusicProviderContractTest {
             ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
         override suspend fun getNewReleases() =
-            ProviderResult.Failure<List<RemoteAlbum>>(id, ProviderFailureKind.Unsupported)
+            ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
         override suspend fun getTrending() =
-            ProviderResult.Failure<List<RemoteMusicItem>>(id, ProviderFailureKind.Unsupported)
+            ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
     }
 }
