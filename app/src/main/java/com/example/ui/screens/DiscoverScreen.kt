@@ -60,7 +60,7 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
             Column(verticalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
                 Text(
                     text = "Discover",
-                    style = OniSkin.typography.headlineMedium,
+                    style = OniSkin.typography.displayMedium,
                     color = OniSkin.colors.textPrimary,
                     fontWeight = FontWeight.Bold
                 )
@@ -274,7 +274,7 @@ private fun DiscoverItem(item: RemoteMusicItem) {
                 )
                 Text(
                     text = item.identity.providerId,
-                    style = OniSkin.typography.labelSmall,
+                    style = OniSkin.typography.caption,
                     color = OniSkin.colors.textSecondary,
                     maxLines = 1
                 )
