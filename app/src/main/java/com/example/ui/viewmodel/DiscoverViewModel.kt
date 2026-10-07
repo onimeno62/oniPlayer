@@ -12,6 +12,7 @@ import com.example.data.online.RemoteMusicItem
 import com.example.data.online.SearchFilter
 import com.example.data.recommendation.RecommendationEngine
 import com.example.data.recommendation.RecommendationSnapshot
+import com.example.data.following.ArtistFollowRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,12 +45,17 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
     )
     private val repository = OnlineMusicRepository(DefaultMusicProviders.create())
     private val recommendationEngine = RecommendationEngine()
+    private val artistFollowRepository = ArtistFollowRepository(OniDatabase.getDatabase(application).songDao())
 
     private val _uiState = MutableStateFlow(DiscoverUiState())
     private var searchJob: Job? = null
     private val _localSongs = MutableStateFlow<List<SongEntity>>(emptyList())
 
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
+
+    val followedArtistIds: StateFlow<Set<String>> = artistFollowRepository.followedArtists()
+        .map { artists -> artists.map { it.canonicalArtistId }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val rankedSongs: StateFlow<List<SongEntity>> = _localSongs
         .map { songs ->
@@ -93,6 +99,27 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val madeForYouLegacy: StateFlow<List<SongEntity>> = _localSongs
+        .map { songs ->
+            val preferredGenres = songs
+                .filter { it.playCount > 0 || it.isFavorite }
+                .groupingBy { it.displayGenre.trim() }
+                .eachCount()
+                .filterKeys { it.isNotBlank() && !it.equals("Unknown Genre", true) && !it.equals("Local Audio", true) }
+                .entries
+                .sortedByDescending { it.value }
+                .take(3)
+                .map { it.key }
+                .toSet()
+
+            songs.filter { song ->
+                song.playCount == 0 &&
+                    !song.isFavorite &&
+                    (preferredGenres.isEmpty() || song.displayGenre in preferredGenres)
+            }.sortedByDescending { it.dateAdded }.take(15)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val genres: StateFlow<List<String>> = _localSongs
         .map { songs ->
             songs.map { it.displayGenre.trim() }
@@ -125,29 +152,29 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
                             albumName = album.title,
                             artworkUrl = album.artworkUrl,
                             musicIdentity = album.musicIdentity,
-                            metadata = mapOf(
-                                "release_date" to (album.releaseDate ?: ""),
-                                "source" to "new_release"
-                            )
+                            metadata = mapOf("release_date" to (album.releaseDate ?: ""))
                         )
                     }
                     is ProviderResult.Failure -> emptyList()
                 }
             }
             val failures = results.any { it.result is ProviderResult.Failure }
-            _uiState.update {
-                it.copy(
-                    newReleases = when {
-                        items.isNotEmpty() -> DiscoverLoadState.Success(
-                            items.distinctBy { item ->
-                                item.identity.providerId + ":" + item.identity.type + ":" + item.identity.itemId
-                            },
-                            failures
-                        )
-                        failures -> DiscoverLoadState.Error("New releases are currently unavailable.")
-                        else -> DiscoverLoadState.Success(emptyList())
-                    }
-                )
+            _uiState.update { it.copy(newReleases = when {
+                items.isNotEmpty() -> DiscoverLoadState.Success(items.distinctBy { item -> item.identity.itemId }, failures)
+                failures -> DiscoverLoadState.Error("New releases are currently unavailable.")
+                else -> DiscoverLoadState.Success(emptyList())
+            }) }
+        }
+    }
+
+    fun toggleFollowArtist(item: RemoteMusicItem) {
+        val artistId = item.musicIdentity.canonicalArtistId ?: return
+        val artistName = item.artistName?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            if (artistId in followedArtistIds.value) {
+                artistFollowRepository.unfollow(artistId)
+            } else {
+                artistFollowRepository.follow(artistId, artistName, item.artworkUrl)
             }
         }
     }
@@ -202,9 +229,7 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
             val results = repository.trending()
             val items = results.flatMap { result ->
                 when (val value = result.result) {
-                    is ProviderResult.Success -> value.value.map { item ->
-                        item.copy(metadata = item.metadata + ("source" to "trending"))
-                    }
+                    is ProviderResult.Success -> value.value
                     is ProviderResult.Failure -> emptyList()
                 }
             }
