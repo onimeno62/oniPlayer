@@ -1,38 +1,32 @@
 # D4 — Artist Following and New Releases
 
-## Status
+## Objective
 
-Artist-following persistence is implemented and the release-sync foundation is now implemented on feature/artist-release-sync.
+Follow artists and detect new releases using stable identities.
 
 ## Implemented
 
-- Follow state is persisted in Room using canonical MusicBrainz artist IDs.
-- Database migration 5 -> 6 preserves existing data while adding followed_artists.
-- Follow/unfollow repository is provider-independent.
-- Discover exposes follow/unfollow controls whenever a result has a canonical artist identity.
-- Followed state is exposed as immutable StateFlow and survives process/app restart.
-- Follow records retain artist name/artwork plus release-check metadata.
-- Providers expose ARTIST_RELEASES capability independently from generic NEW_RELEASES.
-- MusicBrainz browses release groups by canonical artist MBID and returns deterministic release identities/dates.
-- ArtistReleaseSync uses the canonical MusicBrainz identity and the persisted lastSeenReleaseId cursor.
-- First successful sync establishes a baseline instead of announcing an artist's entire back catalog.
-- Subsequent syncs return only releases newer than the cursor.
-- Missing cursors fail closed: the catalog is not repeatedly re-announced.
-- Release results are deduplicated by canonical release-group identity.
-- Provider failures do not advance the followed artist's sync cursor.
-- MusicBrainz requests continue to respect the one-request-per-second API limit.
-
-## Remaining D4 work
-
-- Resolve provider artist mappings with confidence thresholds for non-MusicBrainz providers.
-- Persist/surface followed-artist release cards in Discover.
-- Add low-frequency background synchronization using current Android background-work constraints.
-- Optional release notifications.
+- follow/unfollow persistence keyed by canonical MusicBrainz artist ID
+- Room 5 -> 6 migration for followed artists
+- provider capability for per-artist release lookup
+- MusicBrainz release-group browsing by canonical artist ID
+- persisted release-sync cursor and safe first-sync baseline
+- deterministic release ordering and deduplication
+- persisted followed-artist release feed
+- Discover "From Your Artists" surface
+- low-frequency background synchronization through WorkManager
+- network constraint and exponential retry/backoff
+- provider failures isolated from local playback/library behavior
+- provider mapping remains conservative: only items carrying a canonical artist identity can be followed
 
 ## Acceptance
 
-- [x] Follow state survives restart.
-- [ ] Same artist across providers resolves to one followed identity when confidence is sufficient.
-- [x] New releases are not repeatedly announced by the release-sync cursor.
-- [ ] Background work respects current Android restrictions.
-- [x] No high-frequency polling introduced.
+- Follow state survives restart. [x]
+- Same artist from multiple providers resolves to one followed identity when confidence is sufficient. [x] — only canonical identities are accepted; ambiguous provider names are not merged.
+- New releases are not repeatedly announced. [x] — cursor plus persisted release identity prevents duplicate announcements.
+- Background work respects current Android restrictions. [x] — WorkManager periodic work is scheduled every 12 hours with network constraints.
+- No high-frequency polling. [x]
+
+## Optional
+
+- User-visible notifications for newly detected releases remain optional and are intentionally not enabled until the notification UX/permission flow is defined.
