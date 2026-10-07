@@ -99,27 +99,6 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val madeForYouLegacy: StateFlow<List<SongEntity>> = _localSongs
-        .map { songs ->
-            val preferredGenres = songs
-                .filter { it.playCount > 0 || it.isFavorite }
-                .groupingBy { it.displayGenre.trim() }
-                .eachCount()
-                .filterKeys { it.isNotBlank() && !it.equals("Unknown Genre", true) && !it.equals("Local Audio", true) }
-                .entries
-                .sortedByDescending { it.value }
-                .take(3)
-                .map { it.key }
-                .toSet()
-
-            songs.filter { song ->
-                song.playCount == 0 &&
-                    !song.isFavorite &&
-                    (preferredGenres.isEmpty() || song.displayGenre in preferredGenres)
-            }.sortedByDescending { it.dateAdded }.take(15)
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     val genres: StateFlow<List<String>> = _localSongs
         .map { songs ->
             songs.map { it.displayGenre.trim() }
