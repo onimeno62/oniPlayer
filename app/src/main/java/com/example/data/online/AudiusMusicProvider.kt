@@ -112,7 +112,7 @@ class AudiusMusicProvider(
                 if (body.isBlank()) {
                     return ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Empty Audius response.")
                 }
-                transform(JSONObject(body))?.let(ProviderResult::Success)
+                transform(JSONObject(body))?.let { ProviderResult.Success(it) }
                     ?: ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Audius returned an invalid response.")
             }
         } catch (error: kotlinx.coroutines.CancellationException) {
