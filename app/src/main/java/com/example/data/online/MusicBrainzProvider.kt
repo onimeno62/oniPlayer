@@ -5,6 +5,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -30,7 +32,8 @@ class MusicBrainzProvider(
         ProviderCapability.SEARCH,
         ProviderCapability.ARTIST,
         ProviderCapability.ALBUM,
-        ProviderCapability.TRACK
+        ProviderCapability.TRACK,
+        ProviderCapability.NEW_RELEASES
     )
 
     private val requestLimiter = RequestLimiter()
@@ -89,8 +92,25 @@ class MusicBrainzProvider(
     override suspend fun getRecommendations(seed: RecommendationSeed?): ProviderResult<List<RemoteMusicItem>> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "MusicBrainz does not rank recommendations.")
 
-    override suspend fun getNewReleases(): ProviderResult<List<RemoteAlbum>> =
-        ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "Release discovery belongs to the discovery layer.")
+    override suspend fun getNewReleases(): ProviderResult<List<RemoteAlbum>> = withContext(Dispatchers.IO) {
+        val end = LocalDate.now(ZoneOffset.UTC)
+        val start = end.minusDays(90)
+        val query = "firstreleasedate:[" + start + " TO " + end + "]"
+        val url = "$BASE_URL/release-group".toHttpUrl().newBuilder()
+            .addQueryParameter("query", query)
+            .addQueryParameter("fmt", "json")
+            .addQueryParameter("limit", "25")
+            .build()
+        val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).get().build()
+        executeRateLimited(request) { root ->
+            val data = root.optJSONArray("release-groups") ?: return@executeRateLimited emptyList()
+            buildList {
+                for (index in 0 until data.length()) {
+                    parseReleaseGroup(data.optJSONObject(index))?.let(::add)
+                }
+            }.sortedByDescending { it.releaseDate.orEmpty() }
+        }
+    }
 
     override suspend fun getTrending(): ProviderResult<List<RemoteMusicItem>> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "MusicBrainz does not provide popularity ranking.")
@@ -219,6 +239,24 @@ class MusicBrainzProvider(
             musicIdentity = MusicIdentity(
                 canonicalArtistId = artist?.optString("id")?.takeIf { it.isNotBlank() },
                 canonicalReleaseId = mbid
+            )
+        )
+    }
+
+    private fun parseReleaseGroup(json: JSONObject): RemoteAlbum? {
+        val mbid = json.optString("id").takeIf { it.isNotBlank() } ?: return null
+        val title = json.optString("title").takeIf { it.isNotBlank() } ?: return null
+        val artist = json.optJSONArray("artist-credit")?.optJSONObject(0)?.optJSONObject("artist")
+        val date = json.optString("first-release-date").takeIf { it.isNotBlank() }
+        return RemoteAlbum(
+            identity = ProviderIdentity(id, mbid, RemoteMusicType.Album),
+            title = title,
+            artistName = artist?.optString("name")?.takeIf { it.isNotBlank() },
+            artworkUrl = "https://coverartarchive.org/release-group/$mbid/front-250",
+            releaseDate = date,
+            musicIdentity = MusicIdentity(
+                canonicalArtistId = artist?.optString("id")?.takeIf { it.isNotBlank() },
+                canonicalReleaseGroupId = mbid
             )
         )
     }
