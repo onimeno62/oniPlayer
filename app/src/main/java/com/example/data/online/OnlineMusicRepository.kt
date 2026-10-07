@@ -31,7 +31,6 @@ class OnlineMusicRepository(
         return providersSupporting(ProviderCapability.SEARCH)
             .map { provider ->
                 val key = SearchCacheKey(provider.id, normalizedQuery.lowercase(), filter)
-                val cached = cached(searchCache, key)
                 val cachedItems = cached(searchCache, key)
                 val result = if (cachedItems != null) {
                     ProviderResult.Success(cachedItems)
