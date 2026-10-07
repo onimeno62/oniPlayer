@@ -91,6 +91,9 @@ class MusicProviderContractTest {
         override suspend fun getArtist(providerArtistId: String) =
             ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
+        override suspend fun getArtistReleases(providerArtistId: String) =
+            ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
+
         override suspend fun getAlbum(providerAlbumId: String) =
             ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
