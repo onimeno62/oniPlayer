@@ -40,7 +40,7 @@ class AudiusMusicProvider(
     override suspend fun getArtist(providerArtistId: String): ProviderResult<RemoteArtist> =
         withContext(Dispatchers.IO) { requestObject("users/$providerArtistId") { parseArtist(it) } }
 
-    override fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum> =
+    override suspend fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "Audius does not expose albums as a first-class catalog entity.")
 
     override suspend fun getTrack(providerTrackId: String): ProviderResult<RemoteTrack> =
@@ -95,7 +95,7 @@ class AudiusMusicProvider(
 
     private fun <T> execute(
         request: Request,
-        transform: (JSONObject) -> T
+        transform: (JSONObject) -> T?
     ): ProviderResult<T> =
         try {
             client.newCall(request).execute().use { response ->
@@ -112,7 +112,8 @@ class AudiusMusicProvider(
                 if (body.isBlank()) {
                     return ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Empty Audius response.")
                 }
-                ProviderResult.Success(transform(JSONObject(body)))
+                transform(JSONObject(body))?.let(ProviderResult::Success)
+                    ?: ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Audius returned an invalid response.")
             }
         } catch (error: Exception) {
             ProviderResult.Failure(id, ProviderFailureKind.Network, error.message, error)
