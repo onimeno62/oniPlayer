@@ -29,4 +29,18 @@ class ArtistFollowRepository(
             dao.deleteFollowedArtist(canonicalArtistId)
         }
     }
+
+    suspend fun markReleaseSync(
+        canonicalArtistId: String,
+        checkedAt: Long,
+        lastSeenReleaseId: String?
+    ) {
+        if (canonicalArtistId.isNotBlank()) {
+            dao.updateFollowedArtistReleaseSync(
+                canonicalArtistId = canonicalArtistId,
+                checkedAt = checkedAt,
+                lastSeenReleaseId = lastSeenReleaseId
+            )
+        }
+    }
 }
