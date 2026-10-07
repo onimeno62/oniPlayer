@@ -40,7 +40,7 @@ class AudiusMusicProvider(
     override suspend fun getArtist(providerArtistId: String): ProviderResult<RemoteArtist> =
         withContext(Dispatchers.IO) { requestObject("users/$providerArtistId") { parseArtist(it) } }
 
-    override suspend fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum> =
+    override fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "Audius does not expose albums as a first-class catalog entity.")
 
     override suspend fun getTrack(providerTrackId: String): ProviderResult<RemoteTrack> =
@@ -51,7 +51,7 @@ class AudiusMusicProvider(
         }
 
     override suspend fun getRecommendations(seed: RecommendationSeed?): ProviderResult<List<RemoteMusicItem>> =
-        withContext(Dispatchers.IO) { requestList("tracks/recommended") { parseTrack(it) } }
+        ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "Personalized Audius recommendations require a resolved Audius user identity.")
 
     override suspend fun getNewReleases(): ProviderResult<List<RemoteAlbum>> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "Audius has no canonical album-release model.")
@@ -108,6 +108,9 @@ class AudiusMusicProvider(
                         in 500..599 -> ProviderResult.Failure(id, ProviderFailureKind.Unavailable)
                         else -> ProviderResult.Failure(id, ProviderFailureKind.Network, "HTTP " + response.code)
                     }
+                }
+                if (body.isBlank()) {
+                    return ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Empty Audius response.")
                 }
                 ProviderResult.Success(transform(JSONObject(body)))
             }
