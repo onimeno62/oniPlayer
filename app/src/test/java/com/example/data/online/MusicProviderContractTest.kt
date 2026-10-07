@@ -27,6 +27,7 @@ class MusicProviderContractTest {
         assertEquals(setOf("audius", "musicbrainz"), providers.map { it.id }.toSet())
         assertTrue(providers.first { it.id == "audius" }.capabilities.supports(ProviderCapability.STREAM))
         assertTrue(!providers.first { it.id == "musicbrainz" }.capabilities.supports(ProviderCapability.STREAM))
+        assertTrue(!providers.first { it.id == "audius" }.capabilities.supports(ProviderCapability.RECOMMENDATIONS))
     }
 
     @Test
@@ -55,7 +56,24 @@ class MusicProviderContractTest {
         )
     }
 
-    private class FakeProvider(
+    @Test
+    fun repository_caches_search_results_per_provider_and_filter() = runTest {
+        var calls = 0
+        val provider = object : FakeProvider() {
+            override suspend fun search(query: String, filter: SearchFilter): ProviderResult<List<RemoteMusicItem>> {
+                calls++
+                return super.search(query, filter)
+            }
+        }
+
+        val repository = OnlineMusicRepository(listOf(provider), cacheTtlMs = 60_000L)
+        repository.search(" Example ")
+        repository.search("example")
+
+        assertEquals(1, calls)
+    }
+
+    private open class FakeProvider(
         override val id: String = "fake",
         override val displayName: String = "Fake",
         override val capabilities: ProviderCapabilities =
