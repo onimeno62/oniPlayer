@@ -9,10 +9,11 @@ import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.ArtistSummaryEntity
 import com.example.data.entity.FollowedArtistEntity
+import com.example.data.entity.FollowedArtistReleaseEntity
 
 @Database(
-    entities = [SongEntity::class, EqualizerPresetEntity::class, PlaylistEntity::class, ArtistSummaryEntity::class, FollowedArtistEntity::class],
-    version = 6,
+    entities = [SongEntity::class, EqualizerPresetEntity::class, PlaylistEntity::class, ArtistSummaryEntity::class, FollowedArtistEntity::class, FollowedArtistReleaseEntity::class],
+    version = 7,
     exportSchema = false
 )
 abstract class OniDatabase : RoomDatabase() {
@@ -34,6 +35,24 @@ abstract class OniDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS followed_artist_releases (
+                        canonicalArtistId TEXT NOT NULL,
+                        releaseId TEXT NOT NULL,
+                        providerId TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        artistName TEXT,
+                        artworkUrl TEXT,
+                        releaseDate TEXT,
+                        firstSeenAt INTEGER NOT NULL,
+                        PRIMARY KEY(canonicalArtistId, releaseId)
+                    )
+                """.trimIndent())
+            }
+        }
+
         @Volatile
         private var INSTANCE: OniDatabase? = null
 
@@ -44,7 +63,7 @@ abstract class OniDatabase : RoomDatabase() {
                     OniDatabase::class.java,
                     "oni_player_database"
                 )
-                .addMigrations(MIGRATION_5_6)
+                .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
