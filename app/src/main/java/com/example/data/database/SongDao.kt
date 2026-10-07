@@ -5,6 +5,8 @@ import com.example.data.entity.SongEntity
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.ArtistSummaryEntity
+import com.example.data.entity.FollowedArtistEntity
+import com.example.data.entity.FollowedArtistReleaseEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -94,4 +96,40 @@ interface SongDao {
 
     @Query("DELETE FROM artist_summaries WHERE artistName = :artistName")
     suspend fun deleteArtistSummary(artistName: String)
+
+    // --- Followed Artist Queries ---
+    @Query("SELECT * FROM followed_artists ORDER BY followedAt DESC")
+    fun getFollowedArtists(): Flow<List<FollowedArtistEntity>>
+
+    @Query("SELECT * FROM followed_artists WHERE canonicalArtistId = :canonicalArtistId LIMIT 1")
+    suspend fun getFollowedArtist(canonicalArtistId: String): FollowedArtistEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFollowedArtist(artist: FollowedArtistEntity)
+
+    @Query("DELETE FROM followed_artists WHERE canonicalArtistId = :canonicalArtistId")
+    suspend fun deleteFollowedArtist(canonicalArtistId: String)
+
+    @Query("""
+        UPDATE followed_artists
+        SET lastReleaseCheckAt = :checkedAt,
+            lastSeenReleaseId = :lastSeenReleaseId
+        WHERE canonicalArtistId = :canonicalArtistId
+    """)
+    suspend fun updateFollowedArtistReleaseSync(
+        canonicalArtistId: String,
+        checkedAt: Long,
+        lastSeenReleaseId: String?
+    )
+    // --- Followed Artist Release Queries ---
+    @Query("SELECT * FROM followed_artist_releases ORDER BY releaseDate DESC, firstSeenAt DESC")
+    fun getFollowedArtistReleases(): Flow<List<FollowedArtistReleaseEntity>>
+
+    @Query("SELECT * FROM followed_artist_releases WHERE canonicalArtistId IN (:artistIds) ORDER BY releaseDate DESC, firstSeenAt DESC")
+    fun getFollowedArtistReleasesForArtists(artistIds: List<String>): Flow<List<FollowedArtistReleaseEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFollowedArtistReleases(releases: List<FollowedArtistReleaseEntity>)
 }
+
+

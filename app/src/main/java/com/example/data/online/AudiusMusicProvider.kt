@@ -40,6 +40,13 @@ class AudiusMusicProvider(
     override suspend fun getArtist(providerArtistId: String): ProviderResult<RemoteArtist> =
         withContext(Dispatchers.IO) { requestObject("users/$providerArtistId") { parseArtist(it) } }
 
+    override suspend fun getArtistReleases(providerArtistId: String): ProviderResult<List<RemoteAlbum>> =
+        ProviderResult.Failure(
+            id,
+            ProviderFailureKind.Unsupported,
+            "Audius does not expose a canonical release-group catalog."
+        )
+
     override suspend fun getAlbum(providerAlbumId: String): ProviderResult<RemoteAlbum> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "Audius does not expose albums as a first-class catalog entity.")
 
