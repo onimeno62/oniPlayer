@@ -85,7 +85,7 @@ class RecommendationEngine {
 
         return diversifyLocal(candidates.sortedWith(compareByDescending<Recommendation> { it.score }
             .thenBy { it.localSong!!.displayArtist.lowercase() }
-            .thenBy { it.localSong.displayTitle.lowercase() }))
+            .thenBy { it.localSong?.displayTitle.orEmpty().lowercase() }))
     }
 
     private fun rankRemote(snapshot: RecommendationSnapshot, limit: Int): List<Recommendation> {
@@ -114,8 +114,8 @@ class RecommendationEngine {
                 Recommendation(null, item, score, reason)
             }
             .sortedWith(compareByDescending<Recommendation> { it.score }
-                .thenBy { it.remoteItem!!.artistName.orEmpty().lowercase() }
-                .thenBy { it.remoteItem.title.lowercase() })
+                .thenBy { it.remoteItem?.artistName.orEmpty().lowercase() }
+                .thenBy { it.remoteItem?.title.orEmpty().lowercase() })
 
         return diversifyRemote(ranked, limit)
     }
@@ -124,8 +124,8 @@ class RecommendationEngine {
         val selected = mutableListOf<Recommendation>()
         val artistCounts = mutableMapOf<String, Int>()
         for (candidate in candidates) {
-            val artist = candidate.localSong!!.displayArtist.lowercase()
-            val count = artistCounts[artist].orZero()
+            val artist = candidate.localSong?.displayArtist?.lowercase() ?: continue
+            val count = artistCounts[artist] ?: 0
             if (count >= 3 && candidates.size > 3) continue
             selected += candidate
             artistCounts[artist] = count + 1
@@ -138,8 +138,8 @@ class RecommendationEngine {
         val providerCounts = mutableMapOf<String, Int>()
         for (candidate in candidates) {
             if (selected.size >= limit) break
-            val provider = candidate.remoteItem!!.identity.providerId
-            val count = providerCounts[provider].orZero()
+            val provider = candidate.remoteItem?.identity?.providerId ?: continue
+            val count = providerCounts[provider] ?: 0
             if (count >= 5 && candidates.size > 5) continue
             selected += candidate
             providerCounts[provider] = count + 1
