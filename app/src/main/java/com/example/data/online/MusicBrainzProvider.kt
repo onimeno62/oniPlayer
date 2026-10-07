@@ -90,7 +90,7 @@ class MusicBrainzProvider(
             .get()
             .build()
 
-        return execute(request) { root ->
+        return executeRateLimited(request) { root ->
             val data = root.optJSONArray("$entity-list") ?: return@execute emptyList()
             buildList {
                 for (index in 0 until data.length()) parser(data.optJSONObject(index))?.let(::add)
