@@ -5,6 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.database.OniDatabase
 import com.example.data.entity.SongEntity
+import com.example.data.online.MusicIdentity
+import com.example.data.online.ProviderIdentity
+import com.example.data.online.RemoteMusicType
 import com.example.data.online.DefaultMusicProviders
 import com.example.data.online.OnlineMusicRepository
 import com.example.data.online.ProviderResult
@@ -56,6 +59,24 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
     val followedArtistIds: StateFlow<Set<String>> = artistFollowRepository.followedArtists()
         .map { artists -> artists.map { it.canonicalArtistId }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    val followedArtistReleases: StateFlow<List<RemoteMusicItem>> = artistFollowRepository.followedReleases()
+        .map { releases ->
+            releases.take(30).map { release ->
+                RemoteMusicItem(
+                    identity = ProviderIdentity(release.providerId, release.releaseId, RemoteMusicType.Album),
+                    title = release.title,
+                    artistName = release.artistName,
+                    artworkUrl = release.artworkUrl,
+                    musicIdentity = MusicIdentity(canonicalArtistId = release.canonicalArtistId),
+                    metadata = mapOf(
+                        "release_date" to (release.releaseDate ?: ""),
+                        "source" to "followed_artist"
+                    )
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val rankedSongs: StateFlow<List<SongEntity>> = _localSongs
         .map { songs ->
