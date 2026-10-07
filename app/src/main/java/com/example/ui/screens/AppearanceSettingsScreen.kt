@@ -50,8 +50,8 @@ fun AppearanceSettingsScreen(
     val selectedSeekBarStyle by viewModel.playerSeekBarStyle.collectAsStateWithLifecycle()
     val selectedLyricMode by viewModel.playerLyricMode.collectAsStateWithLifecycle()
     val selectedLineCount by viewModel.playerLyricLines.collectAsStateWithLifecycle()
-    val audioAnalyzerEffectOn by viewModel.playerAudioAnalyzer.collectAsStateWithLifecycle()
-    val artworkEffectsOn by viewModel.playerArtworkEffects.collectAsStateWithLifecycle()
+    val audioAnalyzerEffectOn = viewModel.playerAudioVisualizer.collectAsStateWithLifecycle().value != 0
+    val artworkEffectsOn = viewModel.nowPlayingEffect.collectAsStateWithLifecycle().value != 0
     val showPlayerBottomNav by viewModel.playerBottomNav.collectAsStateWithLifecycle()
 
     Column(
@@ -187,14 +187,14 @@ fun AppearanceSettingsScreen(
                         title = "Audio Analyzer Pulse",
                         description = "Glow and amplitude reactive to track rhythm & beat energy.",
                         checked = audioAnalyzerEffectOn,
-                        onCheckedChange = { viewModel.setPlayerAudioAnalyzer(it) }
+                        onCheckedChange = { viewModel.setPlayerAudioVisualizer(if (it) 1 else 0) }
                     )
                     SettingDivider()
                     SwitchSettingRow(
                         title = "Living Artwork Effects",
                         description = "Smooth Ken Burns pan/zoom and dynamic ambient artwork radiance.",
                         checked = artworkEffectsOn,
-                        onCheckedChange = { viewModel.setPlayerArtworkEffects(it) }
+                        onCheckedChange = { viewModel.setNowPlayingEffect(if (it) 1 else 0) }
                     )
                     SettingDivider()
                     SwitchSettingRow(
