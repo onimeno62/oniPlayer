@@ -26,17 +26,13 @@ class OnlineMusicRepository(
 
         return providersSupporting(ProviderCapability.SEARCH)
             .map { provider ->
-                provider.id to runCatching { provider.search(query.trim(), filter) }
-                    .getOrElse {
-                        ProviderResult.Failure(
-                            providerId = provider.id,
-                            kind = ProviderFailureKind.Unknown,
-                            message = it.message,
-                            cause = it
-                        )
+                ProviderSearchResult(
+                    providerId = provider.id,
+                    result = safeProviderCall(provider) {
+                        provider.search(query.trim(), filter)
                     }
+                )
             }
-            .map { (providerId, result) -> ProviderSearchResult(providerId, result) }
     }
 
     suspend fun newReleases(): List<ProviderSectionResult<List<RemoteAlbum>>> =
@@ -44,15 +40,7 @@ class OnlineMusicRepository(
             .map { provider ->
                 ProviderSectionResult(
                     providerId = provider.id,
-                    result = runCatching { provider.getNewReleases() }
-                        .getOrElse {
-                            ProviderResult.Failure(
-                                providerId = provider.id,
-                                kind = ProviderFailureKind.Unknown,
-                                message = it.message,
-                                cause = it
-                            )
-                        }
+                    result = safeProviderCall(provider) { provider.getNewReleases() }
                 )
             }
 
@@ -61,17 +49,24 @@ class OnlineMusicRepository(
             .map { provider ->
                 ProviderSectionResult(
                     providerId = provider.id,
-                    result = runCatching { provider.getTrending() }
-                        .getOrElse {
-                            ProviderResult.Failure(
-                                providerId = provider.id,
-                                kind = ProviderFailureKind.Unknown,
-                                message = it.message,
-                                cause = it
-                            )
-                        }
+                    result = safeProviderCall(provider) { provider.getTrending() }
                 )
             }
+
+    private suspend fun <T> safeProviderCall(
+        provider: MusicProvider,
+        block: suspend () -> ProviderResult<T>
+    ): ProviderResult<T> =
+        try {
+            block()
+        } catch (error: Throwable) {
+            ProviderResult.Failure(
+                providerId = provider.id,
+                kind = ProviderFailureKind.Unknown,
+                message = error.message,
+                cause = error
+            )
+        }
 }
 
 data class ProviderSearchResult(
