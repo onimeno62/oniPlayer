@@ -62,16 +62,16 @@ class MusicProviderContractTest {
                 ?: ProviderResult.Success(searchResult)
 
         override suspend fun getArtist(providerArtistId: String) =
-            ProviderResult.Failure<RemoteArtist>(id, ProviderFailureKind.Unsupported)
+            ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
         override suspend fun getAlbum(providerAlbumId: String) =
-            ProviderResult.Failure<RemoteAlbum>(id, ProviderFailureKind.Unsupported)
+            ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
         override suspend fun getTrack(providerTrackId: String) =
-            ProviderResult.Failure<RemoteTrack>(id, ProviderFailureKind.Unsupported)
+            ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
         override suspend fun getRecommendations(seed: RecommendationSeed?) =
-            ProviderResult.Failure<List<RemoteMusicItem>>(id, ProviderFailureKind.Unsupported)
+            ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
         override suspend fun getNewReleases() =
             ProviderResult.Failure<List<RemoteAlbum>>(id, ProviderFailureKind.Unsupported)
