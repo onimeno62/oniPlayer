@@ -108,4 +108,16 @@ interface SongDao {
 
     @Query("DELETE FROM followed_artists WHERE canonicalArtistId = :canonicalArtistId")
     suspend fun deleteFollowedArtist(canonicalArtistId: String)
+
+    @Query("""
+        UPDATE followed_artists
+        SET lastReleaseCheckAt = :checkedAt,
+            lastSeenReleaseId = :lastSeenReleaseId
+        WHERE canonicalArtistId = :canonicalArtistId
+    """)
+    suspend fun updateFollowedArtistReleaseSync(
+        canonicalArtistId: String,
+        checkedAt: Long,
+        lastSeenReleaseId: String?
+    )
 }
