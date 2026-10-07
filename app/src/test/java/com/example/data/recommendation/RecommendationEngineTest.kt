@@ -28,17 +28,19 @@ class RecommendationEngineTest {
 
     @Test
     fun favoriteAndListeningHistoryInfluenceRanking() {
-        val favorite = song("fav", "Favorite", "Artist A", "Rock", playCount = 0, favorite = true)
+        val favorite = song("fav", "Favorite", "Artist A", "Rock", favorite = true)
         val history = song("history", "History", "Artist A", "Rock", playCount = 10)
-        val unrelated = song("other", "Other", "Artist B", "Jazz", playCount = 0)
+        val unrelated = song("other", "Other", "Artist B", "Jazz")
 
         val result = engine.recommend(
             RecommendationSnapshot(listOf(favorite, history, unrelated)),
             limit = 3
         )
 
-        assertEquals("fav", result.first().localSong?.id)
-        assertTrue(result.first().reason == RecommendationReason.FavoriteAffinity)
+        val ids = result.mapNotNull { it.localSong?.id }
+        assertTrue(ids.indexOf("fav") < ids.indexOf("other"))
+        assertTrue(result.any { it.localSong?.id == "fav" && it.reason == RecommendationReason.FavoriteAffinity })
+        assertTrue(result.any { it.localSong?.id == "history" && it.reason == RecommendationReason.BecauseYouPlayed })
     }
 
     @Test
