@@ -110,7 +110,7 @@ fun AudioSpectrumVisualizer(
     }
 
     val primary = OniSkin.colors.primary
-    val secondary = OniSkin.colors.secondary
+    val secondary = OniSkin.colors.accentSecondary
 
     Canvas(
         modifier = modifier
