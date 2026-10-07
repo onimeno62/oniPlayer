@@ -41,13 +41,16 @@ class OnlineMusicRepository(
 
     suspend fun newReleases(): List<ProviderSectionResult<List<RemoteAlbum>>> =
         providersSupporting(ProviderCapability.NEW_RELEASES).map { provider ->
-            ProviderSectionResult(provider.id, provider.getNewReleases())
+            ProviderSectionResult(
+                providerId = provider.id,
+                result = safeProviderCall(provider) { provider.getNewReleases() }
+            )
         }
 
     suspend fun trending(): List<ProviderSectionResult<List<RemoteMusicItem>>> =
         providersSupporting(ProviderCapability.TRENDING).map { provider ->
             val cached = cached(trendingCache, provider.id)
-            val result = cached ?: provider.getTrending().also { put(trendingCache, provider.id, it) }
+            val result = cached ?: safeProviderCall(provider) { provider.getTrending() }.also { put(trendingCache, provider.id, it) }
             ProviderSectionResult(provider.id, result)
         }
 
@@ -65,6 +68,23 @@ class OnlineMusicRepository(
     private fun <K, V> put(cache: MutableMap<K, CacheEntry<V>>, key: K, value: V) {
         cache[key] = CacheEntry(System.currentTimeMillis(), value)
     }
+
+    private suspend fun <T> safeProviderCall(
+        provider: MusicProvider,
+        block: suspend () -> ProviderResult<T>
+    ): ProviderResult<T> =
+        try {
+            block()
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            ProviderResult.Failure(
+                providerId = provider.id,
+                kind = ProviderFailureKind.Unknown,
+                message = error.message,
+                cause = error
+            )
+        }
 
     private data class SearchCacheKey(
         val providerId: String,
