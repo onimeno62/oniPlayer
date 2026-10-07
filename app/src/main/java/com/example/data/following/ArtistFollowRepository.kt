@@ -4,6 +4,7 @@ import com.example.data.database.SongDao
 import com.example.data.entity.FollowedArtistEntity
 import com.example.data.entity.FollowedArtistReleaseEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.Flow
 
 class ArtistFollowRepository(
     private val dao: SongDao
@@ -44,6 +45,8 @@ class ArtistFollowRepository(
             )
         }
     }
+    fun followedReleases(): Flow<List<FollowedArtistReleaseEntity>> = dao.getFollowedArtistReleases()
+
     suspend fun saveReleases(releases: List<FollowedArtistRelease>) {
         if (releases.isEmpty()) return
         dao.insertFollowedArtistReleases(
