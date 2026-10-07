@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 sealed interface DiscoverLoadState {
@@ -42,6 +43,7 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
     private val repository = OnlineMusicRepository(DefaultMusicProviders.create())
 
     private val _uiState = MutableStateFlow(DiscoverUiState())
+    private var searchJob: Job? = null
     private val _localSongs = MutableStateFlow<List<SongEntity>>(emptyList())
 
     val recentlyPlayed: StateFlow<List<SongEntity>> = _localSongs
@@ -77,12 +79,13 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
             return
         }
 
-        viewModelScope.launch {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
             _uiState.update { it.copy(search = DiscoverLoadState.Loading) }
             val results = repository.search(query)
             val successful = results.flatMap { result ->
                 when (val value = result.result) {
-                    is ProviderResult.Success<*> -> value.value as List<RemoteMusicItem>
+                    is ProviderResult.Success<*> -> value.value as? List<RemoteMusicItem> ?: emptyList()
                     is ProviderResult.Failure -> emptyList()
                 }
             }
