@@ -40,10 +40,32 @@ class MusicBrainzProvider(
         filter: SearchFilter
     ): ProviderResult<List<RemoteMusicItem>> = withContext(Dispatchers.IO) {
         when (filter) {
-            SearchFilter.Artists -> searchEntity("artist", query) { parseArtist(it) }
-            SearchFilter.Albums -> searchEntity("release", query) { parseRelease(it) }
+            SearchFilter.Artists -> searchEntity("artist", query) { json ->
+                parseArtist(json)?.let { artist ->
+                    RemoteMusicItem(
+                        identity = artist.identity,
+                        title = artist.name,
+                        artistName = artist.name,
+                        artworkUrl = artist.artworkUrl,
+                        musicIdentity = artist.musicIdentity,
+                        metadata = artist.metadata
+                    )
+                }
+            }
+            SearchFilter.Albums -> searchEntity("release", query) { json ->
+                parseRelease(json)?.let { album ->
+                    RemoteMusicItem(
+                        identity = album.identity,
+                        title = album.title,
+                        artistName = album.artistName,
+                        albumName = album.title,
+                        artworkUrl = album.artworkUrl,
+                        musicIdentity = album.musicIdentity
+                    )
+                }
+            }
             SearchFilter.Tracks, SearchFilter.All -> searchEntity("recording", query) { parseRecording(it) }
-            SearchFilter.Playlists -> ProviderResult.Success(emptyList())
+            SearchFilter.Playlists -> ProviderResult.Success<List<RemoteMusicItem>>(emptyList())
         }
     }
 
@@ -143,7 +165,7 @@ class MusicBrainzProvider(
                 if (body.isBlank()) {
                     return ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Empty MusicBrainz response.")
                 }
-                transform(JSONObject(body))?.let(ProviderResult::Success)
+                transform(JSONObject(body))?.let { ProviderResult.Success(it) }
                     ?: ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "MusicBrainz returned an invalid response.")
             }
         } catch (error: kotlinx.coroutines.CancellationException) {
