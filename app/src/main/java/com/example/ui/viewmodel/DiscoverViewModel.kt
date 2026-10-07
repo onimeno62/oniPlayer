@@ -9,6 +9,8 @@ import com.example.data.online.DefaultMusicProviders
 import com.example.data.online.OnlineMusicRepository
 import com.example.data.online.ProviderResult
 import com.example.data.online.RemoteMusicItem
+import com.example.data.online.SearchFilter
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,21 +18,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 sealed interface DiscoverLoadState {
     data object Idle : DiscoverLoadState
     data object Loading : DiscoverLoadState
-    data class Success(
-        val items: List<RemoteMusicItem>,
-        val hasPartialFailures: Boolean = false
-    ) : DiscoverLoadState
+    data class Success(val items: List<RemoteMusicItem>, val hasPartialFailures: Boolean = false) : DiscoverLoadState
     data class Error(val message: String?) : DiscoverLoadState
 }
 
 data class DiscoverUiState(
     val query: String = "",
+    val searchFilter: SearchFilter = SearchFilter.All,
     val trending: DiscoverLoadState = DiscoverLoadState.Idle,
     val search: DiscoverLoadState = DiscoverLoadState.Idle
 )
@@ -46,20 +45,72 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
     private var searchJob: Job? = null
     private val _localSongs = MutableStateFlow<List<SongEntity>>(emptyList())
 
+    val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
+
+    private val rankedSongs: StateFlow<List<SongEntity>> = _localSongs
+        .map { songs ->
+            songs.sortedWith(
+                compareByDescending<SongEntity> { it.playCount }
+                    .thenByDescending { it.lastPlayedTimestamp }
+                    .thenBy { it.displayTitle.lowercase() }
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val recentlyPlayed: StateFlow<List<SongEntity>> = _localSongs
         .map { songs ->
-            songs
-                .filter { it.lastPlayedTimestamp > 0 }
+            songs.filter { it.lastPlayedTimestamp > 0 }
                 .sortedByDescending { it.lastPlayedTimestamp }
                 .take(15)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val favorites: StateFlow<List<SongEntity>> = _localSongs
-        .map { songs -> songs.filter { it.isFavorite }.take(15) }
+        .map { songs ->
+            songs.filter { it.isFavorite }
+                .sortedByDescending { it.lastPlayedTimestamp }
+                .take(15)
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
+    val mostPlayed: StateFlow<List<SongEntity>> = rankedSongs
+        .map { songs -> songs.filter { it.playCount > 0 }.take(15) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val recentlyAdded: StateFlow<List<SongEntity>> = _localSongs
+        .map { songs -> songs.sortedByDescending { it.dateAdded }.take(15) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val madeForYou: StateFlow<List<SongEntity>> = _localSongs
+        .map { songs ->
+            val preferredGenres = songs
+                .filter { it.playCount > 0 || it.isFavorite }
+                .groupingBy { it.displayGenre.trim() }
+                .eachCount()
+                .filterKeys { it.isNotBlank() && !it.equals("Unknown Genre", true) && !it.equals("Local Audio", true) }
+                .entries
+                .sortedByDescending { it.value }
+                .take(3)
+                .map { it.key }
+                .toSet()
+
+            songs.filter { song ->
+                song.playCount == 0 &&
+                    !song.isFavorite &&
+                    (preferredGenres.isEmpty() || song.displayGenre in preferredGenres)
+            }.sortedByDescending { it.dateAdded }.take(15)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val genres: StateFlow<List<String>> = _localSongs
+        .map { songs ->
+            songs.map { it.displayGenre.trim() }
+                .filter { it.isNotBlank() && !it.equals("Unknown Genre", true) && !it.equals("Local Audio", true) }
+                .distinct()
+                .sorted()
+                .take(20)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -72,6 +123,11 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(query = query) }
     }
 
+    fun setSearchFilter(filter: SearchFilter) {
+        _uiState.update { it.copy(searchFilter = filter) }
+        if (_uiState.value.query.isNotBlank()) search()
+    }
+
     fun search() {
         val query = _uiState.value.query.trim()
         if (query.isBlank()) {
@@ -82,7 +138,7 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             _uiState.update { it.copy(search = DiscoverLoadState.Loading) }
-            val results = repository.search(query)
+            val results = repository.search(query, _uiState.value.searchFilter)
             val successful = results.flatMap { result ->
                 when (val value = result.result) {
                     is ProviderResult.Success<*> -> value.value as? List<RemoteMusicItem> ?: emptyList()
@@ -94,8 +150,10 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
                 it.copy(
                     search = when {
                         successful.isNotEmpty() -> DiscoverLoadState.Success(
-                            successful,
-                            hasPartialFailures = failures
+                            successful.distinctBy { item ->
+                                item.identity.providerId + ":" + item.identity.type + ":" + item.identity.itemId
+                            },
+                            failures
                         )
                         failures -> DiscoverLoadState.Error("Online search is currently unavailable.")
                         else -> DiscoverLoadState.Success(emptyList())
@@ -119,7 +177,12 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     trending = when {
-                        items.isNotEmpty() -> DiscoverLoadState.Success(items, failures)
+                        items.isNotEmpty() -> DiscoverLoadState.Success(
+                            items.distinctBy { item ->
+                                item.identity.providerId + ":" + item.identity.type + ":" + item.identity.itemId
+                            },
+                            failures
+                        )
                         failures -> DiscoverLoadState.Error("Online trending is currently unavailable.")
                         else -> DiscoverLoadState.Success(emptyList())
                     }
