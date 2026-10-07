@@ -1,7 +1,7 @@
 # Task Master — oniPlayer Music Platform
 
 Branch: docs/music-platform-spec-kit
-Status: D0 provider contracts implemented; D1+ remain pending
+Status: D0 implemented; D1 Discover foundation implemented; D2 Audius and D3 MusicBrainz initial implementations in place; validation/integration hardening remains
 
 ## Dependency graph
 
