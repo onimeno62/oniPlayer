@@ -10,6 +10,7 @@ import com.example.data.online.OnlineMusicRepository
 import com.example.data.online.ProviderResult
 import com.example.data.online.RemoteMusicItem
 import com.example.data.online.SearchFilter
+import com.example.data.following.ArtistFollowRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,12 +42,17 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
         OniDatabase.getDatabase(application).songDao()
     )
     private val repository = OnlineMusicRepository(DefaultMusicProviders.create())
+    private val artistFollowRepository = ArtistFollowRepository(OniDatabase.getDatabase(application).songDao())
 
     private val _uiState = MutableStateFlow(DiscoverUiState())
     private var searchJob: Job? = null
     private val _localSongs = MutableStateFlow<List<SongEntity>>(emptyList())
 
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
+
+    val followedArtistIds: StateFlow<Set<String>> = artistFollowRepository.followedArtists()
+        .map { artists -> artists.map { it.canonicalArtistId }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     private val rankedSongs: StateFlow<List<SongEntity>> = _localSongs
         .map { songs ->
@@ -147,6 +153,18 @@ class DiscoverViewModel(application: Application) : AndroidViewModel(application
                 failures -> DiscoverLoadState.Error("New releases are currently unavailable.")
                 else -> DiscoverLoadState.Success(emptyList())
             }) }
+        }
+    }
+
+    fun toggleFollowArtist(item: RemoteMusicItem) {
+        val artistId = item.musicIdentity.canonicalArtistId ?: return
+        val artistName = item.artistName?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            if (artistId in followedArtistIds.value) {
+                artistFollowRepository.unfollow(artistId)
+            } else {
+                artistFollowRepository.follow(artistId, artistName, item.artworkUrl)
+            }
         }
     }
 
