@@ -20,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.data.preferences.PlayerSettingsStore
+import com.example.data.following.ArtistReleaseSyncScheduler
 import com.example.ui.screens.MainAppContainer
 import com.example.ui.viewmodel.MusicPlayerViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ArtistReleaseSyncScheduler.schedule(applicationContext)
         val openedForCategory = intent?.hasExtra(EXTRA_CATEGORY_INDEX) == true
         handleIntent(intent)
         enableEdgeToEdge()
