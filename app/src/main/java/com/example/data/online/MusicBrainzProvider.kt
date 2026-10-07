@@ -5,8 +5,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
-import java.time.ZoneOffset
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -93,8 +95,11 @@ class MusicBrainzProvider(
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "MusicBrainz does not rank recommendations.")
 
     override suspend fun getNewReleases(): ProviderResult<List<RemoteAlbum>> = withContext(Dispatchers.IO) {
-        val end = LocalDate.now(ZoneOffset.UTC)
-        val start = end.minusDays(90)
+        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        val endCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        val startCalendar = (endCalendar.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -90) }
+        val start = formatter.format(startCalendar.time)
+        val end = formatter.format(endCalendar.time)
         val query = "firstreleasedate:[" + start + " TO " + end + "]"
         val url = "$BASE_URL/release-group".toHttpUrl().newBuilder()
             .addQueryParameter("query", query)
