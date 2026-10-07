@@ -93,6 +93,16 @@ data class RemoteAlbum(
     val musicIdentity: MusicIdentity = MusicIdentity()
 )
 
+data class ProviderSearchResult(
+    val providerId: String,
+    val result: ProviderResult<List<RemoteMusicItem>>
+)
+
+data class ProviderSectionResult<T>(
+    val providerId: String,
+    val result: ProviderResult<T>
+)
+
 data class RecommendationSeed(
     val trackProviderIds: List<ProviderIdentity> = emptyList(),
     val artistProviderIds: List<ProviderIdentity> = emptyList(),
