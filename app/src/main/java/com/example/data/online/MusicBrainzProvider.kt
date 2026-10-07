@@ -73,7 +73,7 @@ class MusicBrainzProvider(
     override suspend fun getTrending(): ProviderResult<List<RemoteMusicItem>> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported, "MusicBrainz does not provide popularity ranking.")
 
-    private fun <T> searchEntity(
+    private suspend fun <T> searchEntity(
         entity: String,
         query: String,
         parser: (JSONObject) -> T?
@@ -91,7 +91,7 @@ class MusicBrainzProvider(
             .build()
 
         return executeRateLimited(request) { root ->
-            val data = root.optJSONArray("$entity-list") ?: return@execute emptyList()
+            val data = root.optJSONArray("$entity-list") ?: return@executeRateLimited emptyList()
             buildList {
                 for (index in 0 until data.length()) parser(data.optJSONObject(index))?.let(::add)
             }
@@ -126,7 +126,7 @@ class MusicBrainzProvider(
 
     private fun <T> execute(
         request: Request,
-        transform: (JSONObject) -> T
+        transform: (JSONObject) -> T?
     ): ProviderResult<T> =
         try {
             client.newCall(request).execute().use { response ->
@@ -143,7 +143,8 @@ class MusicBrainzProvider(
                 if (body.isBlank()) {
                     return ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "Empty MusicBrainz response.")
                 }
-                ProviderResult.Success(transform(JSONObject(body)))
+                transform(JSONObject(body))?.let(ProviderResult::Success)
+                    ?: ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, "MusicBrainz returned an invalid response.")
             }
         } catch (error: Exception) {
             ProviderResult.Failure(id, ProviderFailureKind.Network, error.message, error)
