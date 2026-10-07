@@ -30,11 +30,26 @@ class RecommendationEngine {
             .filter { it.playCount == 0 && !it.isFavorite }
             .map { song ->
                 var score = 0
-                if (normalize(song.displayArtist) in artists) score += 100
-                if (isUsefulGenre(song.displayGenre) && normalize(song.displayGenre) in genres) score += 45
-                if (normalize(song.displayAlbum) in albums) score += 15
+                var hasAffinity = false
+
+                if (normalize(song.displayArtist) in artists) {
+                    score += 100
+                    hasAffinity = true
+                }
+                if (isUsefulGenre(song.displayGenre) && normalize(song.displayGenre) in genres) {
+                    score += 45
+                    hasAffinity = true
+                }
+                if (normalize(song.displayAlbum) in albums) {
+                    score += 15
+                    hasAffinity = true
+                }
                 score += minOf(song.rating.coerceAtLeast(0), 5) * 3
-                score += recencyBonus(song.dateAdded)
+
+                if (hasAffinity) {
+                    score += recencyBonus(song.dateAdded)
+                }
+
                 Ranked(song, score)
             }
             .filter { it.score > 0 }
@@ -68,11 +83,23 @@ class RecommendationEngine {
             }
             .map { song ->
                 var score = 0
-                if (isUsefulGenre(song.displayGenre) && normalize(song.displayGenre) in genres) score += 70
-                if (normalize(song.displayAlbum) in albums) score += 20
+                var hasAffinity = false
+
+                if (isUsefulGenre(song.displayGenre) && normalize(song.displayGenre) in genres) {
+                    score += 70
+                    hasAffinity = true
+                }
+                if (normalize(song.displayAlbum) in albums) {
+                    score += 20
+                    hasAffinity = true
+                }
                 if (song.rating >= 3) score += song.rating * 2
                 if (song.playCount > 0) score += minOf(song.playCount, 10)
-                score += recencyBonus(song.dateAdded)
+
+                if (hasAffinity) {
+                    score += recencyBonus(song.dateAdded)
+                }
+
                 Ranked(song, score)
             }
             .filter { it.score > 0 }
