@@ -58,9 +58,9 @@ class RecommendationEngine {
             .filter { it.filePath.isNotBlank() }
             .map { song ->
                 val personal = normalizedAffinity(
-                    artistAffinity[song.displayArtist],
-                    albumAffinity[song.displayAlbum],
-                    genreAffinity[song.displayGenre]
+                    artistAffinity[song.displayArtist.trim().lowercase()],
+                    albumAffinity[song.displayAlbum.trim().lowercase()],
+                    genreAffinity[song.displayGenre.trim().lowercase()]
                 )
                 val favorite = if (song.isFavorite) 0.25 else 0.0
                 val playSignal = min(song.playCount / 10.0, 1.0) * 0.15
@@ -99,8 +99,8 @@ class RecommendationEngine {
             .distinctBy { it.identity.providerId + ":" + it.identity.type + ":" + it.identity.itemId }
             .filter { it.identity !in snapshot.recentExternalIds }
             .map { item ->
-                val artistAffinity = preferredArtists[item.artistName].orZero()
-                val genreAffinity = preferredGenres[item.metadata["genre"]].orZero()
+                val artistAffinity = preferredArtists[item.artistName.orEmpty().trim().lowercase()].orZero()
+                val genreAffinity = preferredGenres[item.metadata["genre"].orEmpty().trim().lowercase()].orZero()
                 val freshness = if (item.metadata["release_date"].isNullOrBlank()) 0.0 else 0.20
                 val trending = if (item.metadata["source"] == "trending") 0.25 else 0.0
                 val score = artistAffinity * 0.55 + genreAffinity * 0.20 + freshness + trending
