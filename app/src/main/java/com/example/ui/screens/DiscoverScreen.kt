@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +37,7 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val newReleases = state.newReleases
+    val followedArtistIds by viewModel.followedArtistIds.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -65,7 +68,15 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
         when (newReleases) {
             DiscoverLoadState.Idle -> Unit
             DiscoverLoadState.Loading -> item { LoadingSection() }
-            is DiscoverLoadState.Success -> item { DiscoverSection("New Releases", newReleases.items, newReleases.hasPartialFailures) }
+            is DiscoverLoadState.Success -> item {
+                DiscoverSection(
+                    title = "New Releases",
+                    items = newReleases.items,
+                    hasPartialFailures = newReleases.hasPartialFailures,
+                    followedArtistIds = followedArtistIds,
+                    onToggleFollow = viewModel::toggleFollowArtist
+                )
+            }
             is DiscoverLoadState.Error -> item { ErrorText(newReleases.message) }
         }
 
@@ -131,7 +142,15 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
         when (val search = state.search) {
             DiscoverLoadState.Idle -> Unit
             DiscoverLoadState.Loading -> item { LoadingSection() }
-            is DiscoverLoadState.Success -> item { DiscoverSection("Search Results", search.items, search.hasPartialFailures) }
+            is DiscoverLoadState.Success -> item {
+                DiscoverSection(
+                    title = "Search Results",
+                    items = search.items,
+                    hasPartialFailures = search.hasPartialFailures,
+                    followedArtistIds = followedArtistIds,
+                    onToggleFollow = viewModel::toggleFollowArtist
+                )
+            }
             is DiscoverLoadState.Error -> item { ErrorText(search.message) }
         }
 
@@ -152,7 +171,15 @@ fun DiscoverScreen(viewModel: DiscoverViewModel = viewModel()) {
         when (val trending = state.trending) {
             DiscoverLoadState.Idle -> Unit
             DiscoverLoadState.Loading -> item { LoadingSection() }
-            is DiscoverLoadState.Success -> item { DiscoverSection(null, trending.items, trending.hasPartialFailures) }
+            is DiscoverLoadState.Success -> item {
+                DiscoverSection(
+                    title = null,
+                    items = trending.items,
+                    hasPartialFailures = trending.hasPartialFailures,
+                    followedArtistIds = followedArtistIds,
+                    onToggleFollow = viewModel::toggleFollowArtist
+                )
+            }
             is DiscoverLoadState.Error -> item { ErrorText(trending.message) }
         }
     }
@@ -207,7 +234,13 @@ private fun LocalSection(title: String, songs: List<SongEntity>) {
 }
 
 @Composable
-private fun DiscoverSection(title: String?, items: List<RemoteMusicItem>, hasPartialFailures: Boolean) {
+private fun DiscoverSection(
+    title: String?,
+    items: List<RemoteMusicItem>,
+    hasPartialFailures: Boolean,
+    followedArtistIds: Set<String>,
+    onToggleFollow: (RemoteMusicItem) -> Unit
+) {
     DiscoverTextSection(title ?: "Results") {
         if (items.isEmpty()) {
             Text("No results found.", style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary)
@@ -217,15 +250,23 @@ private fun DiscoverSection(title: String?, items: List<RemoteMusicItem>, hasPar
             Text("Some online sources are temporarily unavailable.", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
-            items(items, key = { it.identity.providerId + ":" + it.identity.type + ":" + it.identity.itemId }) {
-                DiscoverItem(it)
+            items(items, key = { it.identity.providerId + ":" + it.identity.type + ":" + it.identity.itemId }) { item ->
+                DiscoverItem(
+                    item = item,
+                    isArtistFollowed = followedArtistIds.contains(item.musicIdentity.canonicalArtistId),
+                    onToggleFollow = onToggleFollow
+                )
             }
         }
     }
 }
 
 @Composable
-private fun DiscoverItem(item: RemoteMusicItem) {
+private fun DiscoverItem(
+    item: RemoteMusicItem,
+    isArtistFollowed: Boolean,
+    onToggleFollow: (RemoteMusicItem) -> Unit
+) {
     OniSurface(
         modifier = Modifier.size(width = 300.dp, height = 104.dp).clip(OniSkin.shapes.card),
         containerColor = OniSkin.surfaces.soft.containerColor
@@ -245,6 +286,17 @@ private fun DiscoverItem(item: RemoteMusicItem) {
                 Text(item.title, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(item.artistName ?: item.identity.providerId, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(item.identity.providerId, style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary, maxLines = 1)
+            }
+            if (item.musicIdentity.canonicalArtistId != null && !item.artistName.isNullOrBlank()) {
+                IconButton(
+                    onClick = { onToggleFollow(item) },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isArtistFollowed) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
+                        contentDescription = if (isArtistFollowed) "Unfollow artist" else "Follow artist"
+                    )
+                }
             }
         }
     }
