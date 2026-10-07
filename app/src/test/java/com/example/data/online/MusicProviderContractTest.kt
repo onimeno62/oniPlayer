@@ -21,6 +21,15 @@ class MusicProviderContractTest {
     }
 
     @Test
+    fun default_providers_are_optional_and_capability_driven() {
+        val providers = DefaultMusicProviders.create()
+
+        assertEquals(setOf("audius", "musicbrainz"), providers.map { it.id }.toSet())
+        assertTrue(providers.first { it.id == "audius" }.capabilities.supports(ProviderCapability.STREAM))
+        assertTrue(!providers.first { it.id == "musicbrainz" }.capabilities.supports(ProviderCapability.STREAM))
+    }
+
+    @Test
     fun repository_isolates_provider_failure() = runTest {
         val failing = FakeProvider(
             id = "failing",
