@@ -7,8 +7,9 @@ package com.example.data.online
  * consumers of OnlineMusicRepository.
  */
 object DefaultMusicProviders {
-    fun create(): List<MusicProvider> = listOf(
-        AudiusMusicProvider(),
-        MusicBrainzProvider()
-    )
+    fun create(youtubeApiKey: String? = null): List<MusicProvider> = buildList {
+        add(AudiusMusicProvider())
+        add(MusicBrainzProvider())
+        youtubeApiKey?.takeIf { it.isNotBlank() }?.let { add(YouTubeMusicProvider(it)) }
+    }
 }

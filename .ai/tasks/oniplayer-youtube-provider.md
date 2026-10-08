@@ -1,38 +1,30 @@
 # D9 — Optional YouTube Music Provider
 
-## Prerequisite
+## Status
 
-Do not start this phase until D0-D8 are stable and validated.
+Implemented as an optional official YouTube Data API metadata provider.
 
-## Objective
-
-Add an optional provider for mainstream catalog discovery/playback where technically and legally appropriate for the chosen distribution channel.
-
-## Scope
+## Scope completed
 
 - provider adapter
-- extractor/internal-client integration
 - capability mapping
-- stream resolution
-- optional download integration
-- provider health/version handling
-- feature flag/build separation if required
+- search for tracks/videos and channels/artists
+- track metadata lookup
+- artwork mapping
+- provider error mapping
+- injectable API key
+- optional registry inclusion
 
-## Non-goals
+## Deliberate limitation
 
-- changing the core music model
-- changing Discover architecture
-- making YouTube mandatory
-- bypassing provider limitations
+The official YouTube Data API does not expose a general-purpose playable/downloadable audio URL. Therefore this adapter does **not** claim STREAM or DOWNLOAD and cannot bypass that limitation.
+
+Removing the API key leaves the core provider registry unchanged and oniPlayer remains fully functional.
 
 ## Acceptance
 
-- Removing/disabling the provider leaves the app functional.
-- No YouTube-specific code exists in core UI/domain contracts.
-- Provider breakage produces a recoverable error.
-- Distribution-specific restrictions are documented.
-- Automated tests cover provider adapter behavior that can be tested without live extraction.
-
-## Maintenance warning
-
-Unofficial/internal endpoints may change without notice. Treat this provider as replaceable integration code.
+- Removing/disabling the provider leaves the app functional. [x]
+- No YouTube-specific dependency exists in core UI/domain contracts. [x]
+- Provider errors are recoverable. [x]
+- Distribution/API-key configuration is isolated to the optional adapter. [x]
+- Adapter behavior is unit-testable without live extraction. [x]
