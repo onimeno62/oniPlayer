@@ -97,10 +97,10 @@ class YouTubeMusicProvider(
     override suspend fun getTrending(): ProviderResult<List<RemoteMusicItem>> =
         ProviderResult.Failure(id, ProviderFailureKind.Unsupported)
 
-    private fun <T> request(
+    private fun request(
         endpoint: String,
         parameters: Map<String, String>
-    ): ProviderResult<T> {
+    ): ProviderResult<JSONObject> {
         val urlBuilder = "https://www.googleapis.com/youtube/v3/$endpoint".toHttpUrl().newBuilder()
         parameters.forEach { (key, value) -> urlBuilder.addQueryParameter(key, value) }
         urlBuilder.addQueryParameter("key", apiKey)
@@ -116,8 +116,7 @@ class YouTubeMusicProvider(
                         else -> ProviderResult.Failure(id, ProviderFailureKind.Network, "HTTP " + response.code)
                     }
                 }
-                @Suppress("UNCHECKED_CAST")
-                ProviderResult.Success(JSONObject(body) as T)
+                ProviderResult.Success(JSONObject(body))
             }
         } catch (error: kotlinx.coroutines.CancellationException) {
             throw error
@@ -126,9 +125,9 @@ class YouTubeMusicProvider(
         }
     }
 
-    private inline fun <T> ProviderResult<Any>.map(transform: (JSONObject) -> T): ProviderResult<T> =
+    private inline fun <T> ProviderResult<JSONObject>.map(transform: (JSONObject) -> T): ProviderResult<T> =
         when (this) {
-            is ProviderResult.Success<*> -> runCatching { ProviderResult.Success(transform(value as JSONObject)) }
+            is ProviderResult.Success<*> -> runCatching { ProviderResult.Success(transform(value)) }
                 .getOrElse { ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, it.message, it) }
             is ProviderResult.Failure -> this
         }
