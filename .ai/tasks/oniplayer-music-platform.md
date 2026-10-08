@@ -1,7 +1,7 @@
 # Task Master — oniPlayer Music Platform
 
 Branch: feature/music-platform-d6-d10
-Status: D0-D8 implemented; D9 optional metadata adapter implemented; D10 validation in progress
+Status: D0-D10 implemented and CI-validated
 
 ## Dependency graph
 
