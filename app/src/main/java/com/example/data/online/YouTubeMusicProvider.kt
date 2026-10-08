@@ -127,7 +127,7 @@ class YouTubeMusicProvider(
 
     private inline fun <T> ProviderResult<JSONObject>.map(transform: (JSONObject) -> T): ProviderResult<T> =
         when (this) {
-            is ProviderResult.Success<*> -> runCatching { ProviderResult.Success(transform(value)) }
+            is ProviderResult.Success -> runCatching { ProviderResult.Success(transform(value)) }
                 .getOrElse { ProviderResult.Failure(id, ProviderFailureKind.InvalidResponse, it.message, it) }
             is ProviderResult.Failure -> this
         }
