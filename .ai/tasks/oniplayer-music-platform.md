@@ -1,7 +1,7 @@
 # Task Master — oniPlayer Music Platform
 
-Branch: docs/music-platform-spec-kit
-Status: D0-D5 implemented; D4 artist following/release sync complete; D6-D10 remain
+Branch: feature/music-platform-d6-d10
+Status: D0-D8 implemented; D9 optional metadata adapter implemented; D10 validation in progress
 
 ## Dependency graph
 
@@ -24,22 +24,29 @@ D0-D8
 D0-D9
   -> D10 Integration/QA
 
+## Current implementation
+
+- D6: persistent capability-gated downloads using WorkManager and MediaStore.
+- D7: deterministic smart-radio queue engine reusing RecommendationEngine.
+- D8: deterministic smart-playlist rules engine.
+- D9: optional official YouTube Data API metadata/search adapter. It is intentionally metadata-only because the official API does not provide a general-purpose playable/downloadable audio URL; STREAM/DOWNLOAD are not falsely claimed.
+- D10: final CI/build/test validation and stale-task cleanup.
+
 ## Global gates
 
 - Inspect current source before each phase.
-- Read applicable docs before implementation.
-- Do not introduce a second playback source of truth.
-- Keep local playback functional without network.
-- Provider failure must be isolated.
-- UI must use active skin tokens.
+- No second playback source of truth.
+- Local playback remains independent of network.
+- Provider failure is isolated.
+- UI uses active skin tokens.
 - Composables remain pure.
-- Each phase requires tests and explicit acceptance checks.
+- Tests and build validation required.
 
 ## Definition of done
 
 - implementation complete
-- unit/integration tests appropriate to the phase
+- appropriate unit/integration tests
 - compile/build validation
 - device validation where UI/background/storage is affected
 - no stale task claims
-- documentation updated with actual implementation
+- documentation matches actual implementation
