@@ -7,6 +7,7 @@ import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.ArtistSummaryEntity
 import com.example.data.entity.FollowedArtistEntity
 import com.example.data.entity.FollowedArtistReleaseEntity
+import com.example.data.entity.DownloadTaskEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -130,6 +131,20 @@ interface SongDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFollowedArtistReleases(releases: List<FollowedArtistReleaseEntity>)
-}
+    // --- Download Tasks ---
+    @Query("SELECT * FROM download_tasks ORDER BY createdAt DESC")
+    fun getDownloadTasks(): Flow<List<DownloadTaskEntity>>
 
+    @Query("SELECT * FROM download_tasks WHERE id = :id LIMIT 1")
+    suspend fun getDownloadTask(id: String): DownloadTaskEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDownloadTask(task: DownloadTaskEntity)
+
+    @Query("UPDATE download_tasks SET status = :status, progressPercent = :progressPercent, bytesDownloaded = :bytesDownloaded, totalBytes = :totalBytes, errorMessage = :errorMessage, updatedAt = :updatedAt, localUri = :localUri, completedAt = :completedAt WHERE id = :id")
+    suspend fun updateDownloadProgress(id: String, status: String, progressPercent: Int, bytesDownloaded: Long, totalBytes: Long, errorMessage: String?, updatedAt: Long, localUri: String?, completedAt: Long?)
+
+    @Query("DELETE FROM download_tasks WHERE id = :id")
+    suspend fun deleteDownloadTask(id: String)
+}
 
