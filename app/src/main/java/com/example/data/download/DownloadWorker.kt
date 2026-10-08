@@ -148,5 +148,5 @@ private class MediaStoreDestination(private val context: Context, private val ti
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) context.contentResolver.delete(target.uri, null, null) else target.file?.delete()
     }
 
-    private fun sanitize(value: String): String = value.replace(Regex("[\\/:*?"<>|]"), "_").trim().ifBlank { "oniPlayer-download" }
+    private fun sanitize(value: String): String = value.replace(Regex("""[\\/:*?"<>|]"""), "_").trim().ifBlank { "oniPlayer-download" }
 }
