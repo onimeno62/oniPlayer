@@ -10,10 +10,11 @@ import com.example.data.entity.PlaylistEntity
 import com.example.data.entity.ArtistSummaryEntity
 import com.example.data.entity.FollowedArtistEntity
 import com.example.data.entity.FollowedArtistReleaseEntity
+import com.example.data.entity.DownloadTaskEntity
 
 @Database(
-    entities = [SongEntity::class, EqualizerPresetEntity::class, PlaylistEntity::class, ArtistSummaryEntity::class, FollowedArtistEntity::class, FollowedArtistReleaseEntity::class],
-    version = 7,
+    entities = [SongEntity::class, EqualizerPresetEntity::class, PlaylistEntity::class, ArtistSummaryEntity::class, FollowedArtistEntity::class, FollowedArtistReleaseEntity::class, DownloadTaskEntity::class],
+    version = 8,
     exportSchema = false
 )
 abstract class OniDatabase : RoomDatabase() {
@@ -53,6 +54,32 @@ abstract class OniDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS download_tasks (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        providerId TEXT NOT NULL,
+                        remoteId TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        artistName TEXT,
+                        albumName TEXT,
+                        artworkUrl TEXT,
+                        sourceUrl TEXT NOT NULL,
+                        localUri TEXT,
+                        status TEXT NOT NULL,
+                        progressPercent INTEGER NOT NULL,
+                        bytesDownloaded INTEGER NOT NULL,
+                        totalBytes INTEGER NOT NULL,
+                        errorMessage TEXT,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        completedAt INTEGER
+                    )
+                """.trimIndent())
+            }
+        }
+
         @Volatile
         private var INSTANCE: OniDatabase? = null
 
@@ -63,7 +90,7 @@ abstract class OniDatabase : RoomDatabase() {
                     OniDatabase::class.java,
                     "oni_player_database"
                 )
-                .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
