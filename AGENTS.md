@@ -63,3 +63,6 @@ For any provider, Discover, recommendation, artist-following, online-search, dow
 18. YouTube Music, if added later, is an optional replaceable provider. The application must remain functional when it is disabled or unavailable.
 19. Required implementation order: provider abstraction -> Discover foundation -> Audius -> MusicBrainz -> recommendations -> artist following/new releases -> downloads -> optional YouTube Music provider.
 20. Do not mark a provider or feature complete from compilation alone; include relevant integration, offline, storage, background, and device validation.
+21. D6 downloads require both ProviderCapability.DOWNLOAD and an explicit downloadUrl; never promote a streamUrl into a download source.
+22. Smart Radio and Smart Playlists are engines/use cases; they must not create a second playback or queue state source. PlaybackController remains authoritative.
+23. The optional YouTube adapter uses only documented/official API capabilities and must not claim STREAM or DOWNLOAD when the API does not provide those capabilities.
