@@ -3,12 +3,11 @@ package com.example.ui.widgets.skin
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.example.data.preferences.oniSettingsDataStore
 import com.example.ui.theme.DefaultSkin
 import com.example.ui.theme.OniSkinTokens
 import kotlinx.coroutines.flow.first
 
-private val Context.widgetSettingsDataStore by preferencesDataStore(name = "oni_settings")
 private val THEME_OPTION_KEY = stringPreferencesKey("theme_option")
 private val ACCENT_COLOR_KEY = stringPreferencesKey("accent_color_hex")
 
@@ -23,7 +22,7 @@ private val ACCENT_COLOR_KEY = stringPreferencesKey("accent_color_hex")
 object WidgetSkinResolver {
     suspend fun resolveActiveSkin(context: Context): OniSkinTokens {
         return try {
-            val prefs = context.widgetSettingsDataStore.data.first()
+            val prefs = context.oniSettingsDataStore.data.first()
             val themeOption = prefs[THEME_OPTION_KEY] ?: "Dark"
             val accentHex = prefs[ACCENT_COLOR_KEY] ?: "#3B73E3"
             val parsedAccent = try {

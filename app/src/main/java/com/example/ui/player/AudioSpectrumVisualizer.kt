@@ -81,17 +81,20 @@ fun AudioSpectrumVisualizer(
             }
 
             try {
-                visualizer = Visualizer(audioSessionId).apply {
-                    val range = Visualizer.getCaptureSizeRange()
-                    setCaptureSize(minOf(1024, range[1]).coerceAtLeast(range[0]))
-                    setScalingMode(Visualizer.SCALING_MODE_NORMALIZED)
-                    setDataCaptureListener(
-                        fftListener,
-                        Visualizer.getMaxCaptureRate(),
-                        false,
-                        true
-                    )
-                    enabled = true
+                val range = runCatching { Visualizer.getCaptureSizeRange() }.getOrNull()
+                if (range != null && range.size >= 2) {
+                    visualizer = Visualizer(audioSessionId).apply {
+                        val captureSize = minOf(1024, range[1]).coerceAtLeast(range[0])
+                        setCaptureSize(captureSize)
+                        setScalingMode(Visualizer.SCALING_MODE_NORMALIZED)
+                        setDataCaptureListener(
+                            fftListener,
+                            Visualizer.getMaxCaptureRate(),
+                            false,
+                            true
+                        )
+                        enabled = true
+                    }
                 }
             } catch (_: Throwable) {
                 runCatching { visualizer?.release() }

@@ -153,7 +153,7 @@ class MusicRepository(
                         extTrack = existingForMeta.track
                         extYear = existingForMeta.year
                         extComment = existingForMeta.comment
-                    } else if (filePath != null) {
+                    } else if (filePath != null && !filePath.startsWith("http://", ignoreCase = true) && !filePath.startsWith("https://", ignoreCase = true)) {
                         try {
                             val fileMeta = com.example.data.api.GeminiMusicService.readActualFileMetadata(filePath)
                             extGenre = fileMeta.genre?.takeIf { it.isNotBlank() } ?: "Unknown Genre"

@@ -1,6 +1,7 @@
 package com.example.playback
 
 import android.content.Context
+import android.media.audiofx.AudioEffect
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Bundle
@@ -21,6 +22,7 @@ import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.exoplayer.source.ShuffleOrder
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.session.MediaSession
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSessionService
@@ -51,12 +53,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.example.data.preferences.oniSettingsDataStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Service-owned playback engine. The Activity and ViewModels never own ExoPlayer. */
-private val Context.playbackSettingsStore by preferencesDataStore(name = "oni_settings")
 
 @OptIn(UnstableApi::class)
 class PlaybackController(private val service: MediaSessionService) {
@@ -153,6 +154,14 @@ class PlaybackController(private val service: MediaSessionService) {
         ) {
         }
 
+        override fun buildMiscellaneousRenderers(
+            context: Context,
+            eventHandler: Handler,
+            extensionRendererMode: Int,
+            out: ArrayList<Renderer>
+        ) {
+        }
+
         override fun buildAudioSink(
             context: Context,
             enableFloatOutput: Boolean,
@@ -168,7 +177,19 @@ class PlaybackController(private val service: MediaSessionService) {
         setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
     }
 
-    val player = ExoPlayer.Builder(context, renderersFactory).setHandleAudioBecomingNoisy(true).build()
+    private val trackSelector = DefaultTrackSelector(context).apply {
+        setParameters(
+            buildUponParameters()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+                .setTrackTypeDisabled(C.TRACK_TYPE_IMAGE, true)
+                .setTrackTypeDisabled(C.TRACK_TYPE_CAMERA_MOTION, true)
+        )
+    }
+
+    val player = ExoPlayer.Builder(context, renderersFactory)
+        .setTrackSelector(trackSelector)
+        .setHandleAudioBecomingNoisy(true)
+        .build()
     val mediaSession = MediaSession.Builder(service, player)
         .setId("oni_session_${System.identityHashCode(this)}")
         .setCallback(SessionCallback())
@@ -322,7 +343,7 @@ class PlaybackController(private val service: MediaSessionService) {
             }
         }
         scope.launch {
-            context.playbackSettingsStore.data.collect { prefs ->
+            context.oniSettingsDataStore.data.collect { prefs ->
                 if (isReleased) return@collect
                 val savedDelay = (prefs[intPreferencesKey("playback_delay_seconds")] ?: 0).coerceAtLeast(0)
                 if (savedDelay != playbackDelayController.delaySeconds) {
@@ -330,11 +351,6 @@ class PlaybackController(private val service: MediaSessionService) {
                     applyRepeatMode()
                     publish()
                 }
-            }
-        }
-        scope.launch {
-            context.playbackSettingsStore.data.collect { prefs ->
-                if (isReleased) return@collect
                 crossfadeEnabled = prefs[booleanPreferencesKey("crossfade_enabled")] ?: false
                 crossfadeDurationMs = (prefs[intPreferencesKey("crossfade_duration_seconds")] ?: 5)
                     .coerceIn(0, 30) * 1000L
@@ -369,7 +385,14 @@ class PlaybackController(private val service: MediaSessionService) {
     private fun applyLoudnessBoost(sessionId: Int) {
         val gainMb = (playerSettings.loudnessBoostDb * 100f).toInt()
         try {
-            if (gainMb <= 0 || sessionId == C.AUDIO_SESSION_ID_UNSET) {
+            if (gainMb <= 0 || sessionId <= 0 || sessionId == C.AUDIO_SESSION_ID_UNSET) {
+                loudnessEnhancer?.setEnabled(false)
+                return
+            }
+            val supported = runCatching {
+                AudioEffect.queryEffects()?.any { it.type == AudioEffect.EFFECT_TYPE_LOUDNESS_ENHANCER } == true
+            }.getOrDefault(false)
+            if (!supported) {
                 loudnessEnhancer?.setEnabled(false)
                 return
             }

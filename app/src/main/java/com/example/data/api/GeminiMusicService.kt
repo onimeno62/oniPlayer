@@ -268,19 +268,18 @@ object GeminiMusicService {
      * Reads the actual physical metadata of an audio file in real-time.
      */
     suspend fun readActualFileMetadata(filePath: String): FileMetadata = withContext(Dispatchers.IO) {
-        val retriever = android.media.MediaMetadataRetriever()
+        if (filePath.startsWith("http://", ignoreCase = true) || filePath.startsWith("https://", ignoreCase = true)) {
+            return@withContext FileMetadata(null, null, null, null, null, null, null, null, null, null, 0L)
+        }
+        val file = java.io.File(filePath)
+        if (!file.exists() || !file.isFile || file.length() <= 0L) {
+            return@withContext FileMetadata(null, null, null, null, null, null, null, null, null, null, 0L)
+        }
+        var retriever: android.media.MediaMetadataRetriever? = null
         try {
-            if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
-                retriever.setDataSource(filePath, HashMap())
-            } else {
-                val file = java.io.File(filePath)
-                if (file.exists() && file.isFile) {
-                    java.io.FileInputStream(file).use { fis ->
-                        retriever.setDataSource(fis.fd)
-                    }
-                } else {
-                    retriever.setDataSource(filePath)
-                }
+            retriever = android.media.MediaMetadataRetriever()
+            java.io.FileInputStream(file).use { fis ->
+                retriever.setDataSource(fis.fd)
             }
             FileMetadata(
                 title = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE),
@@ -296,12 +295,12 @@ object GeminiMusicService {
                 duration = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to extract metadata from $filePath: ${e.message}")
+            Log.w(TAG, "Failed to extract metadata from $filePath: ${e.message}")
             FileMetadata(null, null, null, null, null, null, null, null, null, null, 0L)
         } finally {
             try {
-                retriever.release()
-            } catch (ex: Exception) {}
+                retriever?.release()
+            } catch (_: Exception) {}
         }
     }
 

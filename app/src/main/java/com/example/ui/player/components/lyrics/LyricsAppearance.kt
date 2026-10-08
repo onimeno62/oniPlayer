@@ -105,11 +105,12 @@ fun LyricLineContent(
         else -> 0f
     }
 
+    val effectiveFontSizeSp = fontSizeOverrideSp ?: appearance.fontSizeSp
     Text(
         text = text,
         style = base.copy(
-            fontSize = appearance.fontSizeSp.sp,
-            lineHeight = (appearance.fontSizeSp * 1.33f).sp,
+            fontSize = effectiveFontSizeSp.sp,
+            lineHeight = (effectiveFontSizeSp * 1.33f).sp,
             fontWeight = weight,
             textDirection = TextDirection.Content
         ),

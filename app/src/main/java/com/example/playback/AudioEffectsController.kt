@@ -3,6 +3,7 @@ package com.example.playback
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.Virtualizer
@@ -53,25 +54,35 @@ class AudioEffectsController(private val context: Context) {
         currentSessionId = sessionId
         releaseEffects()
 
-        try {
-            equalizer = Equalizer(0, sessionId).apply { enabled = true }
-        } catch (e: Exception) {
-            Log.w(TAG, "Equalizer unavailable: ${e.message}")
-            equalizer = null
+        val supportedEffects = runCatching {
+            AudioEffect.queryEffects()?.map { it.type }?.toSet()
+        }.getOrNull() ?: emptySet()
+
+        if (AudioEffect.EFFECT_TYPE_EQUALIZER in supportedEffects) {
+            try {
+                equalizer = Equalizer(0, sessionId).apply { enabled = true }
+            } catch (e: Throwable) {
+                Log.w(TAG, "Equalizer unavailable: ${e.message}")
+                equalizer = null
+            }
         }
 
-        try {
-            bassBoost = BassBoost(0, sessionId).apply { enabled = true }
-        } catch (e: Exception) {
-            Log.w(TAG, "BassBoost unavailable: ${e.message}")
-            bassBoost = null
+        if (AudioEffect.EFFECT_TYPE_BASS_BOOST in supportedEffects) {
+            try {
+                bassBoost = BassBoost(0, sessionId).apply { enabled = true }
+            } catch (e: Throwable) {
+                Log.w(TAG, "BassBoost unavailable: ${e.message}")
+                bassBoost = null
+            }
         }
 
-        try {
-            virtualizer = Virtualizer(0, sessionId).apply { enabled = true }
-        } catch (e: Exception) {
-            Log.w(TAG, "Virtualizer unavailable: ${e.message}")
-            virtualizer = null
+        if (AudioEffect.EFFECT_TYPE_VIRTUALIZER in supportedEffects) {
+            try {
+                virtualizer = Virtualizer(0, sessionId).apply { enabled = true }
+            } catch (e: Throwable) {
+                Log.w(TAG, "Virtualizer unavailable: ${e.message}")
+                virtualizer = null
+            }
         }
 
         val hasRecordPermission = ContextCompat.checkSelfPermission(

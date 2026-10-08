@@ -1856,24 +1856,16 @@ fun SongStaticDataCard(song: SongEntity) {
         } else null
     }
 
-    val audioDetails = remember(song.filePath) {
-        try {
-            val retriever = android.media.MediaMetadataRetriever()
-            retriever.setDataSource(song.filePath)
-            val sr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
-            val bitr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE)
-            retriever.release()
-
-            val sampleRateStr = sr?.toIntOrNull()?.let { hz ->
-                String.format(java.util.Locale.US, "%.1f kHz", hz / 1000.0)
-            }
-            val detectedBitrate = bitr?.toIntOrNull()?.let { b ->
-                "${b / 1000} kbps"
-            }
-            Pair(sampleRateStr, detectedBitrate)
-        } catch (_: Throwable) {
-            Pair(null, null)
-        }
+    val audioDetails = remember(song, file) {
+        val detectedBitrate = if (song.bitrate > 0) {
+            "${song.bitrate} kbps"
+        } else if (file.exists() && file.length() > 0 && song.duration > 0) {
+            val kbps = ((file.length() * 8) / song.duration).toInt()
+            if (kbps > 0) "$kbps kbps" else null
+        } else null
+        val path = song.filePath.lowercase()
+        val defaultSampleRate = if (path.endsWith(".opus") || path.endsWith(".ogg") || path.endsWith(".aac")) "48.0 kHz" else "44.1 kHz"
+        Pair(defaultSampleRate, detectedBitrate)
     }
 
     val formatBadge = remember(song) {

@@ -16,7 +16,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.example.data.preferences.oniSettingsDataStore
 import com.example.data.database.OniDatabase
 import com.example.data.entity.EqualizerPresetEntity
 import com.example.data.entity.SongEntity
@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
 
-private val android.content.Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "oni_settings")
+private val android.content.Context.dataStore: DataStore<Preferences> get() = oniSettingsDataStore
 private val THEME_OPTION_KEY = stringPreferencesKey("theme_option")
 private val ACCENT_COLOR_KEY = stringPreferencesKey("accent_color_hex")
 private val MATERIAL_YOU_KEY = booleanPreferencesKey("material_you_enabled")
