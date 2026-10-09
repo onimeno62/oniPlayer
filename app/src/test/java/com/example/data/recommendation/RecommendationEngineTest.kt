@@ -44,6 +44,27 @@ class RecommendationEngineTest {
     }
 
     @Test
+    fun oldListeningHistoryIsRecognizedAsStaleAgainstCurrentTime() {
+        val now = 1_800_000_000_000L
+        val oldSong = song(
+            id = "old",
+            title = "Old Favorite",
+            artist = "Artist A",
+            genre = "Rock",
+            playCount = 1,
+            lastPlayedTimestamp = now - 45L * 24 * 60 * 60 * 1_000
+        )
+
+        val result = RecommendationEngine { now }.recommend(
+            RecommendationSnapshot(listOf(oldSong)),
+            limit = 1
+        ).single()
+
+        assertEquals("old", result.localSong?.id)
+        assertEquals(RecommendationReason.YouHaventPlayedInAWhile, result.reason)
+    }
+
+    @Test
     fun diversityLimitsSingleArtistSaturation() {
         val songs = (1..6).map { index ->
             song(index.toString(), "Track $index", "Same Artist", "Rock", playCount = 5)
@@ -77,7 +98,8 @@ class RecommendationEngineTest {
         artist: String,
         genre: String,
         playCount: Int = 0,
-        favorite: Boolean = false
+        favorite: Boolean = false,
+        lastPlayedTimestamp: Long = 0L
     ) = SongEntity(
         id = id,
         title = title,
@@ -88,7 +110,8 @@ class RecommendationEngineTest {
         filePath = "/music/$id.mp3",
         albumArtUri = null,
         playCount = playCount,
-        isFavorite = favorite
+        isFavorite = favorite,
+        lastPlayedTimestamp = lastPlayedTimestamp
     )
 
     private fun remote(id: String, title: String, artist: String) = RemoteMusicItem(
