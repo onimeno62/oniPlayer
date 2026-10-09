@@ -1,7 +1,8 @@
 # Task Master — oniPlayer Music Platform
 
-Branch: feature/music-platform-d6-d10
-Status: D0-D10 implemented and CI-validated
+Implementation branch: merged to main
+QA follow-up branch: qa/music-platform-integration
+Status: D0-D10 merged and CI-validated; runtime/device validation remains open
 
 ## Dependency graph
 
@@ -50,3 +51,20 @@ D0-D9
 - device validation where UI/background/storage is affected
 - no stale task claims
 - documentation matches actual implementation
+
+## Integration QA follow-up
+
+- [x] Audit current Discover and recommendation implementation against the current specs.
+- [x] Fix recommendation freshness to compare listening timestamps with the current wall clock rather than the newest timestamp in the library.
+- [x] Add a deterministic regression test for old listening history.
+- [ ] Run Android unit tests and build on this branch; review the CI result before merging.
+- [ ] Validate provider failure/offline behavior, download recovery/storage, followed-artist sync, and Smart Radio/Smart Playlist behavior on an emulator or device.
+- [ ] Record runtime evidence before marking D10/device acceptance complete.
+
+### Confirmed finding
+
+The recommendation engine previously used the maximum `lastPlayedTimestamp` in the library as its reference time. When all history was old, the newest old play was treated as recent and could receive the wrong explanation/score. The engine now accepts an injectable wall-clock function (defaulting to the system clock), and a regression test covers the stale-history case.
+
+### Validation boundary
+
+GitHub source inspection and the regression-test addition are complete. Build/test execution and physical/emulator validation have not yet been performed from this environment; do not treat them as passing until the branch CI result and device checks are observed.
