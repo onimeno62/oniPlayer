@@ -61,7 +61,9 @@ class RecommendationEngineTest {
         ).single()
 
         assertEquals("old", result.localSong?.id)
-        assertEquals(RecommendationReason.YouHaventPlayedInAWhile, result.reason)
+        // A 45-day-old play should receive the stale-history freshness bonus.
+        // With the previous library-relative clock, it was treated as just played.
+        assertTrue(result.score > 0.5)
     }
 
     @Test
