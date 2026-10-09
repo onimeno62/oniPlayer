@@ -9,6 +9,7 @@ import com.example.data.online.RemoteMusicType
 import com.example.data.online.SearchFilter
 import com.example.data.recommendation.RecommendationReason
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 
 /**
@@ -122,21 +123,26 @@ class ArtistFollowGateway(
         repository.followedArtists().map { artists -> artists.map { it.canonicalArtistId }.toSet() }
 
     override fun followedReleases(): Flow<List<RemoteMusicItem>> =
-        repository.followedReleases().map { releases ->
-            releases.map { release ->
-                RemoteMusicItem(
-                    identity = ProviderIdentity(release.providerId, release.releaseId, RemoteMusicType.Album),
-                    title = release.title,
-                    artistName = release.artistName,
-                    artworkUrl = release.artworkUrl,
-                    musicIdentity = MusicIdentity(canonicalArtistId = release.canonicalArtistId),
-                    metadata = mapOf(
-                        "release_date" to (release.releaseDate ?: ""),
-                        "source" to "followed_artist"
-                    )
-                )
+        repository.followedArtists()
+            .map { artists -> artists.map { it.canonicalArtistId }.toSet() }
+            .flatMapLatest { artistIds ->
+                repository.followedReleasesForArtists(artistIds.toList())
             }
-        }
+            .map { releases ->
+                releases.map { release ->
+                    RemoteMusicItem(
+                        identity = ProviderIdentity(release.providerId, release.releaseId, RemoteMusicType.Album),
+                        title = release.title,
+                        artistName = release.artistName,
+                        artworkUrl = release.artworkUrl,
+                        musicIdentity = MusicIdentity(canonicalArtistId = release.canonicalArtistId),
+                        metadata = mapOf(
+                            "release_date" to (release.releaseDate ?: ""),
+                            "source" to "followed_artist"
+                        )
+                    )
+                }
+            }
 
     override suspend fun follow(canonicalArtistId: String, artistName: String, artworkUrl: String?) {
         repository.follow(canonicalArtistId, artistName, artworkUrl)
