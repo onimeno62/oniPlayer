@@ -7,9 +7,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddToQueue
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.data.entity.SongEntity
 import com.example.data.online.RemoteMusicItem
 import com.example.data.online.SearchFilter
 import com.example.ui.components.surface.OniSurface
@@ -66,39 +65,21 @@ fun DiscoverScreen(
             }
         }
 
-        if (local.libraryIsEmpty) {
-            item { EmptyText("Your local library is empty. Scan music from Library to build Discover.") }
-        }
-        LocalStateSection("Made for You", local.madeForYou, viewModel::retryLocal) { cards ->
-            LocalCards(cards, playerViewModel)
-        }
-        LocalStateSection("Continue Listening", local.continueListening, viewModel::retryLocal) { cards ->
-            LocalCards(cards, playerViewModel)
-        }
-        LocalStateSection("Most Played", local.mostPlayed, viewModel::retryLocal) { cards ->
-            LocalCards(cards, playerViewModel)
-        }
-        LocalStateSection("Recently Added", local.recentlyAdded, viewModel::retryLocal) { cards ->
-            LocalCards(cards, playerViewModel)
-        }
-        LocalStateSection("Favorites", local.favorites, viewModel::retryLocal) { cards ->
-            LocalCards(cards, playerViewModel)
-        }
+        if (local.libraryIsEmpty) item { EmptyText("Your local library is empty. Scan music from Library to build Discover.") }
+        item { LocalStateSection("Made for You", local.madeForYou, viewModel::retryLocal) { LocalCards(it, playerViewModel) } }
+        item { LocalStateSection("Continue Listening", local.continueListening, viewModel::retryLocal) { LocalCards(it, playerViewModel) } }
+        item { LocalStateSection("Most Played", local.mostPlayed, viewModel::retryLocal) { LocalCards(it, playerViewModel) } }
+        item { LocalStateSection("Recently Added", local.recentlyAdded, viewModel::retryLocal) { LocalCards(it, playerViewModel) } }
+        item { LocalStateSection("Favorites", local.favorites, viewModel::retryLocal) { LocalCards(it, playerViewModel) } }
+        item { StateSection("From Your Artists", followedState, viewModel::retryFollowedReleases) { RemoteCards(it, followedArtistIds, viewModel::toggleFollowArtist) } }
+        item { StateSection("New Releases", state.newReleases, viewModel::refreshNewReleases) { RemoteCards(it, followedArtistIds, viewModel::toggleFollowArtist) } }
 
-        StateSection("From Your Artists", followedState, viewModel::retryFollowedReleases) { cards ->
-            RemoteCards(cards, followedArtistIds, viewModel::toggleFollowArtist)
-        }
-
-        StateSection("New Releases", state.newReleases, viewModel::refreshNewReleases) { cards ->
-            RemoteCards(cards, followedArtistIds, viewModel::toggleFollowArtist)
-        }
-
-        when (val genres = local.genres) {
-            DiscoverLoadState.Loading -> item { LoadingSection("Explore by Genre") }
-            DiscoverLoadState.Empty -> Unit
-            is DiscoverLoadState.Error -> item { ErrorSection("Explore by Genre", genres.message, viewModel::retryLocal) }
-            is DiscoverLoadState.Success -> item {
-                DiscoverTextSection("Explore by Genre") {
+        item {
+            when (val genres = local.genres) {
+                DiscoverLoadState.Loading -> LoadingSection("Explore by Genre")
+                DiscoverLoadState.Empty, DiscoverLoadState.Idle -> Unit
+                is DiscoverLoadState.Error -> ErrorSection("Explore by Genre", genres.message, viewModel::retryLocal)
+                is DiscoverLoadState.Success -> DiscoverTextSection("Explore by Genre") {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
                         items(genres.items, key = { it }) { genre ->
                             OniSurface(
@@ -116,7 +97,6 @@ fun DiscoverScreen(
                     }
                 }
             }
-            DiscoverLoadState.Idle -> Unit
         }
 
         item {
@@ -139,9 +119,7 @@ fun DiscoverScreen(
                             unfocusedContainerColor = OniSkin.colors.surfaceVariant.copy(alpha = 0.2f)
                         )
                     )
-                    IconButton(onClick = viewModel::search) {
-                        Icon(Icons.Default.Search, contentDescription = "Search online")
-                    }
+                    IconButton(onClick = viewModel::search) { Icon(Icons.Default.Search, contentDescription = "Search online") }
                 }
                 Spacer(Modifier.height(OniSkin.spacing.sm))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.xs)) {
@@ -156,27 +134,14 @@ fun DiscoverScreen(
             }
         }
 
-        StateSection("Search Results", state.search, {},) { cards ->
-            RemoteCards(cards, followedArtistIds, viewModel::toggleFollowArtist)
-        }
-
+        item { StateSection("Search Results", state.search, {},) { RemoteCards(it, followedArtistIds, viewModel::toggleFollowArtist) } }
         item {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Trending Now",
-                    style = OniSkin.typography.titleLarge,
-                    color = OniSkin.colors.textPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = viewModel::refreshTrending) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh trending")
-                }
+                Text("Trending Now", style = OniSkin.typography.titleLarge, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                IconButton(onClick = viewModel::refreshTrending) { Icon(Icons.Default.Refresh, contentDescription = "Refresh trending") }
             }
         }
-        StateSection(null, state.trending, viewModel::refreshTrending) { cards ->
-            RemoteCards(cards, followedArtistIds, viewModel::toggleFollowArtist)
-        }
+        item { StateSection(null, state.trending, viewModel::refreshTrending) { RemoteCards(it, followedArtistIds, viewModel::toggleFollowArtist) } }
     }
 }
 
@@ -189,23 +154,22 @@ private fun filterLabel(filter: SearchFilter): String = when (filter) {
 }
 
 @Composable
-private fun <T> LocalStateSection(
+private fun LocalStateSection(
     title: String,
     state: DiscoverLoadState<DiscoverLocalCard>,
     onRetry: () -> Unit,
     content: @Composable (List<DiscoverLocalCard>) -> Unit
 ) {
     when (state) {
-        DiscoverLoadState.Idle -> Unit
+        DiscoverLoadState.Idle, DiscoverLoadState.Empty -> Unit
         DiscoverLoadState.Loading -> LoadingSection(title)
-        DiscoverLoadState.Empty -> Unit
         is DiscoverLoadState.Error -> ErrorSection(title, state.message, onRetry)
-        is DiscoverLoadState.Success -> item { DiscoverTextSection(title) { content(state.items) } }
+        is DiscoverLoadState.Success -> if (state.items.isNotEmpty()) DiscoverTextSection(title) { content(state.items) }
     }
 }
 
 @Composable
-private fun <T> StateSection(
+private fun StateSection(
     title: String?,
     state: DiscoverLoadState<DiscoverRemoteCard>,
     onRetry: () -> Unit,
@@ -213,16 +177,12 @@ private fun <T> StateSection(
 ) {
     when (state) {
         DiscoverLoadState.Idle -> Unit
-        DiscoverLoadState.Loading -> item { LoadingSection(title) }
-        DiscoverLoadState.Empty -> item { EmptyText("${title ?: "Results"}: nothing to show yet.") }
-        is DiscoverLoadState.Error -> item { ErrorSection(title, state.message, onRetry) }
-        is DiscoverLoadState.Success -> item {
-            DiscoverTextSection(title ?: "Results") {
-                if (state.hasPartialFailures) {
-                    Text("Some online sources are temporarily unavailable.", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
-                }
-                content(state.items)
-            }
+        DiscoverLoadState.Loading -> LoadingSection(title)
+        DiscoverLoadState.Empty -> EmptyText("${title ?: "Results"}: nothing to show yet.")
+        is DiscoverLoadState.Error -> ErrorSection(title, state.message, onRetry)
+        is DiscoverLoadState.Success -> DiscoverTextSection(title ?: "Results") {
+            if (state.hasPartialFailures) Text("Some online sources are temporarily unavailable.", style = OniSkin.typography.bodySmall, color = OniSkin.colors.textSecondary)
+            if (state.items.isEmpty()) EmptyText("Nothing to show yet.") else content(state.items)
         }
     }
 }
@@ -253,23 +213,11 @@ private fun LocalItem(
 ) {
     val song = card.song
     OniSurface(
-        modifier = Modifier
-            .size(width = 300.dp, height = 112.dp)
-            .clip(OniSkin.shapes.card)
-            .clickable(onClick = onPlay),
+        modifier = Modifier.size(width = 300.dp, height = 112.dp).clip(OniSkin.shapes.card).clickable(onClick = onPlay),
         containerColor = OniSkin.surfaces.soft.containerColor
     ) {
-        Row(
-            modifier = Modifier.padding(OniSkin.spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AsyncImage(
-                model = song.albumArtUri,
-                contentDescription = "${song.displayTitle} artwork",
-                modifier = Modifier.size(64.dp).clip(OniSkin.shapes.card),
-                contentScale = ContentScale.Crop
-            )
+        Row(modifier = Modifier.padding(OniSkin.spacing.sm), horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(model = song.albumArtUri, contentDescription = "${song.displayTitle} artwork", modifier = Modifier.size(64.dp).clip(OniSkin.shapes.card), contentScale = ContentScale.Crop)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(song.displayTitle, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(song.displayArtist, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -277,9 +225,7 @@ private fun LocalItem(
                 Row {
                     IconButton(onClick = onPlayNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.PlayArrow, "Play next") }
                     IconButton(onClick = onQueue, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.AddToQueue, "Add to queue") }
-                    IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
-                        Icon(if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Toggle favorite")
-                    }
+                    IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) { Icon(if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Toggle favorite") }
                 }
             }
         }
@@ -287,61 +233,28 @@ private fun LocalItem(
 }
 
 @Composable
-private fun RemoteCards(
-    cards: List<DiscoverRemoteCard>,
-    followedArtistIds: Set<String>,
-    onToggleFollow: (RemoteMusicItem) -> Unit
-) {
+private fun RemoteCards(cards: List<DiscoverRemoteCard>, followedArtistIds: Set<String>, onToggleFollow: (RemoteMusicItem) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm)) {
         items(cards, key = { it.key }) { card ->
-            RemoteItem(
-                card = card,
-                isArtistFollowed = followedArtistIds.contains(card.item.musicIdentity.canonicalArtistId),
-                onToggleFollow = onToggleFollow
-            )
+            RemoteItem(card, followedArtistIds.contains(card.item.musicIdentity.canonicalArtistId), onToggleFollow)
         }
     }
 }
 
 @Composable
-private fun RemoteItem(
-    card: DiscoverRemoteCard,
-    isArtistFollowed: Boolean,
-    onToggleFollow: (RemoteMusicItem) -> Unit
-) {
+private fun RemoteItem(card: DiscoverRemoteCard, isArtistFollowed: Boolean, onToggleFollow: (RemoteMusicItem) -> Unit) {
     val item = card.item
-    OniSurface(
-        modifier = Modifier.size(width = 300.dp, height = 112.dp).clip(OniSkin.shapes.card),
-        containerColor = OniSkin.surfaces.soft.containerColor
-    ) {
-        Row(
-            modifier = Modifier.padding(OniSkin.spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AsyncImage(
-                model = item.artworkUrl,
-                contentDescription = "${item.title} artwork",
-                modifier = Modifier.size(76.dp).clip(OniSkin.shapes.card),
-                contentScale = ContentScale.Crop
-            )
+    OniSurface(modifier = Modifier.size(width = 300.dp, height = 112.dp).clip(OniSkin.shapes.card), containerColor = OniSkin.surfaces.soft.containerColor) {
+        Row(modifier = Modifier.padding(OniSkin.spacing.sm), horizontalArrangement = Arrangement.spacedBy(OniSkin.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(model = item.artworkUrl, contentDescription = "${item.title} artwork", modifier = Modifier.size(76.dp).clip(OniSkin.shapes.card), contentScale = ContentScale.Crop)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(item.title, style = OniSkin.typography.bodyLarge, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(item.artistName ?: card.providerName, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    if (card.canStream) "${card.providerName} · Stream available" else "${card.providerName} · ${card.sourceLabel}",
-                    style = OniSkin.typography.caption,
-                    color = OniSkin.colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Text(if (card.canStream) "${card.providerName} · Stream available" else "${card.providerName} · ${card.sourceLabel}", style = OniSkin.typography.caption, color = OniSkin.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (card.canFollowArtist) {
                 IconButton(onClick = { onToggleFollow(item) }, modifier = Modifier.size(40.dp)) {
-                    Icon(
-                        imageVector = if (isArtistFollowed) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
-                        contentDescription = if (isArtistFollowed) "Unfollow artist" else "Follow artist"
-                    )
+                    Icon(if (isArtistFollowed) Icons.Default.PersonRemove else Icons.Default.PersonAdd, if (isArtistFollowed) "Unfollow artist" else "Follow artist")
                 }
             }
         }
@@ -358,9 +271,7 @@ private fun DiscoverTextSection(title: String, content: @Composable () -> Unit) 
 
 @Composable
 private fun LoadingSection(title: String?) {
-    DiscoverTextSection(title ?: "Loading") {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
-    }
+    DiscoverTextSection(title ?: "Loading") { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() } }
 }
 
 @Composable
@@ -374,6 +285,4 @@ private fun ErrorSection(title: String?, message: String?, onRetry: () -> Unit) 
 }
 
 @Composable
-private fun EmptyText(message: String) {
-    Text(message, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary)
-}
+private fun EmptyText(message: String) { Text(message, style = OniSkin.typography.bodyMedium, color = OniSkin.colors.textSecondary) }
