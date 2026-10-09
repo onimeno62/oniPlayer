@@ -134,7 +134,7 @@ fun DiscoverScreen(
             }
         }
 
-        item { StateSection("Search Results", state.search, {},) { RemoteCards(it, followedArtistIds, viewModel::toggleFollowArtist) } }
+        item { StateSection("Search Results", state.search, viewModel::search) { RemoteCards(it, followedArtistIds, viewModel::toggleFollowArtist) } }
         item {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Trending Now", style = OniSkin.typography.titleLarge, color = OniSkin.colors.textPrimary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
