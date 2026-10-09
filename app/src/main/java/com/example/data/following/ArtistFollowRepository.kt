@@ -44,7 +44,12 @@ class ArtistFollowRepository(
             )
         }
     }
+
     fun followedReleases(): Flow<List<FollowedArtistReleaseEntity>> = dao.getFollowedArtistReleases()
+
+    fun followedReleasesForArtists(artistIds: List<String>): Flow<List<FollowedArtistReleaseEntity>> =
+        if (artistIds.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
+        else dao.getFollowedArtistReleasesForArtists(artistIds)
 
     suspend fun saveReleases(releases: List<FollowedArtistRelease>) {
         if (releases.isEmpty()) return
