@@ -57,7 +57,7 @@ D0-D9
 - [x] Audit current Discover and recommendation implementation against the current specs.
 - [x] Fix recommendation freshness to compare listening timestamps with the current wall clock rather than the newest timestamp in the library.
 - [x] Add a deterministic regression test for old listening history.
-- [ ] Run Android unit tests and build on this branch; review the CI result before merging.
+- [x] Run Android unit tests and assemble the debug APK on this branch; the latest CI retry passed. The initial run's two playback queue/transition failures did not reproduce on retry.
 - [ ] Validate provider failure/offline behavior, download recovery/storage, followed-artist sync, and Smart Radio/Smart Playlist behavior on an emulator or device.
 - [ ] Record runtime evidence before marking D10/device acceptance complete.
 
@@ -67,4 +67,4 @@ The recommendation engine previously used the maximum `lastPlayedTimestamp` in t
 
 ### Validation boundary
 
-GitHub source inspection and the regression-test addition are complete. Build/test execution and physical/emulator validation have not yet been performed from this environment; do not treat them as passing until the branch CI result and device checks are observed.
+GitHub source inspection and the regression-test addition are complete. The latest branch CI run passed unit tests and debug APK assembly. An earlier run had two playback queue/transition test failures that did not reproduce on retry; the PR diff does not touch those playback files. Physical/emulator validation has not been performed and remains required.
