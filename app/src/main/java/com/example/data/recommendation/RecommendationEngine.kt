@@ -30,7 +30,9 @@ data class RecommendationSnapshot(
     val seed: Long = 0L
 )
 
-class RecommendationEngine {
+class RecommendationEngine(
+    private val nowMillis: () -> Long = { System.currentTimeMillis() }
+) {
     fun recommend(
         snapshot: RecommendationSnapshot,
         limit: Int = 15
@@ -48,7 +50,9 @@ class RecommendationEngine {
         val songs = snapshot.localSongs
         if (songs.isEmpty()) return emptyList()
 
-        val now = songs.maxOfOrNull { it.lastPlayedTimestamp } ?: 0L
+        // Recency must be measured against wall-clock time, not the newest timestamp
+        // in the library; otherwise an entirely old listening history looks recent.
+        val now = nowMillis()
         val played = songs.filter { it.playCount > 0 || it.isFavorite || it.lastPlayedTimestamp > 0 }
         val genreAffinity = affinity(played.map { it.displayGenre })
         val artistAffinity = affinity(played.map { it.displayArtist })
