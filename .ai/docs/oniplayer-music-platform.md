@@ -292,7 +292,7 @@ Not part of the first implementation:
 
 ## Current implementation status
 
-D0-D10 are merged into `main` and the main-branch Android CI run passed. This does not establish device-level correctness for background work, storage, online provider behavior, or UI flows. Those runtime/device acceptance checks remain a follow-up; do not describe them as complete until evidence is recorded.
+D0-D10 are merged into `main` and the main-branch Android CI run passed. The `qa/music-platform-integration` follow-up also passed unit tests and debug APK assembly on its latest CI retry; two playback queue/transition test failures from the first attempt did not reproduce. This does not establish device-level correctness for background work, storage, online provider behavior, or UI flows. Those runtime/device acceptance checks remain a follow-up; do not describe them as complete until evidence is recorded.
 
 ## 17. Acceptance gate
 
