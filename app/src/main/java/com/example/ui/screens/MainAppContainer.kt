@@ -192,7 +192,7 @@ fun MainAppContainer(viewModel: MusicPlayerViewModel) {
                             onDashboardResumeVisibleChange = { dashboardResumeVisible = it }
                         )
                         1 -> PlayerScreen(viewModel = viewModel)
-                        2 -> DiscoverScreen()
+                        2 -> DiscoverScreen(musicPlayerViewModel = viewModel)
                         3 -> SettingsScreen(viewModel = viewModel)
                     }
                 }

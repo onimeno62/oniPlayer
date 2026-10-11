@@ -48,6 +48,15 @@ class ArtistReleaseSyncPolicyTest {
         assertEquals(listOf("a", "b"), result.map { it.identity.itemId })
     }
 
+    @Test
+    fun newReleasesSince_returnsEmptyWhenReleasesOrCursorEmpty() {
+        val emptyResult = ArtistReleaseSyncPolicy.newReleasesSince(emptyList(), "any")
+        assertEquals(emptyList<RemoteAlbum>(), emptyResult)
+
+        val nullCursorResult = ArtistReleaseSyncPolicy.newReleasesSince(listOf(album("a", "2026-01-01")), null)
+        assertEquals(emptyList<RemoteAlbum>(), nullCursorResult)
+    }
+
     private fun album(id: String, date: String): RemoteAlbum =
         RemoteAlbum(
             identity = ProviderIdentity("musicbrainz", id, RemoteMusicType.Album),

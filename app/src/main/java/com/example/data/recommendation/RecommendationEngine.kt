@@ -30,7 +30,9 @@ data class RecommendationSnapshot(
     val seed: Long = 0L
 )
 
-class RecommendationEngine {
+class RecommendationEngine(
+    private val nowMillis: () -> Long = { System.currentTimeMillis() }
+) {
     fun recommend(
         snapshot: RecommendationSnapshot,
         limit: Int = 15
@@ -44,11 +46,21 @@ class RecommendationEngine {
         return local + rankRemote(snapshot, remaining)
     }
 
+    fun recommendRemote(
+        snapshot: RecommendationSnapshot,
+        limit: Int = 15
+    ): List<Recommendation> {
+        require(limit >= 0)
+        return rankRemote(snapshot, limit)
+    }
+
     private fun rankLocal(snapshot: RecommendationSnapshot): List<Recommendation> {
         val songs = snapshot.localSongs
         if (songs.isEmpty()) return emptyList()
 
-        val now = songs.maxOfOrNull { it.lastPlayedTimestamp } ?: 0L
+        // Recency must be measured against wall-clock time, not the newest timestamp
+        // in the library; otherwise an entirely old listening history looks recent.
+        val now = nowMillis()
         val played = songs.filter { it.playCount > 0 || it.isFavorite || it.lastPlayedTimestamp > 0 }
         val genreAffinity = affinity(played.map { it.displayGenre })
         val artistAffinity = affinity(played.map { it.displayArtist })
@@ -92,12 +104,16 @@ class RecommendationEngine {
         if (snapshot.externalCandidates.isEmpty()) return emptyList()
 
         val local = snapshot.localSongs
+        val localKeys = local.map { "${it.displayTitle.trim().lowercase()}|${it.displayArtist.trim().lowercase()}" }.toSet()
         val preferredArtists = affinity(local.filter { it.playCount > 0 || it.isFavorite }.map { it.displayArtist })
         val preferredGenres = affinity(local.filter { it.playCount > 0 || it.isFavorite }.map { it.displayGenre })
 
         val ranked = snapshot.externalCandidates
             .distinctBy { it.identity.providerId + ":" + it.identity.type + ":" + it.identity.itemId }
-            .filter { it.identity !in snapshot.recentExternalIds }
+            .filter { item ->
+                item.identity !in snapshot.recentExternalIds &&
+                    "${item.title.trim().lowercase()}|${item.artistName.orEmpty().trim().lowercase()}" !in localKeys
+            }
             .map { item ->
                 val artistAffinity = preferredArtists[item.artistName.orEmpty().trim().lowercase()].orZero()
                 val genreAffinity = preferredGenres[item.metadata["genre"].orEmpty().trim().lowercase()].orZero()
@@ -136,13 +152,23 @@ class RecommendationEngine {
     private fun diversifyRemote(candidates: List<Recommendation>, limit: Int): List<Recommendation> {
         val selected = mutableListOf<Recommendation>()
         val providerCounts = mutableMapOf<String, Int>()
+        val artistCounts = mutableMapOf<String, Int>()
         for (candidate in candidates) {
             if (selected.size >= limit) break
             val provider = candidate.remoteItem?.identity?.providerId ?: continue
-            val count = providerCounts[provider] ?: 0
-            if (count >= 5 && candidates.size > 5) continue
+            val artist = candidate.remoteItem?.artistName?.trim()?.lowercase().orEmpty()
+            val providerCount = providerCounts[provider] ?: 0
+            val artistCount = artistCounts[artist] ?: 0
+
+            // Avoid returning recommendation list consisting almost entirely of one artist
+            if (artist.isNotBlank() && artistCount >= 2 && candidates.size > 2) continue
+            if (providerCount >= 8 && candidates.size > 8) continue
+
             selected += candidate
-            providerCounts[provider] = count + 1
+            providerCounts[provider] = providerCount + 1
+            if (artist.isNotBlank()) {
+                artistCounts[artist] = artistCount + 1
+            }
         }
         return selected
     }

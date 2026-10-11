@@ -1,7 +1,8 @@
 # oniPlayer Music Platform — Master Specification
 
-Status: Approved planning baseline / documentation only
-Branch: docs/music-platform-spec-kit
+Status: Implementation merged to main; integration/runtime validation follow-up in progress
+Current implementation: main
+QA follow-up branch: qa/music-platform-integration
 
 ## 1. Vision
 
@@ -130,13 +131,11 @@ Use MusicBrainz primarily for canonical identity and release metadata:
 
 Use appropriate User-Agent identification, rate limiting and caching.
 
-### Future YouTube Music provider
+### Current optional YouTube metadata provider
 
-Explicitly optional and deferred.
+The current D9 implementation uses the official YouTube Data API for search and metadata only. It does not expose STREAM or DOWNLOAD because the official API does not provide a general-purpose playable or downloadable audio URL.
 
-It may use an unofficial extractor/internal API implementation, but it must implement the same provider contract as every other source. It must not be referenced directly by Composables, ViewModels, playback service code, or core domain models.
-
-Because unofficial endpoints can change and may create distribution/terms constraints, the app must continue to function if the provider is disabled or unavailable.
+Any future unofficial YouTube Music extractor remains deferred and is not part of the baseline. If explored later, it must implement the same provider contract, remain optional and replaceable, and never be referenced directly by Composables, ViewModels, playback service code, or core domain models. The app must remain fully functional when any optional YouTube integration is disabled or unavailable.
 
 ## 7. Discovery
 
@@ -288,6 +287,15 @@ Not part of the first implementation:
 - YouTube extractor first
 - media-server integrations before the provider layer is proven
 - provider-specific UI architecture
+
+
+
+## Current implementation status
+
+D0-D10 are merged into `main` and the main-branch Android CI run passed. On `qa/music-platform-integration` (PR #25):
+- **Automated validation passed:** 162 Android unit/Robolectric tests pass without failure, debug APK assembly succeeds, and GitHub Actions CI verify check on the PR head is green.
+- **Confirmed defects and fixes:** Recommendation engine stale-history freshness reference time was fixed to compare against the injectable wall clock; Smart Radio was fixed to prevent self-recommendation when seeded with a remote item.
+- **Runtime QA boundary:** Live device/emulator checks for physical background downloads, storage persistence across process kill, live network drop simulation, and audio hardware streaming remain unverified due to the headless execution environment without ADB/emulator access. Physical runtime evidence remains required prior to final production device acceptance.
 
 ## 17. Acceptance gate
 

@@ -16,6 +16,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
@@ -162,6 +163,32 @@ class PlaybackController(private val service: MediaSessionService) {
         ) {
         }
 
+        override fun buildAudioRenderers(
+            context: Context,
+            extensionRendererMode: Int,
+            mediaCodecSelector: MediaCodecSelector,
+            enableDecoderFallback: Boolean,
+            audioSink: AudioSink,
+            eventHandler: Handler,
+            eventListener: AudioRendererEventListener,
+            out: ArrayList<Renderer>
+        ) {
+            val softwarePreferredSelector = MediaCodecSelector { mimeType, requiresSecure, requiresTunneling ->
+                val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecure, requiresTunneling)
+                decoders.sortedByDescending { it.softwareOnly }
+            }
+            out.add(
+                MediaCodecAudioRenderer(
+                    context,
+                    softwarePreferredSelector,
+                    false,
+                    eventHandler,
+                    eventListener,
+                    audioSink
+                )
+            )
+        }
+
         override fun buildAudioSink(
             context: Context,
             enableFloatOutput: Boolean,
@@ -169,11 +196,10 @@ class PlaybackController(private val service: MediaSessionService) {
         ): AudioSink {
             return DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(false)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                 .build()
         }
     }.apply {
-        setEnableDecoderFallback(true)
+        setEnableDecoderFallback(false)
         setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
     }
 

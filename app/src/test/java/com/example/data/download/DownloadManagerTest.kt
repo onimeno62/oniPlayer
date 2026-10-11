@@ -50,6 +50,23 @@ class DownloadManagerTest {
             RemoteMusicItem(ProviderIdentity("fake", "1", RemoteMusicType.Track), "Song"),
             downloadUrl = "https://example.com/download.mp3"
         )
-        assertNotNull(DownloadManager.createTask(track, "fake"))
+        val task = DownloadManager.createTask(track, "fake")
+        assertNotNull(task)
+        org.junit.Assert.assertEquals("fake", task?.providerId)
+        org.junit.Assert.assertEquals("1", task?.remoteId)
+        org.junit.Assert.assertEquals("Song", task?.title)
+        org.junit.Assert.assertEquals("https://example.com/download.mp3", task?.sourceUrl)
+    }
+
+    @Test
+    fun taskIdIsDeterministicAndDistinct() {
+        val id1 = DownloadManager.taskId("audius", "track-123")
+        val id2 = DownloadManager.taskId("audius", "track-123")
+        val id3 = DownloadManager.taskId("audius", "track-456")
+        val idOtherProvider = DownloadManager.taskId("other", "track-123")
+
+        org.junit.Assert.assertEquals(id1, id2)
+        org.junit.Assert.assertNotEquals(id1, id3)
+        org.junit.Assert.assertNotEquals(id1, idOtherProvider)
     }
 }

@@ -33,7 +33,9 @@ class SmartRadioEngine(
             .asSequence()
             .filter { recommendation ->
                 val localId = recommendation.localSong?.id
-                localId == null || localId != seed.songId
+                val remoteIdentity = recommendation.remoteItem?.identity
+                (seed.songId == null || localId != seed.songId) &&
+                    (seed.providerItem == null || remoteIdentity != seed.providerItem)
             }
             .map { recommendation ->
                 when {

@@ -14,10 +14,9 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <queries>
-        <package android:name="com.google.android.projection.gearhead" />
-        <provider android:authorities="androidx.car.app.connection" />
         <intent>
-            <action android:name="android.media.browse.MediaBrowserService" />
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
         </intent>
     </queries>
 
