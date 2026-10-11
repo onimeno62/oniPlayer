@@ -65,6 +65,30 @@ class OnlineMusicRepository(
         return safeProviderCall(provider) { provider.getArtistReleases(providerArtistId) }
     }
 
+    suspend fun getAlbum(
+        providerId: String,
+        providerAlbumId: String
+    ): ProviderResult<RemoteAlbum> {
+        val provider = providersById[providerId]
+            ?: return ProviderResult.Failure(providerId, ProviderFailureKind.NotFound, "Provider is not registered.")
+        if (!provider.capabilities.supports(ProviderCapability.ALBUM)) {
+            return ProviderResult.Failure(provider.id, ProviderFailureKind.Unsupported, "Album lookup is unsupported.")
+        }
+        return safeProviderCall(provider) { provider.getAlbum(providerAlbumId) }
+    }
+
+    suspend fun getTrack(
+        providerId: String,
+        providerTrackId: String
+    ): ProviderResult<RemoteTrack> {
+        val provider = providersById[providerId]
+            ?: return ProviderResult.Failure(providerId, ProviderFailureKind.NotFound, "Provider is not registered.")
+        if (!provider.capabilities.supports(ProviderCapability.TRACK)) {
+            return ProviderResult.Failure(provider.id, ProviderFailureKind.Unsupported, "Track lookup is unsupported.")
+        }
+        return safeProviderCall(provider) { provider.getTrack(providerTrackId) }
+    }
+
     suspend fun trending(): List<ProviderSectionResult<List<RemoteMusicItem>>> =
         providersSupporting(ProviderCapability.TRENDING).map { provider ->
             val cached = cached(trendingCache, provider.id)
