@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.mediacodec.SynchronousMediaCodecAdapter
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -175,11 +176,13 @@ class PlaybackController(private val service: MediaSessionService) {
         ) {
             val softwarePreferredSelector = MediaCodecSelector { mimeType, requiresSecure, requiresTunneling ->
                 val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecure, requiresTunneling)
-                decoders.sortedByDescending { it.softwareOnly }
+                val softwareOnly = decoders.filter { it.softwareOnly }
+                softwareOnly.ifEmpty { decoders }
             }
             out.add(
                 MediaCodecAudioRenderer(
                     context,
+                    SynchronousMediaCodecAdapter.Factory(),
                     softwarePreferredSelector,
                     false,
                     eventHandler,
