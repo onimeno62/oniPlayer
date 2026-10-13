@@ -71,6 +71,9 @@ class OnlineMusicRepository(
     ): ProviderResult<RemoteAlbum> {
         val provider = providersById[providerId]
             ?: return ProviderResult.Failure(providerId, ProviderFailureKind.NotFound, "Provider is not registered.")
+        if (!provider.capabilities.supports(ProviderCapability.ALBUM)) {
+            return ProviderResult.Failure(provider.id, ProviderFailureKind.Unsupported, "Album lookup is unsupported.")
+        }
         return safeProviderCall(provider) { provider.getAlbum(providerAlbumId) }
     }
 
@@ -80,6 +83,9 @@ class OnlineMusicRepository(
     ): ProviderResult<RemoteTrack> {
         val provider = providersById[providerId]
             ?: return ProviderResult.Failure(providerId, ProviderFailureKind.NotFound, "Provider is not registered.")
+        if (!provider.capabilities.supports(ProviderCapability.TRACK)) {
+            return ProviderResult.Failure(provider.id, ProviderFailureKind.Unsupported, "Track lookup is unsupported.")
+        }
         return safeProviderCall(provider) { provider.getTrack(providerTrackId) }
     }
 

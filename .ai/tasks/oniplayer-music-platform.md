@@ -57,38 +57,18 @@ D0-D9
 - [x] Audit current Discover and recommendation implementation against the current specs.
 - [x] Fix recommendation freshness to compare listening timestamps with the current wall clock rather than the newest timestamp in the library.
 - [x] Add a deterministic regression test for old listening history.
-- [x] Fix Smart Radio remote seed exclusion when `providerItem` is provided in `RadioSeed`.
-- [x] Add deterministic regression tests for Smart Radio remote seed exclusion and Smart Playlist filtering/limits.
-- [x] Fix Android Auto Car App provider query in `AndroidManifest.xml` causing `Failed to find provider info for androidx.car.app.connection`.
-- [x] Fix ExoPlayer decoder fallback causing Codec2 `Failed to query component interface for required system resources: 6` by prioritizing software decoders and disabling fallback probing.
-- [x] Implement missing `getAlbum` and `getTrack` provider delegation in `OnlineMusicRepository`.
-- [x] Run Android unit tests and assemble the debug APK on this branch; all 164 unit tests passed and debug APK assembled cleanly.
-- [ ] Physical/emulator runtime validation (blocked by headless execution environment).
+- [x] Remove the redundant Android Auto package/provider entries from manifest package-visibility queries while retaining the MediaBrowserService intent query.
+- [x] Add capability-gated `OnlineMusicRepository` album and track lookup methods with typed failures and cancellation-safe provider delegation.
+- [x] Prefer software audio decoders before hardware decoders and disable decoder fallback in the audio renderer factory; remove the deprecated AudioTrack playback-parameters sink setting.
+- [ ] Re-run Android unit tests and debug APK assembly against the latest QA branch head; the earlier CI success predates these follow-up changes.
+- [x] Run Android unit tests and assemble the debug APK on this branch; the latest CI retry passed. The initial run's two playback queue/transition failures did not reproduce on retry.
+- [ ] Validate provider failure/offline behavior, download recovery/storage, followed-artist sync, and Smart Radio/Smart Playlist behavior on an emulator or device.
+- [ ] Record runtime evidence before marking D10/device acceptance complete.
 
-### Confirmed findings and fixes
+### Confirmed finding
 
-1. **Recommendation Freshness (D5):** The recommendation engine previously used the maximum `lastPlayedTimestamp` in the library as its reference time. When all history was old, the newest old play was treated as recent and could receive the wrong explanation/score. The engine now accepts an injectable wall-clock function (defaulting to the system clock), and a regression test checks that stale-history freshness affects the score as expected.
-2. **Smart Radio Remote Seed Exclusion (D7):** When `RadioSeed` specified a `providerItem` (remote seed item), `SmartRadioEngine` previously only checked `seed.songId` and failed to exclude the remote seed candidate from the resulting queue. The filter was updated to verify both local and remote seed identities, preventing self-recommendation of the seed track.
-3. **Android Auto Provider Resolution Error:** An unused `<provider android:authorities="androidx.car.app.connection" />` declaration in `AndroidManifest.xml` `<queries>` caused Android's `ActivityThread` to log errors when resolving package visibility on environments without the Car App Host. Cleaned `<queries>` to remove the unused authority.
-4. **Codec2 Component Interface Query Error:** ExoPlayer's `DefaultRenderersFactory` with `enableDecoderFallback = true` triggered Codec2 to probe fallback hardware codec interfaces that return `BAD_INDEX` (status code 6) on emulator/virtualized environments. Updated `buildAudioRenderers` to prioritize software audio decoders (`c2.android.*.decoder`) and disabled decoder fallback probing (`enableDecoderFallback = false`).
+The recommendation engine previously used the maximum `lastPlayedTimestamp` in the library as its reference time. When all history was old, the newest old play was treated as recent and could receive the wrong explanation/score. The engine now accepts an injectable wall-clock function (defaulting to the system clock), and a regression test checks that stale-history freshness affects the score as expected.
 
-### Runtime QA status breakdown
+### Validation boundary
 
-- **Passed automated checks:**
-  - Full Android unit test suite passed (`gradle :app:testDebugUnitTest`): 164 tests passing, 0 failures, 0 errors, 0 skipped.
-  - Targeted test suites verified: `DownloadManagerTest` (4 tests), `ArtistReleaseSyncPolicyTest` (4 tests), `MusicProviderContractTest` (4 tests), `YouTubeMusicProviderTest` (2 tests), `SmartPlaylistEngineTest` (6 tests), `SmartRadioEngineTest` (4 tests), `RecommendationEngineTest` (7 tests), `PlaybackQueueConsistencyTest` (16 tests), `PlaybackTransitionListenerAuditTest` (6 tests).
-  - Debug APK assembly passed (`gradle :app:assembleDebug`): Successful build.
-  - Remote CI status on PR #25 head (`a3ceab8bcb52c8415c2d081d866ec5c71434e202`): GitHub Actions `verify` workflow passed.
-- **Passed emulator/device checks:**
-  - None (headless server execution environment; no Android emulator or physical device available).
-- **Failed checks and confirmed fixes:**
-  - Recommendation engine freshness reference time against wall clock (fixed & tested).
-  - Smart Radio candidate filter failing to exclude remote seed item (fixed & tested).
-  - `ActivityThread: Failed to find provider info for androidx.car.app.connection` (fixed).
-  - `Failed to query component interface for required system resources: 6` (fixed).
-  - `OnlineMusicRepository.getAlbum` / `getTrack` delegation (fixed).
-- **Blocked or unverified checks (runtime device / emulator execution required):**
-  - Offline mode & provider error handling in live UI (device flight mode / simulated network drop).
-  - Real background WorkManager download execution, interrupted downloads, process restarts, and MediaStore storage persistence.
-  - Live Followed Artist background sync with MusicBrainz API and notification emission on device.
-  - End-to-end audio streaming through Media3 / ExoPlayer on hardware for Smart Radio and remote discovery playback.
+GitHub source inspection and the regression-test addition are complete. The latest branch CI run passed unit tests and debug APK assembly. An earlier run had two playback queue/transition test failures that did not reproduce on retry; the PR diff does not touch those playback files. Physical/emulator validation has not been performed and remains required. The latest repository-side follow-up changes are committed to the QA branch, but fresh CI for the updated head is still required.

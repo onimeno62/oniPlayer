@@ -15,10 +15,10 @@
 
     <queries>
         <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="https" />
+            <action android:name="android.media.browse.MediaBrowserService" />
         </intent>
     </queries>
+
 
     <application
         android:allowBackup="true"
@@ -50,6 +50,7 @@
             <intent-filter><action android:name="androidx.media3.session.MediaSessionService" /></intent-filter>
         </service>
         <service android:name=".playback.FloatingLyricsService" android:enabled="true" android:exported="false" />
+
 
         <receiver android:name=".ui.widgets.glance.NowPlayingWidgetReceiver" android:label="@string/widget_now_playing_name" android:exported="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>

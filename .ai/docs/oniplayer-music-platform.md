@@ -292,14 +292,7 @@ Not part of the first implementation:
 
 ## Current implementation status
 
-D0-D10 are merged into `main` and the main-branch Android CI run passed. On `qa/music-platform-integration` (PR #25):
-- **Automated validation passed:** 164 Android unit/Robolectric tests pass without failure, debug APK assembly succeeds, and GitHub Actions CI verify check on the PR head is green.
-- **Confirmed defects and fixes:**
-  - Recommendation engine stale-history freshness reference time was fixed to compare against the injectable wall clock; Smart Radio was fixed to prevent self-recommendation when seeded with a remote item.
-  - Android Auto Car App provider query (`androidx.car.app.connection`) in `AndroidManifest.xml` was removed, resolving `ActivityThread` provider resolution failures on environments without the Car App Host.
-  - ExoPlayer `DefaultRenderersFactory` audio renderer configuration was updated to prefer software decoders and disable decoder fallback probing (`enableDecoderFallback = false`), resolving Codec2 `Failed to query component interface for required system resources: 6` errors.
-  - Missing provider delegation methods `getAlbum()` and `getTrack()` were added to `OnlineMusicRepository`.
-- **Runtime QA boundary:** Live device/emulator checks for physical background downloads, storage persistence across process kill, live network drop simulation, and audio hardware streaming remain unverified due to the headless execution environment without ADB/emulator access. Physical runtime evidence remains required prior to final production device acceptance.
+D0-D10 are merged into `main` and the main-branch Android CI run passed. The `qa/music-platform-integration` follow-up also passed unit tests and debug APK assembly on its latest CI retry; two playback queue/transition test failures from the first attempt did not reproduce. This does not establish device-level correctness for background work, storage, online provider behavior, or UI flows. Those runtime/device acceptance checks remain a follow-up; do not describe them as complete until evidence is recorded. The QA branch also now includes repository-level album/track lookup methods with capability checks and typed failures; a manifest package-visibility cleanup; and a software-first audio decoder selection change. These follow-up changes require a fresh CI run before they can be considered build-validated.
 
 ## 17. Acceptance gate
 

@@ -1,6 +1,8 @@
 package com.example.playback
 
+import android.content.ContentResolver
 import android.content.Context
+import android.content.ContextWrapper
 import android.media.audiofx.AudioEffect
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
@@ -16,12 +18,12 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.audio.AudioOffloadSupport
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
-import androidx.media3.exoplayer.mediacodec.SynchronousMediaCodecAdapter
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -130,7 +132,38 @@ class PlaybackController(private val service: MediaSessionService) {
         }
     )
 
+    private class MediaSessionSafeContext(base: Context) : ContextWrapper(base) {
+        private val safeResolver = object : ContentResolver(base) {}
+        override fun getContentResolver(): ContentResolver = safeResolver
+    }
+
     private val renderersFactory = object : DefaultRenderersFactory(context) {
+        override fun buildAudioRenderers(
+            context: Context,
+            extensionRendererMode: Int,
+            mediaCodecSelector: MediaCodecSelector,
+            enableDecoderFallback: Boolean,
+            audioSink: AudioSink,
+            eventHandler: Handler,
+            eventListener: AudioRendererEventListener,
+            out: ArrayList<Renderer>
+        ) {
+            val softwareFirstSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+                mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                    .sortedBy { codecInfo -> if (codecInfo.softwareOnly) 0 else 1 }
+            }
+            super.buildAudioRenderers(
+                context,
+                extensionRendererMode,
+                softwareFirstSelector,
+                false,
+                audioSink,
+                eventHandler,
+                eventListener,
+                out
+            )
+        }
+
         override fun buildVideoRenderers(
             context: Context,
             extensionRendererMode: Int,
@@ -164,34 +197,6 @@ class PlaybackController(private val service: MediaSessionService) {
         ) {
         }
 
-        override fun buildAudioRenderers(
-            context: Context,
-            extensionRendererMode: Int,
-            mediaCodecSelector: MediaCodecSelector,
-            enableDecoderFallback: Boolean,
-            audioSink: AudioSink,
-            eventHandler: Handler,
-            eventListener: AudioRendererEventListener,
-            out: ArrayList<Renderer>
-        ) {
-            val softwarePreferredSelector = MediaCodecSelector { mimeType, requiresSecure, requiresTunneling ->
-                val decoders = mediaCodecSelector.getDecoderInfos(mimeType, requiresSecure, requiresTunneling)
-                val softwareOnly = decoders.filter { it.softwareOnly }
-                softwareOnly.ifEmpty { decoders }
-            }
-            out.add(
-                MediaCodecAudioRenderer(
-                    context,
-                    SynchronousMediaCodecAdapter.Factory(),
-                    softwarePreferredSelector,
-                    false,
-                    eventHandler,
-                    eventListener,
-                    audioSink
-                )
-            )
-        }
-
         override fun buildAudioSink(
             context: Context,
             enableFloatOutput: Boolean,
@@ -199,6 +204,7 @@ class PlaybackController(private val service: MediaSessionService) {
         ): AudioSink {
             return DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(false)
+                .setAudioOffloadSupportProvider { _, _ -> AudioOffloadSupport.DEFAULT_UNSUPPORTED }
                 .build()
         }
     }.apply {
@@ -219,7 +225,7 @@ class PlaybackController(private val service: MediaSessionService) {
         .setTrackSelector(trackSelector)
         .setHandleAudioBecomingNoisy(true)
         .build()
-    val mediaSession = MediaSession.Builder(service, player)
+    val mediaSession = MediaSession.Builder(MediaSessionSafeContext(service), player)
         .setId("oni_session_${System.identityHashCode(this)}")
         .setCallback(SessionCallback())
         .setMediaButtonPreferences(
