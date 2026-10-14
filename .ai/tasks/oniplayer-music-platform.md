@@ -59,8 +59,8 @@ D0-D9
 - [x] Add a deterministic regression test for old listening history.
 - [x] Remove the redundant Android Auto package/provider entries from manifest package-visibility queries while retaining the MediaBrowserService intent query.
 - [x] Add capability-gated `OnlineMusicRepository` album and track lookup methods with typed failures and cancellation-safe provider delegation.
-- [x] Prefer software audio decoders before hardware decoders and disable decoder fallback in the audio renderer factory; remove the deprecated AudioTrack playback-parameters sink setting.
-- [ ] Re-run Android unit tests and debug APK assembly against the latest QA branch head; the earlier CI success predates these follow-up changes.
+- [x] Restore Media3's standard audio renderer and sink construction and enable decoder fallback; remove forced software-first decoder ordering and custom sink overrides.
+- [ ] Re-run Android unit tests and debug APK assembly against the latest QA branch head, including the renderer restoration; no successful run has been verified for the current head.
 - [x] Run Android unit tests and assemble the debug APK on this branch; the latest CI retry passed. The initial run's two playback queue/transition failures did not reproduce on retry.
 - [ ] Validate provider failure/offline behavior, download recovery/storage, followed-artist sync, and Smart Radio/Smart Playlist behavior on an emulator or device.
 - [ ] Record runtime evidence before marking D10/device acceptance complete.
@@ -71,4 +71,4 @@ The recommendation engine previously used the maximum `lastPlayedTimestamp` in t
 
 ### Validation boundary
 
-GitHub source inspection and the regression-test addition are complete. The latest branch CI run passed unit tests and debug APK assembly. An earlier run had two playback queue/transition test failures that did not reproduce on retry; the PR diff does not touch those playback files. Physical/emulator validation has not been performed and remains required. The latest repository-side follow-up changes are committed to the QA branch, but fresh CI for the updated head is still required.
+GitHub source inspection and the regression-test addition are complete. The latest branch CI run passed unit tests and debug APK assembly. An earlier run had two playback queue/transition test failures that did not reproduce on retry; the PR diff does not touch those playback files. Physical/emulator validation has not been performed and remains required. The latest repository-side follow-up changes are committed to the QA branch, but fresh CI for the updated head is still required. Do not add an in-app provider for `androidx.car.app.connection`: provider authorities are device-wide and can conflict with Android Auto. Do not mask Media3's lookup by replacing/intercepting `ContentResolver`; treat the log as a platform/library diagnostic unless runtime evidence shows a user-visible failure.
