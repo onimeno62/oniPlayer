@@ -8,13 +8,13 @@
 }
 
 # Keep MediaSession service for background playback
--keep class com.example.playback.MusicPlaybackService { *; }
+-keep class com.oniplayer.playback.MusicPlaybackService { *; }
 
 # Keep Room entities
--keep class com.example.data.entity.** { *; }
+-keep class com.oniplayer.data.entity.** { *; }
 
 # Keep Moshi adapters
--keep class com.example.data.api.**JsonAdapter { *; }
+-keep class com.oniplayer.data.api.**JsonAdapter { *; }
 -keepclassmembers class * {
     @com.squareup.moshi.Json <fields>;
 }

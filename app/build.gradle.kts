@@ -1,16 +1,27 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
 }
 
+// Local-only secrets: read from environment first, then the git-ignored .env file.
+// The Gemini key is embedded in DEBUG builds only. Release builds never contain it;
+// they talk to a backend via GEMINI_PROXY_URL (see README -> "AI features & API keys").
+val envProps = Properties().apply {
+  val f = rootProject.file(".env")
+  if (f.exists()) f.inputStream().use { load(it) }
+}
+fun envValue(name: String): String = System.getenv(name) ?: envProps.getProperty(name) ?: ""
+fun asBuildConfigString(value: String): String =
+  "\"" + value.trim().replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 android {
-  namespace = "com.example"
+  namespace = "com.oniplayer"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
@@ -20,6 +31,7 @@ android {
     versionCode = 1
     versionName = "1.0"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "GEMINI_PROXY_URL", asBuildConfigString(envValue("GEMINI_PROXY_URL")))
   }
 
   signingConfigs {
@@ -45,9 +57,12 @@ android {
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
+      // Never ship an API key inside a release APK.
+      buildConfigField("String", "GEMINI_API_KEY", "\"\"")
     }
     debug {
       signingConfig = signingConfigs.getByName("debugConfig")
+      buildConfigField("String", "GEMINI_API_KEY", asBuildConfigString(envValue("GEMINI_API_KEY")))
     }
   }
   compileOptions {
@@ -61,15 +76,15 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
+ksp {
+  // Exported Room schemas live in app/schemas and are committed so migrations can be tested.
+  arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 kotlin {
   compilerOptions {
     optIn.add("androidx.media3.common.util.UnstableApi")
   }
-}
-
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }

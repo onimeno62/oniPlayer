@@ -1,0 +1,125 @@
+package com.oniplayer.ui.player.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import com.oniplayer.data.entity.SongEntity
+import com.oniplayer.ui.components.surface.OniSurface
+import com.oniplayer.ui.components.surface.OniSurfaceVariant
+import com.oniplayer.ui.theme.OniSkin
+
+/**
+ * Confirmation dialog for track deletion in the Player screen.
+ *
+ * Supports deleting from library database or permanent physical file deletion.
+ */
+@Composable
+fun PlayerDeleteDialog(
+    song: SongEntity,
+    onConfirmDelete: (Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var deletePhysicalFile by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        OniSurface(
+            variant = OniSurfaceVariant.Elevated,
+            shape = OniSkin.shapes.large,
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 440.dp)
+                .padding(16.dp)
+                .testTag("player_delete_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = OniSkin.colors.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Delete Track",
+                        style = OniSkin.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = OniSkin.colors.textPrimary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Are you sure you want to remove \"${song.title}\" from your library?",
+                    style = OniSkin.typography.bodyMedium,
+                    color = OniSkin.colors.textSecondary
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .toggleable(
+                            value = deletePhysicalFile,
+                            role = Role.Checkbox,
+                            onValueChange = { deletePhysicalFile = it }
+                        )
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = deletePhysicalFile,
+                        onCheckedChange = null,
+                        colors = CheckboxDefaults.colors(checkedColor = OniSkin.colors.error)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Also delete file permanently from storage",
+                        style = OniSkin.typography.bodySmall,
+                        color = if (deletePhysicalFile) OniSkin.colors.error else OniSkin.colors.textSecondary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel", color = OniSkin.colors.textSecondary)
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = { onConfirmDelete(deletePhysicalFile) },
+                        colors = ButtonDefaults.buttonColors(containerColor = OniSkin.colors.error),
+                        shape = OniSkin.shapes.medium
+                    ) {
+                        Text("Delete", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}

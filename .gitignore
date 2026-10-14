@@ -18,3 +18,15 @@ local.properties
 debug.keystore
 .build-outputs/
 debug.keystore.base64
+
+# Repair/backup leftovers (never commit these)
+.git_corrupt/
+.git_remote/
+*_backup_before_sync_repair/
+
+# Release signing material
+*.jks
+*.keystore
+my-upload-key.jks
+
+# Room exported schemas are committed on purpose: app/schemas/

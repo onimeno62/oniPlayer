@@ -16,7 +16,7 @@
 
 ## About
 
-OniPlayer is a local music player built entirely with **Kotlin** and **Jetpack Compose**. It plays the music that's already on your device — no accounts, no streaming, no ads — and layers a surprisingly deep feature set on top:
+OniPlayer is a local music player built entirely with **Kotlin** and **Jetpack Compose**. Its core is a local player for the music already on your device — no accounts and no ads, and local playback never needs a network. On top of that it layers a deep feature set, including *optional* online discovery (provider-based: Audius, MusicBrainz, YouTube metadata), a download system, and home-screen widgets:
 
 - A **5-band equalizer with bass boost, virtualizer, and a real-time visualizer** on top of a Media3/ExoPlayer playback core with a persistent queue.
 - **Time-synced lyrics (LRC), a floating lyrics overlay, and a karaoke mode** with live microphone visualization.
@@ -62,7 +62,7 @@ The project follows an MVVM architecture with a strict unidirectional data flow,
 - **AI-assisted file renaming** with explicit per-file consent and safe MediaStore cleanup.
 - **Batch tag updates** and a full manual tag editor.
 - **Artist biographies & photo galleries** fetched from **TheAudioDB** (with Wi-Fi/mobile-data awareness).
-- The API key lives in a local `.env` file and is injected at build time — AI features degrade gracefully without it.
+- The Gemini key is **never shipped in release builds** (see [AI features & API keys](#ai-features--api-keys)) — AI features degrade gracefully without it.
 
 ### 🎨 Skin System & Theming
 OniPlayer's UI is built on **OniSkin**, a token-driven skin engine (see the [design system section](#skin--design-system)):
@@ -151,15 +151,15 @@ flowchart TB
 | Data | Room 2.7 (KSP) · DataStore Preferences |
 | Networking | OkHttp · Retrofit · Moshi |
 | AI & Metadata | Gemini API (`generativelanguage`) · MusicBrainz · iTunes Search · Deezer · AudD · TheAudioDB · LRCLIB / Lyrist / Lyrics.ovh |
-| Widgets | Glance (dependency reserved — no widgets in the current build) |
-| Build | AGP 9.1 · Gradle version catalog · KSP · Secrets Gradle Plugin (`.env`) |
+| Widgets | Glance home-screen widgets (Now Playing, Compact Player, Lyrics, Dynamic Album) |
+| Build | AGP 9.1 · Gradle 9.7 wrapper · version catalog · KSP · `.env`-driven BuildConfig fields |
 | Testing | JUnit · Robolectric · Roborazzi (screenshot tests) · Compose UI Test |
 
 ## Getting Started
 
 ### Prerequisites
 - **Android Studio** (latest stable — the project uses a recent AGP, let the IDE sync/install what it needs)
-- **JDK 11+** (Android Studio's bundled JBR works)
+- **JDK 17+** (CI uses 21; Android Studio's bundled JBR works)
 - A device or emulator on **Android 7.0 (API 24)** or newer for local testing
 
 ### Build & run
@@ -170,14 +170,14 @@ flowchart TB
    cd oniPlayer
    ```
 
-2. **(Optional) Configure the Gemini API key** — required only for the AI metadata features. Copy the example file and add your key:
+2. **(Optional) Configure Gemini for local development** — required only for the AI metadata features. Copy the example file and add your key:
    ```bash
    cp .env.example .env
    ```
    ```dotenv
    GEMINI_API_KEY=your_key_here
    ```
-   Get a free key from [Google AI Studio](https://aistudio.google.com/apikey). Without a key, the app builds and runs fine — only the AI tag-optimization features are disabled.
+   Get a free key from [Google AI Studio](https://aistudio.google.com/apikey). The key is embedded in **debug builds only**. Without a key, the app builds and runs fine — only the AI features are disabled.
 
 3. **Open in Android Studio**: *File → Open* → select the project root, then run the `app` configuration on a device/emulator.
 
@@ -188,7 +188,21 @@ flowchart TB
    ```
 
 ### Release builds
-The `release` build type signs with an upload keystore resolved as `KEYSTORE_PATH` (default: `my-upload-key.jks` in the repo root) plus the `STORE_PASSWORD` / `KEY_PASSWORD` environment variables. Debug builds use the bundled `debug.keystore` and work out of the box.
+The `release` build type signs with an upload keystore resolved as `KEYSTORE_PATH` (default: `my-upload-key.jks` in the repo root) plus the `STORE_PASSWORD` / `KEY_PASSWORD` environment variables (key alias `upload`). Debug builds use `debug.keystore` (git-ignored; CI generates one, locally create it with `keytool` or let Android Studio provide it). Keystores (`*.jks`, `*.keystore`) are git-ignored — never commit them.
+
+Release builds are minified with R8 and have resource shrinking enabled. CI runs `assembleRelease` with a throwaway key on every push to catch R8 regressions.
+
+### AI features & API keys
+An API key compiled into an APK can be extracted by anyone, so **release builds contain no Gemini key** (`BuildConfig.GEMINI_API_KEY` is empty). For production use, run a small backend that holds the key and forwards requests to the Gemini `generateContent` endpoint, then set its URL in `.env` (or the `GEMINI_PROXY_URL` environment variable) at build time:
+
+```dotenv
+GEMINI_PROXY_URL=https://your-backend.example.com/gemini
+```
+
+When `GEMINI_PROXY_URL` is set, the app sends the same request body to that URL with **no API key attached**; your backend adds the key. Debug builds can still use `GEMINI_API_KEY` directly for local development. Gemini requests retry transient failures (HTTP 429/5xx, network errors) with exponential backoff.
+
+### Database & migrations
+The Room schema is exported to `app/schemas/` (committed). When you change an entity, bump the `version` in `OniDatabase` **and add a `Migration`** — a missing migration now fails loudly instead of silently wiping the user's library. Only the legacy versions 1–4 (which predate any migrations) are allowed to reset. Commit the newly generated schema JSON with every version bump.
 
 > `google-services.json` is **not required** — the Google Services plugin is configured to warn (not fail) when it's missing.
 
@@ -208,10 +222,11 @@ The `release` build type signs with an upload keystore resolved as `KEYSTORE_PAT
 ## Project Structure
 
 ```text
-app/src/main/java/com/example/
+app/src/main/java/com/oniplayer/
 ├── MainActivity.kt                  # Single-activity entry point
 ├── data/
 │   ├── api/GeminiMusicService.kt    # Gemini + MusicBrainz/iTunes/Deezer/AudD/TheAudioDB/LRCLIB clients
+│   ├── net/HttpClients.kt           # Shared OkHttp root + retry interceptor
 │   ├── database/                    # Room: OniDatabase, SongDao
 │   ├── entity/                      # SongEntity, PlaylistEntity, EqualizerPresetEntity, ArtistSummaryEntity
 │   └── repository/MusicRepository.kt# Library scanning + data access (Flow-based)
@@ -246,7 +261,7 @@ This architecture keeps the "music player first" contract intact: any UI change 
 ## Testing
 
 ```bash
-./gradlew test          # Robolectric unit + Roborazzi screenshot tests
+./gradlew testDebug      # Robolectric unit + Roborazzi screenshot tests
 ./gradlew connectedAndroidTest   # instrumentation tests (device/emulator required)
 ```
 
@@ -255,9 +270,10 @@ The test suite covers the playback core specifically: shuffle consistency (`Shuf
 ## Roadmap
 
 - [ ] Add a LICENSE and screenshots
-- [ ] Home-screen widgets (Glance dependency already wired)
+- [ ] Migration tests (needs exported schemas from at least two versions)
+- [x] Home-screen widgets (Glance)
 - [ ] Expand the skin system toward installable third-party skins
-- [ ] CI pipeline (build + test + lint)
+- [x] CI pipeline (build + test + release build) — [ ] add lint
 - [ ] Further Media3 surface integrations (Wear OS, session broadcasting)
 
 ## Contributing
