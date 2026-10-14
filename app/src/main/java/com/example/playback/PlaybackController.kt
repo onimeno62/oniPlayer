@@ -16,11 +16,6 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
-import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.exoplayer.audio.AudioRendererEventListener
-import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
-import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -142,32 +137,6 @@ class PlaybackController(private val service: MediaSessionService) {
         ) {
         }
 
-        override fun buildAudioRenderers(
-            context: Context,
-            extensionRendererMode: Int,
-            mediaCodecSelector: MediaCodecSelector,
-            enableDecoderFallback: Boolean,
-            audioSink: AudioSink,
-            eventHandler: Handler,
-            eventListener: AudioRendererEventListener,
-            out: ArrayList<Renderer>
-        ) {
-            val softwareFirstSelector = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-                mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
-                    .sortedBy { codecInfo -> if (codecInfo.softwareOnly) 0 else 1 }
-            }
-            super.buildAudioRenderers(
-                context,
-                extensionRendererMode,
-                softwareFirstSelector,
-                false,
-                audioSink,
-                eventHandler,
-                eventListener,
-                out
-            )
-        }
-
         override fun buildCameraMotionRenderers(
             context: Context,
             extensionRendererMode: Int,
@@ -189,17 +158,8 @@ class PlaybackController(private val service: MediaSessionService) {
         ) {
         }
 
-        override fun buildAudioSink(
-            context: Context,
-            enableFloatOutput: Boolean,
-            enableAudioTrackPlaybackParams: Boolean
-        ): AudioSink {
-            return DefaultAudioSink.Builder(context)
-                .setEnableFloatOutput(false)
-                .build()
-        }
     }.apply {
-        setEnableDecoderFallback(false)
+        setEnableDecoderFallback(true)
         setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
     }
 
